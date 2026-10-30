@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import type { LinkDriver } from '@/core';
+import type { IrSetup } from '@/core/irSetup';
 import type { DeviceHub } from '@/device/hub';
 import type { PreferenceStore } from '@/store/preferences';
 import type { HomeStore, SecretStore } from '@/store/types';
@@ -15,6 +16,7 @@ export interface Services {
   secrets: SecretStore;
   prefs: PreferenceStore;
   drivers: LinkDriver[];
+  ir: IrSetup;
 }
 
 const ServicesContext = createContext<Services | null>(null);

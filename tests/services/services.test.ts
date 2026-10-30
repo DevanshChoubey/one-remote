@@ -62,13 +62,13 @@ describe('createServices', () => {
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
-  it('has no drivers by default (lanes add them)', () => {
+  it("has only the lanes' drivers by default (ir)", () => {
     const s = createServices({
       store: createMemoryStore(),
       secrets: createMemorySecretStore(),
       prefs: createMemoryPreferenceStore(),
     });
-    expect(s.drivers).toEqual([]);
+    expect(s.drivers.map((d) => d.kind)).toEqual(['ir']);
   });
 });
 

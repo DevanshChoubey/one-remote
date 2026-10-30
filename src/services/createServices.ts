@@ -1,6 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Device } from '@/core';
 import { DeviceHub } from '@/device/hub';
+import { createIrDriver } from '@/ir/driver';
+import { createIrSetup } from '@/ir/setup';
+import { createNativeIrEmitter } from '@/transport/irEmitter';
 import { createAsyncStorageStore } from '@/store/asyncStorageStore';
 import { createAsyncStoragePreferenceStore } from '@/store/preferences';
 import { createSecureSecretStore } from '@/store/secrets';
@@ -30,11 +33,13 @@ function syncHub(hub: DeviceHub, store: Services['store']): void {
  * drivers). Lanes add their driver to `drivers` below and their setup object to the result.
  */
 export function createServices(deps: Partial<Services> = {}): Services {
-  const drivers = deps.drivers ?? [];
+  const irEmitter = createNativeIrEmitter();
+  const drivers = deps.drivers ?? [createIrDriver({ emitter: irEmitter })];
   const hub = deps.hub ?? new DeviceHub({ drivers });
   const store = deps.store ?? createAsyncStorageStore(AsyncStorage);
   const secrets = deps.secrets ?? createSecureSecretStore();
   const prefs = deps.prefs ?? createAsyncStoragePreferenceStore(AsyncStorage);
   syncHub(hub, store);
-  return { hub, store, secrets, prefs, drivers };
+  const ir = deps.ir ?? createIrSetup({ emitter: irEmitter });
+  return { hub, store, secrets, prefs, drivers, ir };
 }
