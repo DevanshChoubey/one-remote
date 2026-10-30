@@ -85,12 +85,42 @@ describe('pairTv', () => {
     expect(secrets.map.get('webos:abc')).toBeDefined();
   });
 
-  it('uses wss on 3001 for a secure TV', async () => {
-    const tv = createFakeTv({ host: HOST, mac: MAC, secure: true });
+  it('uses wss on 3001 for a secure TV, pairing-trusts it and records its certificate', async () => {
+    const tv = createFakeTv({ host: HOST, mac: MAC, secure: true, certSha256: 'ab12' });
     const lan = createFakeLan({ tvs: [tv] });
-    const paired = await pairTv(lan, memorySecrets(), { ...found, secure: true }, jest.fn());
+    const secrets = memorySecrets();
+    const paired = await pairTv(lan, secrets, { ...found, secure: true }, jest.fn());
     expect(paired.link.secure).toBe(true);
     expect(lan.opened[0]).toBe(`wss://${HOST}:3001`);
+    expect(lan.tlsOpened[0]).toEqual({ pairing: true });
+    const ref = paired.link.clientKeyRef;
+    expect(secrets.map.get(`${ref}:cert`)).toBe('ab12');
+    expect(secrets.map.get(ref)).toMatch(/^fake-key-/);
+  });
+
+  it('stores no certificate for a plain ws TV', async () => {
+    const tv = createFakeTv({ host: HOST, mac: MAC });
+    const secrets = memorySecrets();
+    const paired = await pairTv(createFakeLan({ tvs: [tv] }), secrets, found, jest.fn());
+    expect(secrets.map.has(`${paired.link.clientKeyRef}:cert`)).toBe(false);
+  });
+
+  it('fails unreachable, storing nothing, when the secure socket reports no certificate', async () => {
+    const tv = createFakeTv({ host: HOST, mac: MAC, secure: true });
+    const lan = createFakeLan({ tvs: [tv] });
+    const open = lan.open.bind(lan);
+    lan.open = async (url, ms, tls) => {
+      const s = await open(url, ms, tls);
+      return { send: s.send, close: s.close, onMessage: s.onMessage, onClose: s.onClose };
+    };
+    const secrets = memorySecrets();
+    const err = await pairTv(lan, secrets, { ...found, secure: true }, jest.fn()).catch(
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(PairError);
+    expect((err as PairError).code).toBe('unreachable');
+    expect(secrets.map.size).toBe(0);
+    expect(tv.frames).toEqual([]);
   });
 
   it('tries wss 3001 when ws 3000 is refused', async () => {

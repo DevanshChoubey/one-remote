@@ -31,10 +31,11 @@ export function createFrameTap(): FrameTap {
     wrap(t) {
       return {
         ...t,
-        open: async (url, timeoutMs): Promise<TvSocket> => {
-          const sock = await t.open(url, timeoutMs);
+        open: async (url, timeoutMs, tls): Promise<TvSocket> => {
+          const sock = await t.open(url, timeoutMs, tls);
           emit('open', url);
           return {
+            ...(sock.certSha256 === undefined ? {} : { certSha256: sock.certSha256 }),
             send: (text) => {
               emit('out', text);
               sock.send(text);

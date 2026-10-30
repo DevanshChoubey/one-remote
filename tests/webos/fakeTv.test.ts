@@ -174,9 +174,19 @@ describe('fake TV', () => {
     const tv = createFakeTv({ host: '192.168.1.23', mac: MAC, secure: true });
     const lan = createFakeLan({ tvs: [tv] });
     await expect(lan.open('ws://192.168.1.23:3000', 1500)).rejects.toBeInstanceOf(DeviceError);
-    await expect(lan.open('wss://192.168.1.23:3001', 1500)).resolves.toBeDefined();
-    tv.setPower(false);
+    await expect(
+      lan.open('wss://192.168.1.23:3001', 1500, { pairing: true }),
+    ).resolves.toMatchObject({ certSha256: tv.certSha256 });
     await expect(lan.open('wss://192.168.1.23:3001', 1500)).rejects.toMatchObject({
+      code: 'notPaired',
+    });
+    await expect(
+      lan.open('wss://192.168.1.23:3001', 1500, { pinSha256: 'other' }),
+    ).rejects.toMatchObject({ code: 'notPaired' });
+    tv.setPower(false);
+    await expect(
+      lan.open('wss://192.168.1.23:3001', 1500, { pairing: true }),
+    ).rejects.toMatchObject({
       code: 'notSent',
     });
   });

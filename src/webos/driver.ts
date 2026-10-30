@@ -170,9 +170,16 @@ export function createWebosDriver(
   async function doConnect(e: Entry): Promise<SsapClient> {
     if (e.notPaired) throw new DeviceError('notPaired', 'The TV asked to pair again');
     const link = e.link;
-    const key = await o.secrets.get(link.clientKeyRef);
-    e.noKey = !key;
+    const [key, pin] = await Promise.all([
+      o.secrets.get(link.clientKeyRef),
+      link.secure ? o.secrets.get(`${link.clientKeyRef}:cert`) : Promise.resolve(null),
+    ]);
+    // A wss link is only ever opened against the certificate pinned at pairing.
+    e.noKey = !key || (link.secure && !pin);
     if (!key) throw new DeviceError('notPaired', 'The TV is not paired');
+    if (link.secure && !pin) {
+      throw new DeviceError('notPaired', "No pinned certificate for the TV's secure port");
+    }
     const host = e.host;
     if (isHeldOff(host)) {
       e.sawPrompt = true;
@@ -181,7 +188,11 @@ export function createWebosDriver(
     const started = Date.now();
     let client: SsapClient;
     try {
-      client = await SsapClient.connect(t, { host, secure: link.secure }, connectMs);
+      client = await SsapClient.connect(
+        t,
+        { host, secure: link.secure, ...(pin ? { pinSha256: pin } : {}) },
+        connectMs,
+      );
     } catch (err) {
       throw asDeviceError(err);
     }
@@ -595,8 +606,8 @@ export function createWebosDriver(
       }
     },
 
-    /** Deletes this TV's client key and USN secret and drops its connection. Idempotent: a secret
-     *  that is already gone is fine. Both deletes are tried; the first failure is rethrown. */
+    /** Deletes this TV's client key, USN and certificate pin and drops its connection. Idempotent: a secret
+     *  that is already gone is fine. All three deletes are tried; the first failure is rethrown. */
     async forget(device: Device, link: Link): Promise<void> {
       if (link.kind !== 'webos') return;
       const e = entries.get(device.id);
@@ -613,7 +624,9 @@ export function createWebosDriver(
         entries.delete(device.id);
       }
       const results = await Promise.allSettled(
-        [link.clientKeyRef, `${link.clientKeyRef}:usn`].map((ref) => o.secrets.delete(ref)),
+        [link.clientKeyRef, `${link.clientKeyRef}:usn`, `${link.clientKeyRef}:cert`].map((ref) =>
+          o.secrets.delete(ref),
+        ),
       );
       const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
       if (failed) throw failed.reason;

@@ -29,6 +29,8 @@ export interface FakeTv {
   isUp(): boolean;
   /** Keys the TV accepts silently; push to simulate pairing elsewhere. */
   knownKeys: string[];
+  /** SHA-256 of the TV's TLS certificate (secure TVs). Change it to simulate a new certificate. */
+  certSha256: string;
   /** Open sockets, pointer sockets included. */
   connections(): number;
 }
@@ -47,6 +49,8 @@ export interface FakeTvOpts {
   socketHost?: string;
   /** Drop every connection as soon as this URI is requested, without replying. */
   dropOn?: string;
+  /** SHA-256 of the TV's TLS certificate (default derived from the MAC). */
+  certSha256?: string;
 }
 
 interface Conn {
@@ -298,6 +302,7 @@ export function createFakeTv(opts: FakeTvOpts): FakeTv {
       dropAll();
     },
     knownKeys,
+    certSha256: opts.certSha256 ?? `cert-${opts.mac.replace(/:/g, '')}`,
     isUp: () => up,
     connections: () => conns.size,
     port: () => (secure ? 3001 : 3000),

@@ -2,7 +2,7 @@ import { DeviceError, type Unsubscribe } from '@/core';
 import { manifest } from './manifest';
 import { parseSocketUrl } from './url';
 import { buttonFrame, decodeSsap, encodeSsap, URI, type SsapIn, type SsapOut } from './ssap';
-import type { TvSocket, TvTransport } from './transport';
+import type { TvSocket, TvTls, TvTransport } from './transport';
 
 const REQUEST_MS = 1500;
 
@@ -30,11 +30,17 @@ export class SsapClient {
   private closed = false;
   private pointer: Promise<TvSocket> | undefined;
 
+  /** The TV's certificate SHA-256 on a `wss://` session: the pin passed in, or the one seen while
+   *  pairing. Also pins the pointer socket. */
+  readonly certSha256: string | undefined;
+
   private constructor(
     private readonly t: TvTransport,
     private readonly sock: TvSocket,
     private readonly host: string,
+    certSha256: string | undefined,
   ) {
+    this.certSha256 = certSha256;
     sock.onMessage((text) => {
       const m = decodeSsap(text);
       if (m) this.handlers.get(m.id)?.onMessage(m);
@@ -46,13 +52,29 @@ export class SsapClient {
     });
   }
 
+  /** A `secure` link needs `pinSha256` (the certificate seen at pairing) or `pairing: true`;
+   *  without either the open is refused `notPaired`. A certificate that is not the pinned one also
+   *  rejects `notPaired`. */
   static async connect(
     t: TvTransport,
-    link: { host: string; secure: boolean },
+    link: { host: string; secure: boolean; pinSha256?: string; pairing?: boolean },
     timeoutMs: number,
   ): Promise<SsapClient> {
-    const url = link.secure ? `wss://${link.host}:3001` : `ws://${link.host}:3000`;
-    return new SsapClient(t, await t.open(url, timeoutMs), link.host);
+    if (!link.secure) {
+      return new SsapClient(
+        t,
+        await t.open(`ws://${link.host}:3000`, timeoutMs),
+        link.host,
+        undefined,
+      );
+    }
+    const tls: TvTls = link.pinSha256
+      ? { pinSha256: link.pinSha256 }
+      : link.pairing
+        ? { pairing: true }
+        : {};
+    const sock = await t.open(`wss://${link.host}:3001`, timeoutMs, tls);
+    return new SsapClient(t, sock, link.host, link.pinSha256 ?? sock.certSha256);
   }
 
   /** Resolves the client key. `onPrompt` fires once when the TV shows its prompt. Rejects
@@ -242,7 +264,9 @@ export class SsapClient {
         if (parseSocketUrl(r.socketPath)?.host !== this.host) {
           throw new DeviceError('notSent', 'pointer socket is not on the TV');
         }
-        return this.t.open(r.socketPath, timeoutMs);
+        // A TLS pointer socket is the same TV: it must show the same certificate.
+        const tls = r.socketPath.startsWith('wss:') ? { pinSha256: this.certSha256 } : undefined;
+        return this.t.open(r.socketPath, timeoutMs, tls);
       })
       .then((sock) => {
         if (this.closed) {

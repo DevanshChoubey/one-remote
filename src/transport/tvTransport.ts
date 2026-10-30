@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import dgram from 'react-native-udp';
 import { DeviceError } from '@/core';
-import type { TvSocket, TvTransport } from '@/webos/transport';
+import type { TvSocket, TvTls, TvTransport } from '@/webos/transport';
 import { parseSocketUrl } from '@/webos/url';
 import {
   assertLocal,
@@ -11,6 +11,13 @@ import {
   type Prefix,
 } from './localOnly';
 import { getOnLinkPrefixes, subnetBroadcast, subnetHosts } from './netInfo';
+import {
+  LAN_ERRORS,
+  lanSocket,
+  type LanCloseEvent,
+  type LanMessageEvent,
+  type LanSocketNative,
+} from '../../modules/lan-socket';
 
 const SSDP_ADDRESS = '239.255.255.250';
 const SSDP_PORT = 1900;
@@ -83,81 +90,179 @@ function withSocket<T>(
   });
 }
 
-function wrapSocket(ws: WebSocket): TvSocket {
-  let closedByUs = false;
-  let onMessage: ((t: string) => void) | undefined;
-  const backlog: string[] = [];
-  const closeCbs: (() => void)[] = [];
-  ws.onmessage = (e: { data: unknown }): void => {
-    if (typeof e.data !== 'string') return;
-    if (onMessage) onMessage(e.data);
-    else backlog.push(e.data);
-  };
-  ws.onclose = (): void => {
-    if (!closedByUs) closeCbs.forEach((cb) => cb());
-  };
-  ws.onerror = (): void => undefined;
+/** Routes the native module's events to the socket they belong to. Subscribes on first use. */
+interface Router {
+  add(id: string, h: { message(text: string): void; close(why: string): void }): void;
+  remove(id: string): void;
+}
+
+function createRouter(lan: () => LanSocketNative): Router {
+  const handlers = new Map<string, { message(text: string): void; close(why: string): void }>();
+  let subscribed = false;
   return {
-    send: (t) => ws.send(t),
-    close: () => {
-      closedByUs = true;
-      ws.close();
+    add(id, h) {
+      if (!subscribed) {
+        subscribed = true;
+        const native = lan();
+        native.addListener('message', (e: LanMessageEvent) => handlers.get(e.id)?.message(e.data));
+        native.addListener('close', (e: LanCloseEvent) => {
+          const h2 = handlers.get(e.id);
+          handlers.delete(e.id);
+          h2?.close(
+            e.error ?? `closed (${String(e.code ?? '?')}${e.reason ? ` ${e.reason}` : ''})`,
+          );
+        });
+      }
+      handlers.set(id, h);
     },
-    onMessage: (cb) => {
-      onMessage = cb;
-      backlog.splice(0).forEach(cb);
-    },
-    onClose: (cb) => {
-      closeCbs.push(cb);
+    remove(id) {
+      handlers.delete(id);
     },
   };
 }
 
-/** `TvTransport` over React Native's `WebSocket` and `react-native-udp`. Every unicast connect goes
- *  through `assertLocal()`. Nothing is opened until first use. */
+function errorText(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  return String(e);
+}
+
+function errorCode(e: unknown): string | undefined {
+  const code = (e as { code?: unknown } | null)?.code;
+  return typeof code === 'string' ? code : undefined;
+}
+
+/** Maps a native open rejection to a DeviceError that keeps the native text. */
+function openError(url: string, e: unknown): DeviceError {
+  const why = `cannot open ${url}: ${errorText(e)}`;
+  switch (errorCode(e)) {
+    case LAN_ERRORS.pinMismatch:
+    case LAN_ERRORS.noTrust:
+      return new DeviceError('notPaired', why);
+    case LAN_ERRORS.notLocal:
+      return new DeviceError('notLocal', why);
+    default:
+      return new DeviceError('notSent', why);
+  }
+}
+
+let nextId = 0;
+function newId(): string {
+  nextId += 1;
+  return `${nextId.toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Opens one native socket. Rejects after `timeoutMs` (cancelling the native open). */
+function openLan(
+  lan: () => LanSocketNative,
+  router: Router,
+  url: string,
+  timeoutMs: number,
+  tls: TvTls,
+): Promise<TvSocket> {
+  return new Promise<TvSocket>((resolve, reject) => {
+    const id = newId();
+    let settled = false;
+    let closedByUs = false;
+    let ended = false;
+    let onMessage: ((t: string) => void) | undefined;
+    const backlog: string[] = [];
+    const closeCbs: (() => void)[] = [];
+    const native = lan();
+    const cancel = (): void => {
+      router.remove(id);
+      try {
+        native.close(id);
+      } catch {
+        // already gone
+      }
+    };
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cancel();
+      reject(new DeviceError('notSent', `timed out opening ${url}`));
+    }, timeoutMs);
+    router.add(id, {
+      message: (text) => {
+        if (onMessage) onMessage(text);
+        else backlog.push(text);
+      },
+      close: () => {
+        ended = true;
+        if (settled && !closedByUs) closeCbs.forEach((cb) => cb());
+      },
+    });
+    const opts = {
+      timeoutMs,
+      ...(tls.pinSha256 ? { pinSha256: tls.pinSha256 } : {}),
+      ...(tls.pairing ? { pairing: true } : {}),
+    };
+    let opening: Promise<{ certSha256?: string }>;
+    try {
+      opening = native.open(id, url, opts);
+    } catch (e) {
+      opening = Promise.reject(e);
+    }
+    opening.then(
+      (r) => {
+        if (settled) {
+          cancel();
+          return;
+        }
+        settled = true;
+        clearTimeout(timer);
+        const sock: TvSocket = {
+          ...(r.certSha256 ? { certSha256: r.certSha256 } : {}),
+          send: (t) => {
+            if (ended) throw new DeviceError('notSent', 'socket closed');
+            native.send(id, t);
+          },
+          close: () => {
+            if (closedByUs) return;
+            closedByUs = true;
+            cancel();
+          },
+          onMessage: (cb) => {
+            onMessage = cb;
+            backlog.splice(0).forEach(cb);
+          },
+          onClose: (cb) => {
+            closeCbs.push(cb);
+          },
+        };
+        resolve(sock);
+      },
+      (e: unknown) => {
+        router.remove(id);
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(openError(url, e));
+      },
+    );
+  });
+}
+
+/** `TvTransport` over the `lan-socket` native module and `react-native-udp`. Every unicast connect
+ *  goes through `assertLocal()` (and the native side refuses any host that is not a literal local
+ *  IP). Nothing is opened, and no native module is loaded, until first use. */
 export function createRnTvTransport(
-  deps: { prefixes?: () => Promise<Prefix[]> } = {},
+  deps: { prefixes?: () => Promise<Prefix[]>; lan?: () => LanSocketNative } = {},
 ): TvTransport {
   const prefixes = deps.prefixes ?? getOnLinkPrefixes;
+  const lan = deps.lan ?? lanSocket;
+  const router = createRouter(lan);
 
   return {
-    async open(url: string, timeoutMs: number): Promise<TvSocket> {
+    async open(url: string, timeoutMs: number, tls: TvTls = {}): Promise<TvSocket> {
       const parsed = parseSocketUrl(url);
       if (!parsed) throw new DeviceError('notLocal', 'Not a plain ws:// or wss:// address');
       assertLocal(parsed.host, await prefixes());
-      return new Promise<TvSocket>((resolve, reject) => {
-        let settled = false;
-        let ws: WebSocket;
-        const fail = (why: string): void => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timer);
-          try {
-            ws.close();
-          } catch {
-            // never opened
-          }
-          reject(new DeviceError('notSent', why));
-        };
-        const timer = setTimeout(() => fail(`timed out opening ${url}`), timeoutMs);
-        try {
-          ws = new WebSocket(url);
-        } catch (e) {
-          fail(String(e));
-          return;
-        }
-        ws.onopen = (): void => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timer);
-          resolve(wrapSocket(ws));
-        };
-        ws.onerror = (e?: Event): void => {
-          const detail = (e as (Event & { message?: string }) | undefined)?.message;
-          fail(detail ? `cannot open ${url}: ${detail}` : `cannot open ${url}`);
-        };
-        ws.onclose = (): void => fail(`closed while opening ${url}`);
-      });
+      if (url.startsWith('wss:') && !tls.pinSha256 && !tls.pairing) {
+        // Never connect unpinned outside pairing.
+        throw new DeviceError('notPaired', `No pinned certificate for ${url}`);
+      }
+      return openLan(lan, router, url, timeoutMs, tls);
     },
 
     async ssdpSearch(message, windowMs, onReply): Promise<void> {
@@ -181,33 +286,24 @@ export function createRnTvTransport(
     async probe(ports, perHostMs, onOpen, isCancelled): Promise<void> {
       const local = await prefixes();
       const hosts = [...new Set(local.flatMap(subnetHosts))];
-      const tryPort = (host: string, port: number): Promise<void> =>
-        new Promise<void>((resolve) => {
-          let settled = false;
-          let ws: WebSocket | undefined;
-          const finish = (opened: boolean): void => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(timer);
-            try {
-              ws?.close();
-            } catch {
-              // nothing to close
-            }
-            if (opened) onOpen(host, port);
-            resolve();
-          };
-          const timer = setTimeout(() => finish(false), perHostMs);
-          try {
-            assertLocal(host, local);
-            ws = new WebSocket(`${port === 3001 ? 'wss' : 'ws'}://${host}:${port}`);
-            ws.onopen = (): void => finish(true);
-            ws.onerror = (): void => finish(false);
-            ws.onclose = (): void => finish(false);
-          } catch {
-            finish(false);
-          }
-        });
+      const tryPort = async (host: string, port: number): Promise<void> => {
+        try {
+          assertLocal(host, local);
+          // Only checks that the socket opens (nothing is sent), so TLS is tried as if pairing.
+          const secure = port === 3001;
+          const sock = await openLan(
+            lan,
+            router,
+            `${secure ? 'wss' : 'ws'}://${host}:${port}`,
+            perHostMs,
+            secure ? { pairing: true } : {},
+          );
+          sock.close();
+          onOpen(host, port);
+        } catch {
+          // closed, refused or silent: not a TV
+        }
+      };
       let next = 0;
       const worker = async (): Promise<void> => {
         while (next < hosts.length && !isCancelled?.()) {

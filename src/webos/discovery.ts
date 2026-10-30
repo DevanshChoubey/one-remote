@@ -131,7 +131,8 @@ export async function probeHost(t: TvTransport, host: string): Promise<FoundTv |
   ];
   for (const a of attempts) {
     try {
-      (await t.open(a.url, 1500)).close();
+      // Only checks that the socket opens (nothing is sent), so the TLS port is tried as if pairing.
+      (await t.open(a.url, 1500, a.secure ? { pairing: true } : undefined)).close();
       return { host, name: 'LG TV', secure: a.secure };
     } catch (e) {
       if (e instanceof DeviceError && e.code === 'notLocal') throw e;

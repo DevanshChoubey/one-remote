@@ -783,10 +783,84 @@ describe('rediscover: hold-off and ports', () => {
   it('checks candidates on the port the driver will use (link.secure)', async () => {
     const tv = createFakeTv({ host: '192.168.1.40', mac: MAC, secure: true, knownKeys: ['k'] });
     const lan = createFakeLan({ tvs: [tv] });
-    const p = rediscover(lan, secrets(), webos({ secure: true }));
+    const s = secrets({ [REF]: 'k', [`${REF}:cert`]: tv.certSha256 });
+    const p = rediscover(lan, s, webos({ secure: true }));
     await advance(3000);
     await expect(p).resolves.toBe('192.168.1.40');
     expect(lan.opened.every((u) => u.startsWith('wss://'))).toBe(true);
+  });
+
+  it('passes the stored pin to every secure candidate, and accepts only a matching certificate', async () => {
+    const other = createFakeTv({ host: '192.168.1.41', mac: MAC, secure: true, knownKeys: ['k'] });
+    other.certSha256 = 'someone-else';
+    const tv = createFakeTv({ host: '192.168.1.40', mac: MAC, secure: true, knownKeys: ['k'] });
+    const lan = createFakeLan({ tvs: [other, tv] });
+    const s = secrets({ [REF]: 'k', [`${REF}:cert`]: tv.certSha256 });
+    const p = rediscover(lan, s, webos({ secure: true }));
+    await advance(3000);
+    await expect(p).resolves.toBe('192.168.1.40');
+    const mainTls = lan.tlsOpened.filter((_, i) => !lan.opened[i]?.includes('/resources/'));
+    expect(mainTls.length).toBeGreaterThan(0);
+    expect(mainTls.every((t) => t?.pinSha256 === tv.certSha256 && !t.pairing)).toBe(true);
+  });
+
+  it('never searches a secure link that has no stored pin', async () => {
+    const tv = createFakeTv({ host: '192.168.1.40', mac: MAC, secure: true, knownKeys: ['k'] });
+    const lan = createFakeLan({ tvs: [tv] });
+    const p = rediscover(lan, secrets({ [REF]: 'k' }), webos({ secure: true }));
+    await advance(3000);
+    await expect(p).resolves.toBeNull();
+    expect(lan.opened).toEqual([]);
+  });
+});
+
+describe('webos driver: secure (wss) links', () => {
+  const secureRig = (pin: string | undefined, over: { certSha256?: string } = {}) => {
+    const tv = tvAt({ secure: true, ...over });
+    const seed: Record<string, string> = { [REF]: 'k', [`${REF}:usn`]: 'uuid:1234' };
+    if (pin !== undefined) seed[`${REF}:cert`] = pin;
+    const s = secrets(seed);
+    const r = rig({ tvs: [tv], secrets: s, links: [webos({ secure: true })] });
+    const link = webos({ secure: true });
+    return {
+      ...r,
+      link,
+      s,
+      key: (key: TvKey) => r.driver.send(r.dev, link, { kind: 'tv.key', key }),
+    };
+  };
+
+  it('reconnects with the stored pin, on the main socket and the pointer socket', async () => {
+    const r = secureRig(`cert-${MAC.replace(/:/g, '')}`);
+    await r.key('volumeUp');
+    expect(r.tv.buttons).toEqual([KEY_BUTTON.volumeUp]);
+    expect(r.lan.opened[0]).toBe(`wss://${HOST}:3001`);
+    expect(r.lan.tlsOpened.length).toBeGreaterThanOrEqual(2);
+    for (const tls of r.lan.tlsOpened) {
+      expect(tls).toEqual({ pinSha256: r.tv.certSha256 });
+    }
+  });
+
+  it('rejects notPaired when the certificate is not the pinned one', async () => {
+    const r = secureRig('the-pin-from-pairing');
+    await expect(r.key('volumeUp')).rejects.toMatchObject({
+      code: 'notPaired',
+      message: expect.stringContaining('certificate'),
+    });
+    expect(r.tv.buttons).toEqual([]);
+    expect(r.tv.frames).toEqual([]);
+  });
+
+  it('treats a secure link with no stored pin as not paired and never opens it', async () => {
+    const r = secureRig(undefined);
+    await expect(r.key('volumeUp')).rejects.toMatchObject({ code: 'notPaired' });
+    expect(r.lan.opened).toEqual([]);
+    const reports: Reported[] = [];
+    const stop = r.driver.observe?.(r.dev, r.link, (rep) => reports.push(rep));
+    await advance(10000);
+    expect(r.lan.opened).toEqual([]);
+    expect(reports).toEqual([]);
+    stop?.();
   });
 });
 
@@ -826,8 +900,13 @@ describe('webos driver: abort signal and forget', () => {
     expect(r.tv.buttons).toEqual([KEY_BUTTON.volumeUp]);
   });
 
-  it('forget deletes the client key and the USN secret, and is idempotent', async () => {
-    const s = secrets({ [REF]: 'k', [`${REF}:usn`]: 'uuid:1234', 'webos:other': 'x' });
+  it('forget deletes the client key, the USN and the certificate pin, and is idempotent', async () => {
+    const s = secrets({
+      [REF]: 'k',
+      [`${REF}:usn`]: 'uuid:1234',
+      [`${REF}:cert`]: 'abc',
+      'webos:other': 'x',
+    });
     const r = rig({ secrets: s });
     await r.driver.forget?.(r.dev, r.link);
     expect([...s.map.keys()]).toEqual(['webos:other']);

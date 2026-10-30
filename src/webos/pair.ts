@@ -11,7 +11,9 @@ function newRef(): string {
   return `webos:${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
 }
 
-/** Pairs with a TV: shows the prompt on the TV, stores the client key (and the USN) in secrets. */
+/** Pairs with a TV: shows the prompt on the TV, stores the client key (and the USN) in secrets. Over
+ *  `wss://` the TV's certificate is trusted on first use and its SHA-256 stored under
+ *  `${clientKeyRef}:cert`; every later connect accepts only that certificate. */
 export async function pairTv(
   t: TvTransport,
   secrets: TvSecrets,
@@ -25,7 +27,11 @@ export async function pairTv(
   // SSDP cannot say which port a TV uses: when ws:3000 is refused, try wss:3001.
   for (const tryWss of tv.secure ? [true] : [false, true]) {
     try {
-      client = await SsapClient.connect(t, { host: tv.host, secure: tryWss }, CONNECT_MS);
+      client = await SsapClient.connect(
+        t,
+        { host: tv.host, secure: tryWss, pairing: true },
+        CONNECT_MS,
+      );
       secure = tryWss;
       break;
     } catch (e) {
@@ -34,7 +40,10 @@ export async function pairTv(
     }
   }
   if (!client) throw new PairError('unreachable', failures.join('; '));
+  const cert = secure ? client.certSha256 : undefined;
   try {
+    // Without the certificate there is nothing to pin, so the TV could not be reached again.
+    if (secure && !cert) throw new PairError('unreachable', 'The TV showed no certificate');
     let key: string;
     try {
       key = await client.register(undefined, onPrompt, opts.promptMs ?? PROMPT_MS);
@@ -47,6 +56,7 @@ export async function pairTv(
     try {
       await secrets.set(ref, key);
       if (tv.usn) await secrets.set(`${ref}:usn`, tv.usn);
+      if (cert) await secrets.set(`${ref}:cert`, cert);
     } catch {
       // The key could not be kept: pairing did not complete.
       throw new PairError('unreachable');

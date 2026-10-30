@@ -34,18 +34,25 @@ export async function rediscover(
   const max = opts.maxCandidates ?? 3;
   if (!link.mac) return null;
   const wantMac = link.mac.toLowerCase();
-  const [key, storedUsn] = await Promise.all([
+  const [key, storedUsn, pin] = await Promise.all([
     secrets.get(link.clientKeyRef),
     secrets.get(`${link.clientKeyRef}:usn`),
+    link.secure ? secrets.get(`${link.clientKeyRef}:cert`) : Promise.resolve(null),
   ]);
   if (!key) return null;
+  // A wss link connects only against its pinned certificate, never unpinned.
+  if (link.secure && !pin) return null;
 
   const isSameTv = async (tv: FoundTv): Promise<boolean> => {
     let client: SsapClient | undefined;
     try {
       const started = Date.now();
       // The same port and budget the driver will use to connect: found must mean connectable.
-      client = await SsapClient.connect(t, { host: tv.host, secure: link.secure }, connectMs);
+      client = await SsapClient.connect(
+        t,
+        { host: tv.host, secure: link.secure, ...(pin ? { pinSha256: pin } : {}) },
+        connectMs,
+      );
       const open = client;
       let prompted = false;
       await open.register(
