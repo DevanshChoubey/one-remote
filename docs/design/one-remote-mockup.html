@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One Remote mockup</title>
+<style>
+  :root {
+    --bg: #eef0f3; --phone: #fbfbfc; --surface: #ffffff; --surface-2: #f1f3f6;
+    --ink: #15181d; --ink-2: #5d6470; --line: #e2e5ea; --accent: #2f6df6; --accent-ink: #ffffff;
+    --cool: #2f8ff6; --warm: #f2793a; --ok: #1f9d63;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d0f12; --phone: #14171c; --surface: #1c2027; --surface-2: #232832;
+      --ink: #eef1f5; --ink-2: #9aa3b2; --line: #2b313b; --accent: #6a96ff; --accent-ink: #0d0f12;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d0f12; --phone: #14171c; --surface: #1c2027; --surface-2: #232832;
+    --ink: #eef1f5; --ink-2: #9aa3b2; --line: #2b313b; --accent: #6a96ff; --accent-ink: #0d0f12;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { max-width: 1240px; margin: 0 auto; padding: 24px 16px 8px; }
+  header h1 { margin: 0 0 4px; font-size: 22px; }
+  header p { margin: 0; color: var(--ink-2); max-width: 760px; }
+  .toggle { margin-top: 12px; display: inline-flex; gap: 6px; }
+  .toggle button { border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    border-radius: 999px; padding: 6px 12px; font: inherit; cursor: pointer; }
+  .grid { max-width: 1240px; margin: 0 auto; padding: 16px; display: grid; gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  figure { margin: 0; }
+  figcaption { margin-top: 10px; color: var(--ink-2); font-size: 13px; }
+  figcaption b { color: var(--ink); }
+  .phone { background: var(--phone); border: 1px solid var(--line); border-radius: 32px;
+    padding: 18px 16px 20px; height: 600px; display: flex; flex-direction: column; gap: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.08); overflow: hidden; }
+  .bar { display: flex; align-items: center; justify-content: space-between; }
+  .bar h2 { margin: 0; font-size: 18px; }
+  .sub { color: var(--ink-2); font-size: 12px; }
+  .icon { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--surface-2); border: 1px solid var(--line); font-size: 16px; }
+  .icon.power { color: #e5484d; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 12px 14px;
+    display: flex; align-items: center; gap: 12px; }
+  .card .grow { flex: 1; }
+  .card .name { font-weight: 600; }
+  .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2);
+    color: var(--ink-2); border: 1px solid var(--line); }
+  .pill.on { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); border-color: transparent; }
+  .sw { width: 42px; height: 24px; border-radius: 999px; background: var(--line); position: relative; }
+  .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
+    border-radius: 50%; background: #fff; }
+  .sw.on { background: var(--accent); } .sw.on::after { left: 21px; }
+  .section { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); margin-top: 4px; }
+  .pad { flex: 1; border-radius: 24px; background: var(--surface-2); border: 1px solid var(--line);
+    display: grid; place-items: center; color: var(--ink-2); font-size: 13px; text-align: center; position: relative; }
+  .pad .hint { opacity: .8; }
+  .seg { display: flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
+  .seg span { flex: 1; text-align: center; padding: 6px 0; border-radius: 9px; font-size: 13px; color: var(--ink-2); }
+  .seg span.sel { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .row { display: flex; gap: 10px; }
+  .btn { flex: 1; height: 48px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line);
+    display: grid; place-items: center; font-size: 13px; font-weight: 600; }
+  .btn.accent { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .rocker { display: flex; flex-direction: column; width: 56px; border-radius: 16px; overflow: hidden;
+    border: 1px solid var(--line); background: var(--surface); }
+  .rocker span { height: 44px; display: grid; place-items: center; font-weight: 700; }
+  .rocker span + span { border-top: 1px solid var(--line); }
+  .dial { align-self: center; width: 210px; height: 210px; border-radius: 50%; position: relative; margin: 6px 0;
+    background: conic-gradient(var(--cool) 0 62%, var(--line) 62% 100%); display: grid; place-items: center; }
+  .dial::before { content: ""; position: absolute; inset: 14px; border-radius: 50%; background: var(--phone); }
+  .dial .v { position: relative; text-align: center; }
+  .dial .t { font-size: 56px; font-weight: 700; line-height: 1; }
+  .dial .m { color: var(--ink-2); font-size: 13px; }
+  .pm { display: flex; justify-content: center; gap: 48px; margin-top: -4px; }
+  .pm span { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 26px;
+    background: var(--surface); border: 1px solid var(--line); }
+  .speeds { display: flex; gap: 8px; align-items: flex-end; height: 150px; padding: 0 6px; }
+  .speeds span { flex: 1; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line);
+    display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; font-weight: 700; color: var(--ink-2); }
+  .speeds span.lit { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: 13px; }
+  .chip.sel { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .via { font-size: 11px; color: var(--ink-2); text-align: center; }
+  .notes { max-width: 1240px; margin: 0 auto; padding: 0 16px 32px; color: var(--ink-2); font-size: 13px; }
+  .notes li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>One Remote: first mockup</h1>
+  <p>Four screens: the device list, the TV, the AC and a fan. Rough wireframes to react to, not final
+  visuals. The TV screen follows the Google TV phone remote: a big touchpad and a handful of buttons.</p>
+  <div class="toggle" role="group" aria-label="Theme">
+    <button onclick="document.documentElement.dataset.theme='light'">Light</button>
+    <button onclick="document.documentElement.dataset.theme='dark'">Dark</button>
+  </div>
+</header>
+
+<main class="grid">
+  <!-- 1. Home -->
+  <figure>
+    <div class="phone">
+      <div class="bar"><div><h2>Home</h2><div class="sub">5 devices</div></div><div class="icon">＋</div></div>
+      <div class="section">Living room</div>
+      <div class="card"><div class="icon">📺</div><div class="grow"><div class="name">LG OLED C4</div><div class="sub">Netflix · Vol 18</div></div><span class="pill on">On</span></div>
+      <div class="card"><div class="icon">❄️</div><div class="grow"><div class="name">Panasonic AC</div><div class="sub">Cool · 24°</div></div><div class="sw on"></div></div>
+      <div class="card"><div class="icon">🌀</div><div class="grow"><div class="name">Atomberg fan</div><div class="sub">Speed 3</div></div><div class="sw on"></div></div>
+      <div class="section">Bedroom</div>
+      <div class="card"><div class="icon">❄️</div><div class="grow"><div class="name">Panasonic AC</div><div class="sub">Off · Matter</div></div><div class="sw"></div></div>
+      <div class="card"><div class="icon">🌀</div><div class="grow"><div class="name">Atomberg fan</div><div class="sub">Off</div></div><div class="sw"></div></div>
+    </div>
+    <figcaption><b>Home.</b> Every device on one screen, grouped by room. A quick on/off on each card, and a tap opens its remote. No account, no tabs, no store.</figcaption>
+  </figure>
+
+  <!-- 2. TV -->
+  <figure>
+    <div class="phone">
+      <div class="bar"><div class="icon">‹</div><div style="text-align:center"><h2>LG OLED C4</h2><div class="sub">Wi-Fi · connected</div></div><div class="icon power">⏻</div></div>
+      <div class="seg"><span class="sel">Touchpad</span><span>D-pad</span></div>
+      <div class="row" style="flex:1; align-items:stretch">
+        <div class="pad"><div class="hint">Swipe to move<br>Tap to select<br>Two-finger drag: Magic Remote cursor</div></div>
+        <div class="rocker" style="align-self:center"><span>＋</span><span style="font-size:11px;color:var(--ink-2)">VOL</span><span>－</span></div>
+      </div>
+      <div class="row"><div class="btn">↩ Back</div><div class="btn">⌂ Home</div><div class="btn">🔇</div></div>
+      <div class="row"><div class="btn">⌨ Keyboard</div><div class="btn">⇄ Input</div><div class="btn">▶❚❚</div></div>
+    </div>
+    <figcaption><b>TV.</b> Modelled on the Google TV remote: touchpad by default, D-pad one tap away. The phone's volume keys also control the TV. Keyboard for search boxes. No ads, no channel guide, no "ThinQ" extras.</figcaption>
+  </figure>
+
+  <!-- 3. AC -->
+  <figure>
+    <div class="phone">
+      <div class="bar"><div class="icon">‹</div><div style="text-align:center"><h2>Panasonic AC</h2><div class="sub">IR · point at the AC</div></div><div class="icon power">⏻</div></div>
+      <div class="dial"><div class="v"><div class="t">24°</div><div class="m">Cool</div></div></div>
+      <div class="pm"><span>－</span><span>＋</span></div>
+      <div class="seg"><span class="sel">❄ Cool</span><span>💧 Dry</span><span>🌬 Fan</span><span>A Auto</span></div>
+      <div class="seg"><span>Fan</span><span>1</span><span class="sel">2</span><span>3</span><span>Auto</span></div>
+      <div class="row"><div class="btn">↕ Swing</div><div class="btn">🌙 Sleep</div><div class="btn">⏲ Timer</div></div>
+      <div class="via">IR can't read the AC back, so this screen shows what we last sent</div>
+    </div>
+    <figcaption><b>AC.</b> One big temperature, with mode and fan speed as plain toggles. The extras sit in one row. Every IR press sends the full state (temperature, mode, fan), so the app and the AC can't drift apart.</figcaption>
+  </figure>
+
+  <!-- 4. Fan -->
+  <figure>
+    <div class="phone">
+      <div class="bar"><div class="icon">‹</div><div style="text-align:center"><h2>Atomberg fan</h2><div class="sub">IR · bedroom</div></div><div class="icon power">⏻</div></div>
+      <div class="section">Speed</div>
+      <div class="speeds">
+        <span class="lit" style="height:30%">1</span><span class="lit" style="height:45%">2</span><span class="lit" style="height:60%">3</span>
+        <span style="height:75%">4</span><span style="height:90%">5</span>
+      </div>
+      <div class="row"><div class="btn accent">⚡ Boost</div><div class="btn">🌙 Sleep</div></div>
+      <div class="section">Timer</div>
+      <div class="chips"><span class="chip">Off</span><span class="chip sel">1 h</span><span class="chip">2 h</span><span class="chip">4 h</span><span class="chip">8 h</span></div>
+      <div class="row"><div class="btn">💡 Light</div><div class="btn">✨ LED</div></div>
+    </div>
+    <figcaption><b>Fan.</b> Five tall speed bars you can hit without looking, with Boost and Sleep below. Timer as chips. The Light row appears only for fans that have one.</figcaption>
+  </figure>
+</main>
+
+<section class="notes">
+  <b>Open questions for this mockup</b>
+  <ul>
+    <li>TV: touchpad by default (Google style), or D-pad by default?</li>
+    <li>AC: dial, or a large number with + and − buttons only?</li>
+    <li>Home: grouped by room, or a flat list of devices?</li>
+    <li>Phones without IR: hide the AC and fan cards, or show them greyed out with a short explanation?</li>
+  </ul>
+</section>
+</body>
+</html>
