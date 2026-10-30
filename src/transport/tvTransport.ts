@@ -158,6 +158,7 @@ function openLan(
   url: string,
   timeoutMs: number,
   tls: TvTls,
+  probe = false,
 ): Promise<TvSocket> {
   return new Promise<TvSocket>((resolve, reject) => {
     const id = newId();
@@ -196,6 +197,7 @@ function openLan(
       timeoutMs,
       ...(tls.pinSha256 ? { pinSha256: tls.pinSha256 } : {}),
       ...(tls.pairing ? { pairing: true } : {}),
+      ...(probe ? { probe: true } : {}),
     };
     let opening: Promise<{ certSha256?: string }>;
     try {
@@ -297,6 +299,7 @@ export function createRnTvTransport(
             `${secure ? 'wss' : 'ws'}://${host}:${port}`,
             perHostMs,
             secure ? { pairing: true } : {},
+            true,
           );
           sock.close();
           onOpen(host, port);

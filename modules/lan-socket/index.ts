@@ -11,11 +11,14 @@ import { requireNativeModule, type EventSubscription } from 'expo';
  * - `wss://` with neither is refused. Host names are never verified in the two TLS cases: the
  *   server is reached by IP and identified by its pinned certificate instead.
  *
- * The default TLS trust of the app is never changed.
+ * Redirects are refused, no proxy is used, and only the checked IP literal is ever dialled. The
+ * default TLS trust of the app is never changed.
  */
 export interface LanOpenOptions {
   pinSha256?: string;
   pairing?: boolean;
+  /** A discovery probe: runs in its own small pool so a subnet sweep cannot delay real connects. */
+  probe?: boolean;
   timeoutMs: number;
 }
 
