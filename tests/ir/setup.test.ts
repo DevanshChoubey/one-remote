@@ -34,6 +34,14 @@ describe('createIrSetup', () => {
     expect(emitter.sent).toHaveLength(1);
   });
 
+  it('lists the Atomberg candidates with 1170 first', () => {
+    const setup = createIrSetup({ emitter: createFakeEmitter() });
+    expect(setup.candidates('atomberg').map((c) => c.remoteId)).toEqual([
+      'atomberg-fan/1170',
+      'atomberg-fan/1160',
+    ]);
+  });
+
   it('brandOf resolves remotes and returns undefined for unknown ids', () => {
     const setup = createIrSetup({ emitter: createFakeEmitter() });
     expect(setup.brandOf('atomberg-fan/1160')?.name).toBe('Atomberg');
@@ -54,7 +62,10 @@ describe('createIrSetup', () => {
     const emitter = createFakeEmitter();
     const setup = createIrSetup({ emitter });
     await expect(setup.sendTest('nope', 'acUp25')).rejects.toMatchObject({ code: 'unsupported' });
-    await expect(setup.sendTest('atomberg-fan/1160', 'fanLight')).rejects.toMatchObject({
+    await expect(setup.sendTest('atomberg-fan/1160', 'fanSpeed3')).rejects.toMatchObject({
+      code: 'unsupported',
+    });
+    await expect(setup.sendTest('atomberg-fan/1170', 'fanLight')).rejects.toMatchObject({
       code: 'unsupported',
     });
     await expect(setup.sendTest('panasonic-ac/dke', 'fanSpeed3')).rejects.toMatchObject({

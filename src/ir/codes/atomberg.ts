@@ -29,10 +29,12 @@
  *   commands.off          -> off
  *   commands.default['1'] -> speed1   ('2' -> speed2, '3' -> speed3, '4' -> speed4, '5' -> speed5)
  *   commands.default.boost -> boost   (1160 only)
- * The files have no sleep, light or timer codes, so those keys are absent and caps are
- * { fanLight: false, sleep: false }.
+ * The files have no sleep, light or timer codes, so those keys are absent. Caps come from the keys
+ * present: fanLight, sleep, fanBoost and fanTimer are true only when the codes exist.
+ * 1160 speed3 is dropped: it is byte-identical to speed2 (see ATTRIBUTION.md).
  */
 
+import type { Capabilities } from '@/core';
 import { broadlinkToSignal } from '../broadlink';
 import type { FanKey, Remote } from '../catalogue';
 import type { IrSignal } from '../emitter';
@@ -45,8 +47,7 @@ const CODES_1160: FanKeyCodes = {
     'JgBQAAABKpEUEhMSFBEUEhMSExITEhMSFDUUNhQSExITNhQ2EzYUNhQ2EzYUEhM2FBITEhMSEzYUEhMSEzYUEhM2FDYTNhQSEwAFbwABKkcUAA0FAAAAAAAAAAA=',
   speed2:
     'JgBQAAABKpITEhQRFBEUERQSExITEhQRFDUUNhQSExITNhQ2FDUUNhQRFDYUERQ1FBITEhQRFDYTNhQSEzYUEhM2FDUUNhQSEwAFbwABKUgUAA0FAAAAAAAAAAA=',
-  speed3:
-    'JgBQAAABKpITEhQRFBEUERQSExITEhQRFDUUNhQSExITNhQ2FDUUNhQRFDYUERQ1FBITEhQRFDYTNhQSEzYUEhM2FDUUNhQSEwAFbwABKUgUAA0FAAAAAAAAAAA=',
+  // speed3 omitted: byte-identical to speed2 in SmartIR 1160 (see ATTRIBUTION.md).
   speed4:
     'JgBQAAABKZIUERQSExITEhQRFBEUERQSEzYUNhQRFBEUNRU1FDYUNRQ2FDYUERQRFDYUERQRFDYUERQRFDYTNhQSEzYUNhQRFAAFbwABKUcUAA0FAAAAAAAAAAA=',
   speed5:
@@ -69,6 +70,19 @@ const CODES_1170: FanKeyCodes = {
     'JgBQAAABJpITEhMSExITEhMTExITEhMSEzcTNxMSExITNxM3EzYTNxM3EzcTNxM2ExMTEhMSEzcTEhMSExITEhM3EzcTNxMSEwAFYQABJ0kTAA0F',
 };
 
+function capsFor(codes: FanKeyCodes): Capabilities {
+  return {
+    fanLight: codes.light !== undefined,
+    sleep: codes.sleep !== undefined,
+    fanBoost: codes.boost !== undefined,
+    fanTimer:
+      codes.timer1 !== undefined ||
+      codes.timer2 !== undefined ||
+      codes.timer4 !== undefined ||
+      codes.timer8 !== undefined,
+  };
+}
+
 function decodeKeys(codes: FanKeyCodes): Partial<Record<FanKey, IrSignal>> {
   const keys: Partial<Record<FanKey, IrSignal>> = {};
   for (const [key, b64] of Object.entries(codes)) keys[key as FanKey] = broadlinkToSignal(b64);
@@ -76,20 +90,21 @@ function decodeKeys(codes: FanKeyCodes): Partial<Record<FanKey, IrSignal>> {
 }
 
 export const ATOMBERG_REMOTES: Remote[] = [
-  {
-    id: 'atomberg-fan/1160',
-    kind: 'fan',
-    brandId: 'atomberg',
-    label: 'Atomberg Efficio',
-    caps: { fanLight: false, sleep: false },
-    keys: decodeKeys(CODES_1160),
-  },
+  // 1170 first: its labels are consistent with the NEC codes (candidate order, see ATTRIBUTION.md).
   {
     id: 'atomberg-fan/1170',
     kind: 'fan',
     brandId: 'atomberg',
     label: 'Atomberg Renesa',
-    caps: { fanLight: false, sleep: false },
+    caps: capsFor(CODES_1170),
     keys: decodeKeys(CODES_1170),
+  },
+  {
+    id: 'atomberg-fan/1160',
+    kind: 'fan',
+    brandId: 'atomberg',
+    label: 'Atomberg Efficio',
+    caps: capsFor(CODES_1160),
+    keys: decodeKeys(CODES_1160),
   },
 ];

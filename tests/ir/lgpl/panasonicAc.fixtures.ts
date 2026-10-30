@@ -1,7 +1,7 @@
 // Reference fixtures for the Panasonic AC encoder (LGPL-2.1, see src/ir/lgpl/LICENSE).
 //
-// REAL_*: copied from IRremoteESP8266 test/ir_Panasonic_test.cpp (master at 1e2f0f3, the v2.8.x
-// line), tests TestSendPanasonicAC.SendDataOnly (line 499), TestIRPanasonicAcClass.SetAndGetModel
+// REAL_*: copied from IRremoteESP8266 test/ir_Panasonic_test.cpp (master at 1e2f0f3, version 2.9.0; its
+// release notes list only documentation changes for Panasonic since v2.8.6), tests TestSendPanasonicAC.SendDataOnly (line 499), TestIRPanasonicAcClass.SetAndGetModel
 // (JKE state, line 607) and TestDecodePanasonicAC.DkeIonRealMessages (line 1223).
 // PANASONIC_STATE_FIXTURES: expected states for setModel + setPower + setMode + setTemp +
 // setFan + setSwingVertical on the upstream known-good state, computed with an independent

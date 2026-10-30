@@ -5,6 +5,8 @@
  *
  * Derived from IRremoteESP8266 v2.8.6, src/ir_Panasonic.cpp and src/ir_Panasonic.h,
  * Copyright 2015 Kristian Lauszus, Copyright 2017, 2018 David Conran and contributors.
+ * The source actually read was IRremoteESP8266 master at commit 1e2f0f3 (version 2.9.0,
+ * 2026-01-03). Its release notes list only documentation changes for Panasonic since v2.8.6.
  * Panasonic A/C support there is heavily influenced by ToniA's HeatpumpIR.
  *
  * Changes made for One Remote:
@@ -14,6 +16,8 @@
  *  - Clock, timers, quiet, powerful, ion filter, horizontal swing control and the decoder are left out.
  *  - The CKP model is left out: its power is a toggle, so it cannot send a full state.
  *  - Heat mode is not offered by the app, so it is not mapped.
+ *  - The setpoint is rounded with Math.round before clamping (upstream takes an integer and truncates);
+ *    app setpoints are integers, so the result is the same.
  *  - The state is built in one pure function instead of a stateful class; the saved temperature
  *    (_temp) and horizontal swing (_swingh) are fixed at their stateReset values (25 and Middle).
  */

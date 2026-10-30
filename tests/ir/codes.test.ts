@@ -19,8 +19,8 @@ describe('default catalogue', () => {
     ]);
   });
 
-  it('has the two Atomberg SmartIR files', () => {
-    expect(atomberg.map((r) => r.id)).toEqual(['atomberg-fan/1160', 'atomberg-fan/1170']);
+  it('has the two Atomberg files, 1170 first in candidate order', () => {
+    expect(atomberg.map((r) => r.id)).toEqual(['atomberg-fan/1170', 'atomberg-fan/1160']);
   });
 
   it.each(['atomberg-fan/1160', 'atomberg-fan/1170'])('%s decodes cleanly', (id) => {
@@ -32,10 +32,54 @@ describe('default catalogue', () => {
       expect(s.pattern.length % 2).toBe(0);
       expect(s.pattern.length).toBeGreaterThan(0);
     }
-    for (const key of ['off', 'speed1', 'speed2', 'speed3', 'speed4', 'speed5'] as const) {
-      expect({ id, key, present: r.keys[key] !== undefined }).toEqual({ id, key, present: true });
+  });
+
+  it.each(['atomberg-fan/1160', 'atomberg-fan/1170'])('%s has no duplicate codes', (id) => {
+    const r = defaultCatalogue.remote(id);
+    if (r?.kind !== 'fan') throw new Error('not a fan');
+    const seen = new Map<string, string>();
+    for (const [key, s] of Object.entries(r.keys)) {
+      const sig = JSON.stringify(s);
+      expect({ key, sameAs: seen.get(sig) }).toEqual({ key, sameAs: undefined });
+      seen.set(sig, key);
     }
-    expect(r.caps).toEqual({ fanLight: false, sleep: false });
+  });
+
+  it('1170 has off and speed1 to speed5', () => {
+    const r = defaultCatalogue.remote('atomberg-fan/1170');
+    if (r?.kind !== 'fan') throw new Error('not a fan');
+    for (const key of ['off', 'speed1', 'speed2', 'speed3', 'speed4', 'speed5'] as const) {
+      expect({ key, present: r.keys[key] !== undefined }).toEqual({ key, present: true });
+    }
+  });
+
+  it('1160 lacks speed3 (identical to speed2 in the source): the spike gate applies', () => {
+    const r = defaultCatalogue.remote('atomberg-fan/1160');
+    if (r?.kind !== 'fan') throw new Error('not a fan');
+    expect(r.keys.speed3).toBeUndefined();
+    for (const key of ['off', 'speed1', 'speed2', 'speed4', 'speed5'] as const) {
+      expect(r.keys[key]).toBeDefined();
+    }
+  });
+
+  it('sets fan caps from the keys present: no light, sleep or timer; boost only on 1160', () => {
+    const caps = (id: string) => {
+      const r = defaultCatalogue.remote(id);
+      if (r?.kind !== 'fan') throw new Error('not a fan');
+      return r.caps;
+    };
+    expect(caps('atomberg-fan/1170')).toEqual({
+      fanLight: false,
+      sleep: false,
+      fanBoost: false,
+      fanTimer: false,
+    });
+    expect(caps('atomberg-fan/1160')).toEqual({
+      fanLight: false,
+      sleep: false,
+      fanBoost: true,
+      fanTimer: false,
+    });
   });
 
   it('has the LG TV NEC remote (not a listed brand)', () => {

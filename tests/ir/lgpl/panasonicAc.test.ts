@@ -21,6 +21,21 @@ function parseTiming(s: string): { freq: number; pattern: number[] } {
   return { freq: Number(m[1]), pattern };
 }
 
+type Model = 'dke' | 'jke' | 'nke' | 'lke' | 'rkr' | 'ckp' | 'unknown';
+
+/** Test-side port of upstream IRPanasonicAc::getModel(), as an oracle independent of setModel. */
+function upstreamGetModel(b: Uint8Array): Model {
+  if (b[23] === 0x89) return 'rkr';
+  if (b[17] === 0x00) {
+    if ((b[21] ?? 0) & 0x10 && (b[23] ?? 0) & 0x01) return 'ckp';
+    if ((b[23] ?? 0) & 0x80) return 'jke';
+  }
+  if (b[17] === 0x06 && ((b[13] ?? 0) & 0x0f) === 0x02) return 'lke';
+  if (b[23] === 0x01) return 'dke';
+  if (b[17] === 0x06) return 'nke';
+  return 'unknown';
+}
+
 const base = { ...defaultAcState(), power: true, setpoint: 25 };
 
 describe('panasonicAcBytes', () => {
@@ -45,7 +60,7 @@ describe('panasonicAcBytes', () => {
     }
   });
 
-  it('agrees with a real JKE message on the mode, temp and fan/swing bytes', () => {
+  it('agrees with the upstream SendDataOnly message (JKE-style) on bytes 13 to 17', () => {
     const b = panasonicAcBytes({ ...base, power: false, swing: true }, 'jke');
     for (const i of [13, 14, 15, 16, 17]) expect(b[i]).toBe(REAL_SEND_STATE[i]);
   });
@@ -53,6 +68,18 @@ describe('panasonicAcBytes', () => {
   it('agrees with a real DKE message on the model bytes', () => {
     const b = panasonicAcBytes({ ...base, swing: true }, 'dke');
     for (const i of [14, 16, 23, 25]) expect(b[i]).toBe(REAL_DKE_STATE[i]);
+  });
+
+  it('is detected as the right model by the upstream getModel()', () => {
+    for (const model of ['dke', 'jke', 'nke', 'lke', 'rkr'] as const) {
+      // Upstream's LKE test reads the low nibble of byte 13, which includes the power bit, so a
+      // powered-on LKE reads back as NKE upstream. Check with power off.
+      for (const swing of [true, false]) {
+        const b = panasonicAcBytes({ ...base, power: false, swing }, model);
+        expect(upstreamGetModel(b)).toBe(model);
+      }
+    }
+    expect(upstreamGetModel(Uint8Array.from(REAL_JKE_STATE))).toBe('jke');
   });
 
   it('power:false changes only the power bit and the checksum', () => {

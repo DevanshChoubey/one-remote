@@ -54,4 +54,27 @@ describe('native IR emitter adapter', () => {
     await createNativeIrEmitter().transmit({ freqHz: 38000, pattern: [1_000_000, 1_000_000] });
     expect(transmit).toHaveBeenCalled();
   });
+
+  it('module present but hasIrEmitter() false: no emitter, transmit rejects noIrEmitter', async () => {
+    const transmit = jest.fn();
+    mockModule.current = { hasIrEmitter: () => false, transmit };
+    const e = createNativeIrEmitter();
+    expect(e.hasEmitter()).toBe(false);
+    await expect(e.transmit(sig)).rejects.toMatchObject({ code: 'noIrEmitter' });
+    expect(transmit).not.toHaveBeenCalled();
+  });
+
+  it('hasIrEmitter() throwing: hasEmitter is false and transmit rejects notSent', async () => {
+    const transmit = jest.fn();
+    mockModule.current = {
+      hasIrEmitter: () => {
+        throw new Error('vendor quirk');
+      },
+      transmit,
+    };
+    const e = createNativeIrEmitter();
+    expect(e.hasEmitter()).toBe(false);
+    await expect(e.transmit(sig)).rejects.toMatchObject({ code: 'notSent' });
+    expect(transmit).not.toHaveBeenCalled();
+  });
 });

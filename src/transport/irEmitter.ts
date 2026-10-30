@@ -14,7 +14,14 @@ export function createNativeIrEmitter(): IrEmitter {
       }
     },
     async transmit(s: IrSignal): Promise<void> {
-      if (!IrEmitterModule || !IrEmitterModule.hasIrEmitter()) throw new DeviceError('noIrEmitter');
+      if (!IrEmitterModule) throw new DeviceError('noIrEmitter');
+      let present: boolean;
+      try {
+        present = IrEmitterModule.hasIrEmitter() === true;
+      } catch {
+        throw new DeviceError('notSent');
+      }
+      if (!present) throw new DeviceError('noIrEmitter');
       const total = s.pattern.reduce((a, b) => a + b, 0);
       if (s.pattern.length === 0 || s.pattern.length % 2 !== 0 || total > MAX_TOTAL_US) {
         throw new DeviceError('unsupported');
