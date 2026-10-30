@@ -173,12 +173,17 @@ describe('DeviceHub', () => {
   it('tries the link whose backoff ends soonest when every link is backing off', async () => {
     const { hub, matter, ir, clock } = setup();
     matter.failNext('notSent');
+    await hub.send('ac1', acSet); // matter blocked until 1000
+    clock.t = 1000;
+    matter.failNext('notSent');
     ir.failNext('notSent');
     const err = await hub.send('ac1', acSet).catch((e: unknown) => e);
     expect(codeOf(err)).toBe('notSent');
     expect(hub.view('ac1').status.problem).toBe('notSent');
-    clock.t = 10;
-    await expect(hub.send('ac1', acSet)).resolves.toEqual({ via: 'matter', fellBack: false });
+    // matter is blocked until 3000 (second step), IR only until 2000.
+    clock.t = 1010;
+    await expect(hub.send('ac1', acSet)).resolves.toEqual({ via: 'ir', fellBack: true });
+    expect(matter.sent).toHaveLength(0);
   });
 
   it('rethrows other codes without falling back', async () => {
@@ -313,5 +318,106 @@ describe('DeviceHub', () => {
     await expect(second).resolves.toEqual({ via: 'ir', fellBack: true });
     expect(order).toEqual(['first', 'second']);
     expect(ir.sent.map((s) => s.cmd)).toEqual([{ kind: 'tv.key', key: 'down' }]);
+  });
+
+  it('keeps going when a subscriber throws, and send still resolves', async () => {
+    const { hub, matter } = setup();
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const second = jest.fn();
+    hub.subscribe('ac1', () => {
+      throw new Error('boom');
+    });
+    hub.subscribe('ac1', second);
+    await expect(hub.send('ac1', acSet)).resolves.toEqual({ via: 'matter', fellBack: false });
+    expect(second).toHaveBeenCalledTimes(1);
+    matter.emit('ac1', { kind: 'ac', state: acState, roomTemp: 25 });
+    expect(second).toHaveBeenCalledTimes(2);
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
+  });
+
+  it('rolls back and can retry when observe throws', () => {
+    const webos = createFakeDriver('webos');
+    const matter = createFakeDriver('matter');
+    const realObserve = matter.observe;
+    let broken = true;
+    const flaky: LinkDriver = {
+      ...withoutObserve(matter),
+      observe: (d, l, cb) => {
+        if (broken) throw new Error('observe failed');
+        return realObserve(d, l, cb);
+      },
+    };
+    const stopWebos = jest.fn();
+    const tracked: LinkDriver = {
+      ...withoutObserve(webos),
+      kind: 'webos',
+      observe: () => stopWebos,
+    };
+    const hub = new DeviceHub({ drivers: [tracked, flaky] });
+    const dev: Device = { ...ac, links: [tv.links[0] as Device['links'][number], ...ac.links] };
+    hub.setDevices([dev]);
+    const cb = jest.fn();
+    expect(() => hub.subscribe('ac1', cb)).toThrow('observe failed');
+    expect(stopWebos).toHaveBeenCalledTimes(1);
+
+    broken = false;
+    hub.subscribe('ac1', cb);
+    matter.emit('ac1', { kind: 'ac', state: acState });
+    expect(cb).toHaveBeenCalledTimes(1);
+
+    // A failing re-observe in setDevices is logged, not thrown.
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    broken = true;
+    expect(() => hub.setDevices([dev])).not.toThrow();
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
+  });
+
+  it('keys backoff by link kind, so reordering links keeps it', async () => {
+    const { hub, matter, ir, clock } = setup();
+    matter.failNext('notSent');
+    await hub.send('ac1', acSet); // matter blocked until 1000
+    hub.setDevices([{ ...ac, links: [...ac.links].reverse() }]); // [ir, matter]
+    clock.t = 500;
+    // Keyed by index, slot 0 (now IR) would be blocked and matter tried.
+    await expect(hub.send('ac1', acSet)).resolves.toEqual({ via: 'ir', fellBack: false });
+    expect(matter.sent).toHaveLength(0);
+    expect(ir.sent).toHaveLength(2);
+  });
+
+  it('forgets devices that setDevices removes', async () => {
+    const { hub, matter } = setup();
+    matter.failNext('notSent');
+    await hub.send('ac1', acSet);
+    expect(hub.view('ac1').state).toBeDefined();
+    hub.setDevices([tv]);
+    hub.setDevices([ac, tv]);
+    const v = hub.view('ac1');
+    expect(v.status).toEqual({ via: null, fellBack: false });
+    expect(v.state).toBeUndefined();
+    // Backoff was forgotten too: matter is tried first again.
+    await expect(hub.send('ac1', acSet)).resolves.toEqual({ via: 'matter', fellBack: false });
+  });
+
+  it('does not write status for a device removed mid-flight', async () => {
+    const { hub, matter } = setup();
+    matter.hangNext();
+    const p = hub.send('ac1', acSet);
+    await jest.advanceTimersByTimeAsync(100);
+    hub.setDevices([tv]);
+    await jest.advanceTimersByTimeAsync(1900);
+    await expect(p).resolves.toEqual({ via: 'ir', fellBack: true });
+    hub.setDevices([ac, tv]);
+    expect(hub.view('ac1').status).toEqual({ via: null, fellBack: false });
+    expect(hub.view('ac1').state).toBeUndefined();
+  });
+
+  it('leaves no timers behind after a send settles', async () => {
+    const { hub, webos } = setup();
+    await hub.send('ac1', acSet);
+    webos.failNext('notSent');
+    await hub.send('tv1', okKey);
+    expect(jest.getTimerCount()).toBe(0);
   });
 });

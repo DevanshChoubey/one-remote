@@ -82,10 +82,21 @@ export class DeviceHub {
 
   setDevices(devices: Device[]): void {
     this.devices = new Map(devices.map((d) => [d.id, d]));
+    for (const map of [this.statuses, this.states, this.queues]) {
+      for (const id of map.keys()) if (!this.devices.has(id)) map.delete(id);
+    }
+    for (const key of this.backoffs.keys()) {
+      if (!this.devices.has(key.slice(0, key.lastIndexOf('#')))) this.backoffs.delete(key);
+    }
     // Subscribed devices may have new links: observe them afresh.
     for (const id of this.subscribers.keys()) {
       this.stopObserving(id);
-      if (this.devices.has(id)) this.startObserving(id);
+      if (!this.devices.has(id)) continue;
+      try {
+        this.startObserving(id);
+      } catch (e) {
+        console.error('DeviceHub could not observe', id, e);
+      }
     }
   }
 
@@ -119,9 +130,9 @@ export class DeviceHub {
     this.device(deviceId);
     let subs = this.subscribers.get(deviceId);
     if (!subs) {
+      this.startObserving(deviceId); // throws before anything is stored
       subs = new Set();
       this.subscribers.set(deviceId, subs);
-      this.startObserving(deviceId);
     }
     subs.add(cb);
     return () => {
@@ -140,7 +151,7 @@ export class DeviceHub {
     try {
       const device = this.device(deviceId);
       const result = await this.tryLinks(device, cmd);
-      this.statuses.set(deviceId, result);
+      if (this.devices.has(deviceId)) this.statuses.set(deviceId, result);
       return result;
     } catch (e) {
       if (e instanceof DeviceError && this.devices.has(deviceId)) {
@@ -164,12 +175,12 @@ export class DeviceHub {
       try {
         await this.withTimeout(c.driver.send(device, c.link, cmd));
       } catch (e) {
-        this.markFailed(device.id, c.index);
+        this.markFailed(device.id, c.link.kind);
         lastError = e;
         if (!this.shouldTryNext(e, cmd)) throw e;
         continue;
       }
-      this.backoffs.delete(backoffKey(device.id, c.index));
+      this.backoffs.delete(backoffKey(device.id, c.link.kind));
       this.rememberSent(device.id, c.driver, cmd);
       return { via: c.link.kind, fellBack: c.index > 0 };
     }
@@ -192,7 +203,7 @@ export class DeviceHub {
   private pickOrder(device: Device, candidates: Candidate[]): Candidate[] {
     const t = this.now();
     const until = (c: Candidate): number =>
-      this.backoffs.get(backoffKey(device.id, c.index))?.until ?? 0;
+      this.backoffs.get(backoffKey(device.id, c.link.kind))?.until ?? 0;
     const ready = candidates.filter((c) => until(c) <= t);
     if (ready.length > 0 || candidates.length === 0) return ready;
     const soonest = candidates.reduce((a, b) => (until(b) < until(a) ? b : a));
@@ -227,8 +238,8 @@ export class DeviceHub {
     });
   }
 
-  private markFailed(deviceId: string, index: number): void {
-    const key = backoffKey(deviceId, index);
+  private markFailed(deviceId: string, kind: LinkKind): void {
+    const key = backoffKey(deviceId, kind);
     const failures = (this.backoffs.get(key)?.failures ?? 0) + 1;
     const step = Math.min(failures, this.backoffMs.length) - 1;
     this.backoffs.set(key, { failures, until: this.now() + (this.backoffMs[step] ?? 0) });
@@ -236,7 +247,7 @@ export class DeviceHub {
 
   /** Links that cannot report state keep the last state we sent, so the UI has something to show. */
   private rememberSent(deviceId: string, driver: LinkDriver, cmd: Command): void {
-    if (driver.observe) return;
+    if (driver.observe || !this.devices.has(deviceId)) return;
     if (cmd.kind === 'ac.set') {
       this.states.set(deviceId, { kind: 'ac', state: cmd.state, lastSent: true });
     } else if (cmd.kind === 'fan.set') {
@@ -249,15 +260,21 @@ export class DeviceHub {
   private startObserving(deviceId: string): void {
     const device = this.device(deviceId);
     const stops: Unsubscribe[] = [];
-    for (const link of device.links) {
-      const driver = this.drivers.get(link.kind);
-      if (!driver?.available() || !driver.observe) continue;
-      stops.push(
-        driver.observe(device, link, (r) => {
-          this.states.set(deviceId, r);
-          this.notify(deviceId);
-        }),
-      );
+    try {
+      for (const link of device.links) {
+        const driver = this.drivers.get(link.kind);
+        if (!driver?.available() || !driver.observe) continue;
+        stops.push(
+          driver.observe(device, link, (r) => {
+            this.states.set(deviceId, r);
+            this.notify(deviceId);
+          }),
+        );
+      }
+    } catch (e) {
+      // Roll back, so a later subscribe can try again from scratch.
+      stops.forEach((stop) => stop());
+      throw e;
     }
     this.observers.set(deviceId, stops);
   }
@@ -271,7 +288,14 @@ export class DeviceHub {
     const subs = this.subscribers.get(deviceId);
     if (!subs || subs.size === 0 || !this.devices.has(deviceId)) return;
     const v = this.view(deviceId);
-    subs.forEach((cb) => cb(v));
+    // One broken subscriber must not reach the others, nor turn a delivered send into a rejection.
+    subs.forEach((cb) => {
+      try {
+        cb(v);
+      } catch (e) {
+        console.error('DeviceHub subscriber threw', e);
+      }
+    });
   }
 
   private device(deviceId: string): Device {
@@ -281,6 +305,7 @@ export class DeviceHub {
   }
 }
 
-function backoffKey(deviceId: string, index: number): string {
-  return `${deviceId}#${index}`;
+/** Keyed by link kind, so reordering a device's links keeps each link's backoff. */
+function backoffKey(deviceId: string, kind: LinkKind): string {
+  return `${deviceId}#${kind}`;
 }
