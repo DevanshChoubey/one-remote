@@ -849,20 +849,43 @@ describe('webos driver: secure (wss) links', () => {
     });
     expect(r.tv.buttons).toEqual([]);
     expect(r.tv.frames).toEqual([]);
-    // Latched like a prompt: the next press does not even try.
-    const opens = r.lan.opened.length;
-    await expect(r.key('volumeUp')).rejects.toMatchObject({ code: 'notPaired' });
-    expect(r.lan.opened).toHaveLength(opens);
   });
 
-  it('a pin mismatch stops the observe loop instead of reporting the TV as off', async () => {
+  it('a pin mismatch searches once, then stops the observe loop without reporting the TV as off', async () => {
     const r = secureRig('the-pin-from-pairing');
     const reports: Reported[] = [];
     const stop = r.driver.observe?.(r.dev, r.link, (rep) => reports.push(rep));
+    await advance(10000);
+    const opens = r.lan.opened.length;
     await advance(60000);
     expect(reports).toEqual([]);
-    expect(r.lan.opened).toHaveLength(1);
+    expect(r.lan.opened).toHaveLength(opens);
+    expect(r.lan.opened.every((u) => u === `wss://${HOST}:3001`)).toBe(true);
+    // Latched like a prompt: the next press does not even try.
     await expect(r.key('volumeUp')).rejects.toMatchObject({ code: 'notPaired' });
+    expect(r.lan.opened).toHaveLength(opens);
+    stop?.();
+  });
+
+  it('finds the TV at its new address when another secure TV took the old one', async () => {
+    const pin = `cert-${MAC.replace(/:/g, '')}`;
+    const ours = tvAt({ secure: true, host: '192.168.1.40' });
+    const other = createFakeTv({
+      host: HOST,
+      mac: 'aa:bb:cc:99:88:77',
+      usn: 'uuid:other',
+      secure: true,
+      knownKeys: ['k'],
+    });
+    const s = secrets({ [REF]: 'k', [`${REF}:usn`]: 'uuid:1234', [`${REF}:cert`]: pin });
+    const r = rig({ tvs: [ours, other], secrets: s, links: [webos({ secure: true })] });
+    const link = webos({ secure: true });
+    const stop = r.driver.observe?.(r.dev, link, () => undefined);
+    await advance(10000);
+    expect(r.onHostChanged).toHaveBeenCalledWith(r.dev.id, '192.168.1.40');
+    await r.driver.send(r.dev, link, { kind: 'tv.key', key: 'volumeUp' });
+    expect(ours.buttons).toEqual([KEY_BUTTON.volumeUp]);
+    expect(other.buttons).toEqual([]);
     stop?.();
   });
 
