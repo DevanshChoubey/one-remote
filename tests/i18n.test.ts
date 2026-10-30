@@ -2,8 +2,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { interpolate, t } from '@/i18n';
 import common from '@/i18n/en/common';
+import home from '@/i18n/en/home';
 
-const NAMESPACES: Record<string, Record<string, string>> = { common };
+const NAMESPACES: Record<string, Record<string, string>> = { common, home };
 
 const ROOT = path.resolve(__dirname, '..');
 

@@ -1,5 +1,10 @@
 import { Stack } from 'expo-router';
+import { AppProviders } from '@/screens/AppProviders';
 
 export default function RootLayout(): React.JSX.Element {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <AppProviders>
+      <Stack screenOptions={{ headerShown: false }} />
+    </AppProviders>
+  );
 }

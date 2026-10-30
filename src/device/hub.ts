@@ -89,6 +89,14 @@ export class DeviceHub {
       if (!this.devices.has(key.slice(0, key.lastIndexOf('#')))) this.backoffs.delete(key);
     }
     // Subscribed devices may have new links: observe them afresh.
+    this.refresh();
+  }
+
+  /**
+   * Observes afresh for every subscribed device. Call it when a driver becomes available after
+   * devices were subscribed (observing only starts on drivers that are available() at that time).
+   */
+  refresh(): void {
     for (const id of this.subscribers.keys()) {
       this.stopObserving(id);
       if (!this.devices.has(id)) continue;

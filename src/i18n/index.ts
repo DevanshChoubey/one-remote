@@ -1,7 +1,9 @@
 import common from './en/common';
+import home from './en/home';
 
 const namespaces: Record<string, Record<string, string>> = {
   common,
+  home,
 };
 
 /** Replaces every {name} in the template. A missing variable throws in dev and stays as {name} in prod. */

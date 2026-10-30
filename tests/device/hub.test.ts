@@ -420,4 +420,20 @@ describe('DeviceHub', () => {
     await hub.send('tv1', okKey);
     expect(jest.getTimerCount()).toBe(0);
   });
+
+  it('starts observing on a driver that became available after subscribe, via refresh()', () => {
+    const { hub, matter } = setup();
+    matter.setAvailable(false);
+    const cb = jest.fn();
+    hub.subscribe('ac1', cb);
+    matter.emit('ac1', { kind: 'ac', state: acState });
+    expect(cb).not.toHaveBeenCalled();
+    matter.setAvailable(true);
+    hub.refresh();
+    matter.emit('ac1', { kind: 'ac', state: acState });
+    expect(cb).toHaveBeenCalledTimes(1);
+    hub.refresh(); // idempotent: still one observer
+    matter.emit('ac1', { kind: 'ac', state: acState });
+    expect(cb).toHaveBeenCalledTimes(2);
+  });
 });
