@@ -191,7 +191,13 @@ export class SsapClient {
         (e: unknown) => {
           if (expired) return;
           clearTimeout(timer);
-          reject(e instanceof DeviceError ? e : new DeviceError('notSent', String(e)));
+          // The pointer-socket request may reject 'timeout' (it was written), but the button
+          // frame itself never was: always notSent.
+          reject(
+            e instanceof DeviceError && e.code === 'notSent'
+              ? e
+              : new DeviceError('notSent', e instanceof Error ? e.message : String(e)),
+          );
         },
       );
     });
@@ -201,7 +207,8 @@ export class SsapClient {
     this.closeCbs.push(cb);
   }
 
-  /** Closes the session. Pending requests reject `notSent`; `onClose` callbacks do not fire. */
+  /** Closes the session. Pending requests reject: `timeout` when their frame was written (the
+   *  outcome is unknown), `notSent` when it never was. `onClose` callbacks do not fire. */
   close(): void {
     if (this.closed) return;
     this.shutdown();

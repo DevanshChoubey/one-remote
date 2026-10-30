@@ -612,15 +612,26 @@ describe('webos driver: fix round 1', () => {
     expect(r.lan.opened).toHaveLength(opened);
   });
 
-  it('a prompt seen by rediscovery marks the link notPaired too', async () => {
+  it('a prompt seen by rediscovery is another TV: our link is not notPaired', async () => {
     const other = createFakeTv({ host: '192.168.1.41', mac: '00:11:22:33:44:55', prompt: 'never' });
     const r = rig({ tvs: [other] });
     const { stop } = r.observe();
     await advance(10000);
-    const opened = r.lan.opened.length;
-    await expect(r.key('ok')).rejects.toMatchObject({ code: 'notPaired' });
+    await expect(r.key('ok')).rejects.not.toMatchObject({ code: 'notPaired' });
     await advance(300000);
-    expect(r.lan.opened).toHaveLength(opened);
+    expect(other.frames.filter((f) => f.type === 'register').length).toBeLessThanOrEqual(6);
+    stop();
+  });
+
+  it('rediscovery goes past a prompting TV and uses the real one found later', async () => {
+    const other = createFakeTv({ host: '192.168.1.41', mac: '00:11:22:33:44:55', prompt: 'never' });
+    const real = tvAt({ host: '192.168.1.40', usn: 'uuid:other' });
+    const r = rig({ tvs: [other, real] });
+    const { stop } = r.observe();
+    await advance(10000);
+    expect(r.onHostChanged).toHaveBeenCalledWith('tv1', '192.168.1.40');
+    await r.key('ok');
+    expect(real.buttons).toEqual(['ENTER']);
     expect(other.frames.filter((f) => f.type === 'register')).toHaveLength(1);
     stop();
   });
@@ -633,6 +644,44 @@ describe('webos driver: fix round 1', () => {
     r.driver.clearNotPaired('tv1');
     await r.key('ok');
     expect(tv.buttons).toEqual(['ENTER']);
+  });
+
+  it('clearNotPaired takes the stored link: reconnects to the new host, keeps other TVs held off', async () => {
+    const oldTv = tvAt({ knownKeys: [], prompt: 'never' });
+    const newTv = tvAt({ host: '192.168.1.50' });
+    const otherTv = createFakeTv({
+      host: '192.168.1.60',
+      mac: '00:11:22:33:44:55',
+      prompt: 'never',
+    });
+    const r = rig({ tvs: [oldTv, newTv, otherTv] });
+    const otherLink = webos({ host: '192.168.1.60', mac: '00:11:22:33:44:55' });
+    const other = { ...r.dev, id: 'tv2', links: [otherLink] };
+    const otherStop = r.driver.observe?.(other, otherLink, () => undefined);
+    const { reports, stop } = r.observe();
+    await advance(1000);
+    expect(otherTv.frames.filter((f) => f.type === 'register')).toHaveLength(1);
+    r.driver.clearNotPaired('tv1', webos({ host: '192.168.1.50' }));
+    await advance(1000);
+    expect(reports).toContainEqual({ kind: 'tv', state: { power: true } });
+    expect(newTv.frames.filter((f) => f.type === 'register')).toHaveLength(1);
+    // The other TV's hold-off survives: no second prompt on its screen.
+    r.driver.clearNotPaired('tv1');
+    await advance(30000);
+    expect(otherTv.frames.filter((f) => f.type === 'register')).toHaveLength(1);
+    stop();
+    otherStop?.();
+  });
+
+  it('a successful register on the own host leaves the link usable (notPaired cleared)', async () => {
+    const tv = tvAt({ knownKeys: [], prompt: 'never' });
+    const r = rig({ tvs: [tv] });
+    await expect(r.key('ok')).rejects.toMatchObject({ code: 'notPaired' });
+    tv.knownKeys.push('k');
+    r.driver.clearNotPaired('tv1');
+    await r.key('ok');
+    await r.key('up');
+    expect(tv.buttons).toEqual(['ENTER', 'UP']);
   });
 
   it('a revoked key: at most one register a minute, and not reported as off', async () => {

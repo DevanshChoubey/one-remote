@@ -188,4 +188,13 @@ describe('SsapClient: written requests and pointer host', () => {
     await expect(client.button('UP')).rejects.toMatchObject({ code: 'notSent' });
     expect(lan.opened.some((u) => u.includes('192.168.1.99'))).toBe(false);
   });
+
+  it('a pointer-socket request that times out is notSent for the press: no button frame was written', async () => {
+    const tv = createFakeTv({ host: HOST, mac: MAC, knownKeys: ['k'], dropOn: URI.pointer });
+    const lan = createFakeLan({ tvs: [tv] });
+    const client = await SsapClient.connect(lan, { host: HOST, secure: false }, 1500);
+    await client.register('k', jest.fn(), 1000);
+    await expect(client.button('UP')).rejects.toMatchObject({ code: 'notSent' });
+    expect(tv.buttons).toEqual([]);
+  });
 });

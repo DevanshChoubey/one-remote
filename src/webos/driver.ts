@@ -81,7 +81,7 @@ function asDeviceError(e: unknown): DeviceError {
 /** The `webos` link driver: one SSAP connection per TV, kept alive while the screen observes. */
 export function createWebosDriver(
   o: WebosDriverOpts,
-): LinkDriver & { kind: 'webos'; clearNotPaired(deviceId: string): void } {
+): LinkDriver & { kind: 'webos'; clearNotPaired(deviceId: string, link?: WebosLink): void } {
   const t = o.transport;
   const connectMs = o.connectMs ?? 1500;
   const heartbeatMs = o.heartbeatMs ?? 5000;
@@ -207,6 +207,10 @@ export function createWebosDriver(
       }
       throw asDeviceError(err);
     }
+    // A register on our own host succeeded: the pairing is good, whatever a racing path said.
+    e.notPaired = false;
+    e.sawPrompt = false;
+    promptedAt.delete(host);
     return client;
   }
 
@@ -336,11 +340,11 @@ export function createWebosDriver(
         { ...e.link, host: e.host },
         {
           connectMs,
-          isHeldOff: (h) => e.notPaired || isHeldOff(h),
+          isHeldOff,
+          // A candidate that prompts is a different TV: hold that host off and go on. Only a
+          // prompt on the link's own host (doConnect) means our pairing is gone.
           onPrompted: (h) => {
             promptedAt.set(h, Date.now());
-            e.sawPrompt = true;
-            e.notPaired = true;
           },
         },
       );
@@ -367,7 +371,7 @@ export function createWebosDriver(
       else scheduleBackoff(e);
       return;
     }
-    // Something wants pairing: not "off", and no more automatic tries (notPaired is set).
+    // The link's own host may have prompted meanwhile (notPaired): then say nothing more.
     if (e.notPaired) return;
     emitOff(e);
     scheduleBackoff(e);
@@ -532,13 +536,21 @@ export function createWebosDriver(
 
   return {
     kind: 'webos',
-    /** Call after a successful `pairTv` for this device: lets the driver connect again. */
-    clearNotPaired(deviceId: string): void {
+    /** Call after a successful `pairTv` for this device, with its stored link (the host and key
+     *  may have changed): lets the driver connect again. */
+    clearNotPaired(deviceId: string, link?: WebosLink): void {
       const e = entries.get(deviceId);
       if (!e) return;
+      for (const h of new Set([e.host, e.linkHost, link?.host])) {
+        if (h) promptedAt.delete(h);
+      }
+      if (link) {
+        e.link = link;
+        e.linkHost = link.host;
+        e.host = link.host;
+      }
       e.notPaired = false;
       e.sawPrompt = false;
-      promptedAt.clear();
       e.attempt = 0;
       if (e.observers.size > 0 && !e.client) scheduleAttempt(e, 0);
     },
