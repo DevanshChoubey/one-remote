@@ -103,4 +103,26 @@ describe('pad controller', () => {
     c.finish(5, 5);
     expect(keys).toEqual([]);
   });
+
+  it('sends OK for a tap gesture, even though the pan never activated and was cancelled', () => {
+    const keys: string[] = [];
+    const c = createPadController(() => 0);
+    c.setHandler((k) => keys.push(k));
+    c.begin(5, 5);
+    c.cancel();
+    c.tap();
+    expect(keys).toEqual(['ok']);
+  });
+
+  it('a pan sends arrows and no OK when it ends', () => {
+    let t = 0;
+    const keys: string[] = [];
+    const c = createPadController(() => t);
+    c.setHandler((k) => keys.push(k));
+    c.begin(0, 0);
+    t = 50;
+    c.update(0, -50);
+    c.finish(0, -50);
+    expect(keys).toEqual(['up']);
+  });
 });

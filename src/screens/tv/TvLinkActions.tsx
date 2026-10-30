@@ -14,22 +14,13 @@ type Webos = Extract<Link, { kind: 'webos' }>;
  * changed, and pairing again. Renders nothing for any other device or link.
  */
 export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactElement | null {
-  const { tv, store } = useServices();
+  const { tv } = useServices();
   const device = useKnownDevice(props.deviceId);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const link: Link | undefined = props.link ?? device?.links.find((l) => l.kind === 'webos');
   if (!device || device.kind !== 'tv' || !link || link.kind !== 'webos') return null;
   const webos: Webos = link;
-
-  /** Saves `change` onto the stored webos link, read fresh so a stale device cannot overwrite. */
-  const saveLink = async (change: Partial<Webos>): Promise<void> => {
-    const current = (await store.devices()).find((d) => d.id === device.id) ?? device;
-    await store.upsertDevice({
-      ...current,
-      links: current.links.map((l) => (l.kind === 'webos' ? { ...l, ...change } : l)),
-    });
-  };
 
   const run = (job: () => Promise<string>): void => {
     setBusy(true);
@@ -62,8 +53,7 @@ export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactEl
   const pairAgain = (): void =>
     run(async () => {
       const found = { host: webos.host, name: device.name, secure: webos.secure };
-      const paired = await tv.pair(found, () => setNote(t('addTv.pairAllow')), webos.clientKeyRef);
-      await saveLink({ host: paired.link.host, secure: paired.link.secure });
+      await tv.pair(found, () => setNote(t('addTv.pairAllow')), webos.clientKeyRef);
       return t('addTv.paired');
     });
 

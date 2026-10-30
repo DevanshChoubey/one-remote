@@ -216,6 +216,7 @@ describe('Add TV flow', () => {
     r.setup.pair.mockImplementationOnce(() => new Promise<PairedTv>((res) => (finish = res)));
     r.setup.pair.mockImplementationOnce(hang);
     await r.s.secrets.set('key-new', 'secret');
+    await r.s.secrets.set('key-new:usn', 'u1');
     await renderWith(r.s, <AddTvFlow />);
     await toFind();
     await r.found(lg);
@@ -223,6 +224,7 @@ describe('Add TV flow', () => {
     await fireEvent.press(screen.getByLabelText(t('addTv.promptMissing')));
     await act(async () => finish(paired()));
     await waitFor(async () => expect(await r.s.secrets.get('key-new')).toBeNull());
+    expect(await r.s.secrets.get('key-new:usn')).toBeNull();
     expect(screen.queryByDisplayValue('LG OLED C4')).toBeNull();
   });
 });

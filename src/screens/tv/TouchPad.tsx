@@ -7,6 +7,7 @@ import { Box, Txt } from '@/ui';
 import { createPadController } from './touchpad';
 
 const PAD_HEIGHT = 280;
+const TAP_MS = 250;
 
 /** A pan surface that turns swipes into arrow keys and a tap into OK. */
 export function TouchPad(props: { onKey: (k: TvKey) => void }): ReactElement {
@@ -16,16 +17,22 @@ export function TouchPad(props: { onKey: (k: TvKey) => void }): ReactElement {
   }, [ctl, props.onKey]);
   useEffect(() => ctl.stop, [ctl]);
 
-  const gesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .runOnJS(true)
-        .minDistance(0)
-        .onBegin((e) => ctl.begin(e.x, e.y))
-        .onUpdate((e) => ctl.update(e.x, e.y))
-        .onFinalize((e, success) => (success ? ctl.finish(e.x, e.y) : ctl.cancel())),
-    [ctl],
-  );
+  // A pan for moves and a tap for OK. Pan needs a few pixels of travel to win over the tap, and
+  // a pan that never activates (a still tap on iPhone) is cancelled and sends nothing itself.
+  const gesture = useMemo(() => {
+    const pan = Gesture.Pan()
+      .runOnJS(true)
+      .onBegin((e) => ctl.begin(e.x, e.y))
+      .onUpdate((e) => ctl.update(e.x, e.y))
+      .onFinalize((e, success) => (success ? ctl.finish(e.x, e.y) : ctl.cancel()));
+    const tap = Gesture.Tap()
+      .runOnJS(true)
+      .maxDuration(TAP_MS)
+      .onEnd((_e, success) => {
+        if (success) ctl.tap();
+      });
+    return Gesture.Race(pan, tap);
+  }, [ctl]);
 
   return (
     <GestureHandlerRootView style={{ height: PAD_HEIGHT }}>

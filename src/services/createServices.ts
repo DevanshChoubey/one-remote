@@ -142,7 +142,15 @@ export function withTvFollowUp(
             const link = d.links.find(
               (l) => l.kind === 'webos' && l.clientKeyRef === paired.link.clientKeyRef,
             );
-            if (link?.kind === 'webos') driver.clearNotPaired(d.id, { ...link, ...paired.link });
+            if (link?.kind !== 'webos') continue;
+            // Save the new address first, then release the driver with that same link, so a
+            // stale stored host can never put the old one back.
+            const merged = { ...link, ...paired.link };
+            await store.upsertDevice({
+              ...d,
+              links: d.links.map((l) => (l === link ? merged : l)),
+            });
+            driver.clearNotPaired(d.id, merged);
           }
         } catch (e) {
           console.error('Could not release the TV driver after pairing', e);

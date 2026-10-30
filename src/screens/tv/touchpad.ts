@@ -96,6 +96,8 @@ export interface PadController {
   begin(x: number, y: number): void;
   update(x: number, y: number): void;
   finish(x: number, y: number): void;
+  /** A still tap (from a tap gesture): OK. */
+  tap(): void;
   /** The gesture was cancelled: no key, not even OK. */
   cancel(): void;
   stop(): void;
@@ -125,6 +127,7 @@ export function createPadController(now: () => number = Date.now): PadController
       stop();
       emit(pad.end(x, y, now()));
     },
+    tap: () => emit(['ok']),
     cancel() {
       stop();
       pad.end(0, 0, now());

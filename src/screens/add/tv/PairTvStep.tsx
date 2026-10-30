@@ -46,6 +46,7 @@ export function PairTvStep(props: PairTvStepProps): ReactElement {
         // the key it stored is deleted.
         secrets
           .delete(paired.link.clientKeyRef)
+          .then(() => secrets.delete(`${paired.link.clientKeyRef}:usn`))
           .catch((e: unknown) => console.error('Could not drop an unused key', e));
       },
       (e: unknown) => {

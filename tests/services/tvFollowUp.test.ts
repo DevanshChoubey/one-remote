@@ -49,7 +49,13 @@ describe('TV follow-up in services', () => {
     const r = await rig();
     const paired: PairedTv = { link: { ...link, host: '192.168.1.40' }, suggestedName: 'TV' };
     r.setup.pair.mockResolvedValue(paired);
+    const upsert = jest.spyOn(r.s.store, 'upsertDevice');
     await r.s.tv.pair({ host: link.host, name: 'TV', secure: true }, () => undefined, 'key-1');
+    expect(upsert.mock.invocationCallOrder[0]).toBeLessThan(
+      r.clearNotPaired.mock.invocationCallOrder[0] ?? 0,
+    );
+    const [saved] = await r.s.store.devices();
+    expect(saved?.links[0]).toMatchObject({ host: '192.168.1.40' });
     expect(r.clearNotPaired).toHaveBeenCalledWith(
       'tv1',
       expect.objectContaining({ host: '192.168.1.40', clientKeyRef: 'key-1' }),
