@@ -6,6 +6,22 @@ import type { IrEmitter, IrSignal } from './emitter';
 import { fanKeys } from './fanKeys';
 
 const DEFAULT_GAP_MS = 200;
+const ALL_FAN_KEYS: ReadonlySet<FanKey> = new Set<FanKey>([
+  'off',
+  'speed1',
+  'speed2',
+  'speed3',
+  'speed4',
+  'speed5',
+  'boost',
+  'sleep',
+  'light',
+  'timer1',
+  'timer2',
+  'timer4',
+  'timer8',
+  'timerOff',
+]);
 const TV_KEYS = ['power', 'volumeUp', 'volumeDown', 'mute'] as const;
 
 const wait = (ms: number): Promise<void> =>
@@ -71,12 +87,18 @@ export function createIrDriver(o: {
       if (!r) return unsupported();
       if (cmd.kind === 'ac.set' && r.kind === 'ac') return transmit(r.encode(cmd.state));
       if (cmd.kind === 'fan.set' && r.kind === 'fan') {
-        const keys = new Set(Object.keys(r.keys) as FanKey[]);
-        const todo = fanKeys(lastFan.get(device.id), cmd.state, keys);
-        for (const [i, key] of todo.entries()) {
-          if (i > 0) await wait(gapMs);
+        // Work out every key the change needs, then refuse before sending anything if the remote
+        // lacks one: a press must never succeed while doing nothing, or be half-sent.
+        const todo = fanKeys(lastFan.get(device.id), cmd.state, ALL_FAN_KEYS);
+        const signals: IrSignal[] = [];
+        for (const key of todo) {
           const signal = r.keys[key];
-          if (signal) await transmit(signal);
+          if (!signal) return unsupported();
+          signals.push(signal);
+        }
+        for (const [i, signal] of signals.entries()) {
+          if (i > 0) await wait(gapMs);
+          await transmit(signal);
         }
         lastFan.set(device.id, cmd.state);
         return;

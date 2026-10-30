@@ -92,22 +92,54 @@ describe('ir driver', () => {
       const emitter = createFakeEmitter();
       const driver = createIrDriver({ emitter, gapMs: 0 });
       const [d, l] = dev('fan', 'atomberg-fan/1160');
-      await driver.send(d, l, fan());
+      await driver.send(d, l, fan({ speed: 4 }));
       emitter.sent.length = 0;
-      // speed 4 + boost needs two keys; the second fails.
+      // speed 5 + boost needs two keys; the second fails.
       let n = 0;
       const real = emitter.transmit.bind(emitter);
       jest.spyOn(emitter, 'transmit').mockImplementation((s) => {
         n += 1;
         return n === 2 ? Promise.reject(new Error('x')) : real(s);
       });
-      await expect(driver.send(d, l, fan({ speed: 4, boost: true }))).rejects.toMatchObject({
+      await expect(driver.send(d, l, fan({ speed: 5, boost: true }))).rejects.toMatchObject({
         code: 'notSent',
       });
-      // Last state is still "on, speed 3": an identical retry sends speed4 and boost again.
+      // Last state is still "on, speed 4": an identical retry sends speed5 and boost again.
       n = 0;
       jest.spyOn(emitter, 'transmit').mockImplementation((s) => real(s));
-      await driver.send(d, l, fan({ speed: 4, boost: true }));
+      await driver.send(d, l, fan({ speed: 5, boost: true }));
+      expect(emitter.sent).toHaveLength(3);
+    });
+
+    it('rejects unsupported before transmitting anything when a needed key is missing', async () => {
+      const emitter = createFakeEmitter();
+      const driver = createIrDriver({ emitter, gapMs: 0 });
+      const [d, l] = dev('fan', 'atomberg-fan/1160');
+      // 1160 has no speed3 (see ATTRIBUTION.md).
+      await expect(driver.send(d, l, fan({ speed: 3 }))).rejects.toMatchObject({
+        code: 'unsupported',
+      });
+      expect(emitter.sent).toHaveLength(0);
+      // Known on at speed 4; speed 5 plus a light toggle (no light key) must not half-send speed 5.
+      await driver.send(d, l, fan({ speed: 4 }));
+      emitter.sent.length = 0;
+      await expect(driver.send(d, l, fan({ speed: 5, light: true }))).rejects.toMatchObject({
+        code: 'unsupported',
+      });
+      expect(emitter.sent).toHaveLength(0);
+      // A timer change without a timer key is also unsupported.
+      await expect(driver.send(d, l, fan({ speed: 4, timerHours: 4 }))).rejects.toMatchObject({
+        code: 'unsupported',
+      });
+      expect(emitter.sent).toHaveLength(0);
+    });
+
+    it('still sends a supported change on the same remote', async () => {
+      const emitter = createFakeEmitter();
+      const driver = createIrDriver({ emitter, gapMs: 0 });
+      const [d, l] = dev('fan', 'atomberg-fan/1160');
+      await driver.send(d, l, fan({ speed: 4 }));
+      await driver.send(d, l, fan({ speed: 5, boost: true }));
       expect(emitter.sent).toHaveLength(3);
     });
 
