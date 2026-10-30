@@ -105,7 +105,7 @@ folders and names as the task says.
 
 - [ ] **Step 1: Scaffold, install the dev tooling, copy the config files.**
   - In `eslint.config.js`:
-    - `SERVICE_MODULES = ['core/hub', 'device', 'store', 'transport', 'ir', 'webos', 'matter']`
+    - `SERVICE_MODULES = ['device', 'store', 'transport', 'ir', 'webos', 'matter']`
       (blocked from screens);
     - `DOMAIN_FOLDERS = ['core', 'device', 'store', 'transport', 'ir', 'webos', 'matter']`;
     - the pure-folder block covers `src/core/**`, `src/device/**`, `src/ir/**`, `src/webos/**` and
@@ -465,14 +465,16 @@ export function createMemorySecretStore(): SecretStore;
 - [ ] **Step 4: Run it.** Expect PASS.
 - [ ] **Step 5: Commit** `feat(home): add Home grouped by room with welcome state`.
 
-### Task 9: Name-and-room step, device sheet and Settings
+### Task 9: Add-device picker, name-and-room step, device sheet and Settings
 
 **Files:**
 - Create:
-  - `src/screens/add/NameRoomStep.tsx`;
+  - `src/screens/add/KindPicker.tsx`, `src/screens/add/NameRoomStep.tsx`;
   - `src/screens/device/DeviceSheet.tsx`;
   - `src/screens/settings/SettingsScreen.tsx`;
   - `src/i18n/en/{add,device,settings}.ts`;
+  - `app/add/index.tsx` (the kind picker);
+  - `app/add/{tv,ac,fan}.tsx` (placeholders the lane plans replace);
   - `app/add/name.tsx`, `app/settings.tsx`.
 - Test: `tests/screens/nameRoom.test.tsx`, `tests/screens/deviceSheet.test.tsx`,
   `tests/screens/settings.test.tsx`.
@@ -484,6 +486,8 @@ export function createMemorySecretStore(): SecretStore;
   - `DeviceSheet({ deviceId })`.
 
 - [ ] **Step 1: Write the failing tests:**
+  - the kind picker shows TV, Air conditioner and Fan, and each goes to `/add/tv`, `/add/ac` or
+    `/add/fan`;
   - NameRoomStep pre-fills `suggestedName`;
   - "＋ New room" creates a room inline and selects it;
   - Done saves a device with `order` = the end of its room, and calls `onDone`;
@@ -502,7 +506,7 @@ export function createMemorySecretStore(): SecretStore;
 - [ ] **Step 3: Implement** to mockup v4 ("Name it", "Device sheet", "Settings").
 - [ ] **Step 4: Run them.** Expect PASS. Then run `bun run typecheck && bun run lint && bun run test --coverage`
   and expect all green.
-- [ ] **Step 5: Commit** `feat(app): add name-and-room step, device sheet and settings`.
+- [ ] **Step 5: Commit** `feat(app): add device picker, name-and-room step, device sheet and settings`.
 - [ ] **Step 6: Build a dev build and smoke-test it.**
   - `bunx expo prebuild --clean && bunx expo run:android` on the emulator.
   - Expect the welcome screen. Settings opens and the theme switch works.
