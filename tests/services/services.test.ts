@@ -64,13 +64,13 @@ describe('createServices', () => {
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
-  it('has no drivers by default (lanes add them)', () => {
+  it('has only the lanes drivers by default (webos so far)', () => {
     const s = createServices({
       store: createMemoryStore(),
       secrets: createMemorySecretStore(),
       prefs: createMemoryPreferenceStore(),
     });
-    expect(s.drivers).toEqual([]);
+    expect(s.drivers.map((x) => x.kind)).toEqual(['webos']);
   });
 });
 
@@ -185,3 +185,4 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
+jest.mock('react-native-udp', () => ({ __esModule: true, default: { createSocket: jest.fn() } }));

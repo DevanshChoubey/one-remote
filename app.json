@@ -8,7 +8,10 @@
     "scheme": "oneremote",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "bundleIdentifier": "com.devanshchoubey.oneremote"
+      "bundleIdentifier": "com.devanshchoubey.oneremote",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "One Remote finds and controls your TV on your home Wi-Fi."
+      }
     },
     "android": {
       "package": "com.devanshchoubey.oneremote",

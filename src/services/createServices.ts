@@ -4,6 +4,11 @@ import { DeviceHub } from '@/device/hub';
 import { createAsyncStorageStore } from '@/store/asyncStorageStore';
 import { createAsyncStoragePreferenceStore } from '@/store/preferences';
 import { createSecureSecretStore } from '@/store/secrets';
+import { createRnTvTransport } from '@/transport/tvTransport';
+import { createWebosDriver } from '@/webos/driver';
+import { createFrameTap } from '@/webos/frameTap';
+import { createTvSetup } from '@/webos/setup';
+import type { TvTransport } from '@/webos/transport';
 import type { Services } from './services';
 
 /** Keeps the hub's device list equal to the store's; applies the newest read that succeeded. */
@@ -64,28 +69,60 @@ function removeDeviceWith(
   };
 }
 
+/** What a lane's driver may need from the composition root. */
+interface LaneContext {
+  store: Services['store'];
+  secrets: Services['secrets'];
+  tvTransport: TvTransport;
+}
+
 /** The real drivers, one per line, each just under its lane's slot comment. */
-function laneDrivers(): LinkDriver[] {
+function laneDrivers(ctx: LaneContext): LinkDriver[] {
   return [
     // tv lane
+    createWebosDriver({
+      transport: ctx.tvTransport,
+      secrets: ctx.secrets,
+      onHostChanged: webosHostChanged(ctx.store),
+    }),
     // ir lane
     // matter lane
   ];
 }
+
+/** The TV was found at a new address: store it on the device's webos link. A gone device is ignored. */
+export function webosHostChanged(
+  store: Services['store'],
+): (id: string, host: string) => Promise<void> {
+  return async (id, host) => {
+    const device = (await store.devices()).find((d) => d.id === id);
+    if (!device) return;
+    await store.upsertDevice({
+      ...device,
+      links: device.links.map((l) => (l.kind === 'webos' ? { ...l, host } : l)),
+    });
+  };
+}
+
+/** `tvTransport` replaces the real TV network (tests pass a fake). */
+export type CreateServicesDeps = Partial<Services> & { tvTransport?: TvTransport };
 
 /**
  * Builds the app's services. Pass any part to replace it (tests pass memory stores and fake
  * drivers). Each lane adds its lines just under its own slot comments below (its setup lines, its
  * driver in `drivers`, its setup object in the result), so lane merges do not conflict.
  */
-export function createServices(deps: Partial<Services> = {}): Services {
+export function createServices(deps: CreateServicesDeps = {}): Services {
   // tv lane
+  const tvTap = __DEV__ ? createFrameTap() : undefined;
+  const tvBase = deps.tvTransport ?? createRnTvTransport();
+  const tvTransport = tvTap ? tvTap.wrap(tvBase) : tvBase;
   // ir lane
   // matter lane
-  const drivers = deps.drivers ?? laneDrivers();
-  const hub = deps.hub ?? new DeviceHub({ drivers });
   const store = deps.store ?? createAsyncStorageStore(AsyncStorage);
   const secrets = deps.secrets ?? createSecureSecretStore();
+  const drivers = deps.drivers ?? laneDrivers({ store, secrets, tvTransport });
+  const hub = deps.hub ?? new DeviceHub({ drivers });
   const prefs = deps.prefs ?? createAsyncStoragePreferenceStore(AsyncStorage);
   syncHub(hub, store);
   const removeDevice = deps.removeDevice ?? removeDeviceWith(store, secrets, drivers);
@@ -97,6 +134,7 @@ export function createServices(deps: Partial<Services> = {}): Services {
     drivers,
     removeDevice,
     // tv lane
+    tv: deps.tv ?? createTvSetup({ transport: tvTransport, secrets, frames: tvTap }),
     // ir lane
     // matter lane
   };

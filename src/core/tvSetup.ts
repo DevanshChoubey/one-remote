@@ -35,4 +35,13 @@ export interface TvSetup {
   pair(tv: FoundTv, onPrompt: () => void, clientKeyRef?: string): Promise<PairedTv>;
   /** The TV's new host, or null when it was not found. */
   findAgain(device: Device): Promise<string | null>;
+  /** Dev-only: every SSAP frame in and out, for the hardware spike. Absent unless wired. */
+  onFrame?(cb: (f: TvFrame) => void): Unsubscribe;
+}
+
+/** One SSAP frame (or connection event) seen on the wire. */
+export interface TvFrame {
+  dir: 'in' | 'out' | 'open';
+  text: string;
+  at: number;
 }

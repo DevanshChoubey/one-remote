@@ -19,6 +19,7 @@ const rnVisualRestriction = {
 // so the override below is added only once a file is listed.)
 const DEV_SPIKE_FILES = [
   // tv lane
+  'app/dev/tv-spike.tsx',
   // ir lane
   // matter lane
 ];

@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 import type { ReactElement, ReactNode } from 'react';
-import type { LinkDriver } from '@/core';
+import type { LinkDriver, TvSetup } from '@/core';
 import type { DeviceHub } from '@/device/hub';
 import type { PreferenceStore } from '@/store/preferences';
 import type { HomeStore, SecretStore } from '@/store/types';
@@ -19,6 +19,7 @@ export interface Services {
   removeDevice(id: string): Promise<void>;
   // Lanes add their typed field just under their own slot comment.
   // tv lane
+  tv: TvSetup;
   // ir lane
   // matter lane
 }
