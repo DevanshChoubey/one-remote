@@ -157,22 +157,31 @@ describe('ir driver', () => {
       expect(names(emitter)).toEqual(['boost', 'sleep']);
     });
 
-    it('does not record toggles that were never sent: they stay unknown', async () => {
+    it('takes unknown toggles as off: a fresh fan with boost sends speed then boost', async () => {
       const { emitter, driver, d, l } = setup();
       await driver.send(d, l, fan({ boost: true }));
-      expect(names(emitter)).toEqual(['speed3']);
-      await driver.send(d, l, fan({ boost: false }));
+      expect(names(emitter)).toEqual(['speed3', 'boost']);
+      // Recorded as on: asking for boost again sends nothing, turning it off sends the toggle.
       await driver.send(d, l, fan({ boost: true }));
-      expect(names(emitter)).toEqual(['speed3']);
+      await driver.send(d, l, fan({ boost: false }));
+      expect(names(emitter)).toEqual(['speed3', 'boost', 'boost']);
     });
 
-    it('forgets the toggles after a power off and on cycle', async () => {
+    it('a fresh fan with boost false sends no boost and records it off', async () => {
+      const { emitter, driver, d, l } = setup();
+      await driver.send(d, l, fan({ boost: false }));
+      await driver.send(d, l, fan({ boost: false }));
+      expect(names(emitter)).toEqual(['speed3']);
+      await driver.send(d, l, fan({ boost: true }));
+      expect(names(emitter)).toEqual(['speed3', 'boost']);
+    });
+
+    it('takes the toggles as off after a power off and on cycle', async () => {
       const { emitter, driver, d, l } = setup();
       driver.seedFan(d.id, known({ boost: true }));
       await driver.send(d, l, fan({ power: false }));
-      await driver.send(d, l, fan({ boost: false }));
       await driver.send(d, l, fan({ boost: true }));
-      expect(names(emitter)).toEqual(['off', 'speed3']);
+      expect(names(emitter)).toEqual(['off', 'speed3', 'boost']);
     });
 
     it('serialises sends: two concurrent presses do not double-send a toggle', async () => {
@@ -216,7 +225,12 @@ describe('ir driver', () => {
         code: 'unsupported',
       });
       expect(emitter.sent).toHaveLength(0);
-      // Known state: on at speed 4. Speed 5 plus a light toggle (no light key) must not half-send.
+      // A light toggle (no light key) changing from the assumed off rejects, even when unseeded.
+      await expect(driver.send(d, l, fan({ speed: 4, light: true }))).rejects.toMatchObject({
+        code: 'unsupported',
+      });
+      expect(emitter.sent).toHaveLength(0);
+      // Known state: on at speed 4. Speed 5 plus light must not half-send.
       driver.seedFan(d.id, known({ speed: 4 }));
       await expect(driver.send(d, l, fan({ speed: 5, light: true }))).rejects.toMatchObject({
         code: 'unsupported',

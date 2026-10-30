@@ -3,7 +3,7 @@ import type { Capabilities, Command, Device, FanSpeed, FanState, Link, LinkDrive
 import type { Catalogue, FanKey, Remote } from './catalogue';
 import { defaultCatalogue } from './codes';
 import type { IrEmitter, IrSignal } from './emitter';
-import { fanKeys, type FanMemory } from './fanKeys';
+import { fanKeys } from './fanKeys';
 
 const DEFAULT_GAP_MS = 200;
 const ALL_FAN_KEYS: ReadonlySet<FanKey> = new Set<FanKey>([
@@ -41,10 +41,10 @@ const TIMERS: Record<string, FanState['timerHours']> = {
 
 /**
  * What we believe about a fan after `key` went out. Speed keys are absolute. Toggles flip only
- * when their state was known. After power off, or a speed key sent while off or unknown, the
- * toggles are unknown: we never record a toggle we did not send.
+ * from what we hold. After power off, or a speed key sent while off or unknown, the toggles are
+ * taken as off (the usual state after power on, and how a physical remote behaves).
  */
-function applyKey(m: FanMemory | undefined, key: FanKey): FanMemory | undefined {
+function applyKey(m: FanState | undefined, key: FanKey): FanState | undefined {
   const on = m?.power === true;
   if (key === 'off') {
     return {
@@ -53,19 +53,17 @@ function applyKey(m: FanMemory | undefined, key: FanKey): FanMemory | undefined 
       boost: false,
       sleep: false,
       timerHours: 0,
-      togglesUnknown: true,
     };
   }
   const speed = SPEEDS[key];
   if (speed !== undefined) {
     return on && m
       ? { ...m, speed }
-      : { power: true, speed, boost: false, sleep: false, timerHours: 0, togglesUnknown: true };
+      : { power: true, speed, boost: false, sleep: false, timerHours: 0 };
   }
   if (!m || !on) return m;
   const timer = TIMERS[key];
   if (timer !== undefined) return { ...m, timerHours: timer };
-  if (m.togglesUnknown) return m;
   if (key === 'boost') return { ...m, boost: !m.boost };
   if (key === 'sleep') return { ...m, sleep: !m.sleep };
   if (key === 'light') return { ...m, light: !(m.light ?? false) };
@@ -79,7 +77,7 @@ const wait = (ms: number): Promise<void> =>
  * The `ir` link. One press is one transmit and nothing is ever resent here: the hub decides about
  * fallbacks. The driver keeps no live state (no `observe`); the hub keeps what was last sent. It
  * remembers what each fan actually reached, key by key, only so it can tell which toggle keys
- * changed; toggles it never sent stay unknown, and are never guessed.
+ * changed. An unknown toggle is taken as off; if that guess is wrong the user presses again.
  *
  * Sends are serialised with one chain, because the emitter is one piece of hardware shared by
  * every device. A fan command with several keys is spaced `gapMs` apart, so a long sequence (five
@@ -97,7 +95,7 @@ export function createIrDriver(o: {
 }): LinkDriver & { kind: 'ir'; seedFan(deviceId: string, state: FanState): void } {
   const catalogue = o.catalogue ?? defaultCatalogue;
   const gapMs = o.gapMs ?? DEFAULT_GAP_MS;
-  const lastFan = new Map<string, FanMemory>();
+  const lastFan = new Map<string, FanState>();
   let chain: Promise<unknown> = Promise.resolve();
 
   const remoteOf = (link: Link): Remote | undefined =>

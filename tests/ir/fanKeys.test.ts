@@ -28,10 +28,14 @@ const on = (o: Partial<FanState> = {}): FanState => ({
 });
 
 describe('fanKeys', () => {
-  it('sends only the speed when the last state is unknown (no blind toggles)', () => {
+  it('takes unknown toggles as off: only toggles asked on are sent', () => {
     expect(fanKeys(undefined, on({ boost: true, sleep: true, light: true }), all)).toEqual([
       'speed3',
+      'boost',
+      'sleep',
+      'light',
     ]);
+    expect(fanKeys(undefined, on(), all)).toEqual(['speed3']);
   });
 
   it('sends boost when it changed on a known, running fan', () => {
@@ -60,8 +64,12 @@ describe('fanKeys', () => {
     ]);
   });
 
-  it('does not toggle when power was off (state after power on is unknown)', () => {
-    expect(fanKeys(on({ power: false }), on({ boost: true }), all)).toEqual(['speed3']);
+  it('takes the toggles as off after power on from off', () => {
+    expect(fanKeys(on({ power: false, boost: true }), on({ boost: true }), all)).toEqual([
+      'speed3',
+      'boost',
+    ]);
+    expect(fanKeys(on({ power: false, boost: true }), on(), all)).toEqual(['speed3']);
   });
 
   it('sends timer keys when the timer changed and the key exists', () => {
