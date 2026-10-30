@@ -11,17 +11,12 @@ describe('parseMatterCode', () => {
     expect(parseMatterCode('34970112331')).toBeNull();
   });
 
-  it('accepts a 21-digit manual code with a valid check digit', () => {
-    // Vendor/product form: 20 digits plus a Verhoeff check digit.
-    const body = '64970112332123456789';
-    const digit = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].find(
-      (d) => parseMatterCode(body + d) !== null,
-    );
-    expect(digit).toBeDefined();
-    expect(parseMatterCode(body + String(digit))).toEqual({
+  it('accepts a 21-digit manual code and refuses a wrong check digit', () => {
+    expect(parseMatterCode('649701123321234567891')).toEqual({
       kind: 'manual',
-      digits: body + String(digit),
+      digits: '649701123321234567891',
     });
+    expect(parseMatterCode('649701123321234567890')).toBeNull();
   });
 
   it('accepts a QR payload', () => {

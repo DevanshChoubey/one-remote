@@ -12,6 +12,8 @@ export interface FakeControllerOptions {
   failAt?: CommissionStep;
   /** systemMode values the fake AC refuses to write (MatterError('rejected')). */
   rejectModes?: number[];
+  /** Write keys the fake AC refuses (MatterError('rejected')). */
+  rejectKeys?: (keyof MatterWrite)[];
 }
 
 export type FakeController = MatterController & {
@@ -75,6 +77,7 @@ export function createFakeController(opts: FakeControllerOptions = {}): FakeCont
       if (w.systemMode !== undefined && opts.rejectModes?.includes(w.systemMode)) {
         throw new MatterError('rejected');
       }
+      if (opts.rejectKeys?.some((k) => k in w)) throw new MatterError('rejected');
       writes.push(w);
       attrs = { ...attrs, ...w };
     },

@@ -1,4 +1,6 @@
-export type MatterCode = { kind: 'qr'; payload: string } | { kind: 'manual'; digits: string };
+import type { MatterCode } from '@/core/matterSetup';
+
+export type { MatterCode } from '@/core/matterSetup';
 
 // Verhoeff tables.
 const D = [

@@ -1,5 +1,6 @@
 import type { Link } from './model';
-import type { MatterCode } from '../matter/codes';
+
+export type MatterCode = { kind: 'qr'; payload: string } | { kind: 'manual'; digits: string };
 
 export type CommissionStep = 'found' | 'network' | 'responds';
 

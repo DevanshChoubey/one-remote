@@ -72,13 +72,95 @@ describe('matter driver', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('refuses a node whose address is unknown', async () => {
+  it('an unknown address is transient (notSent), not sticky notLocal', async () => {
     const controller = createFakeController();
-    controller.peerAddress = async () => null;
+    let addr: string | null = null;
+    controller.peerAddress = async () => addr;
+    const driver = createMatterDriver({ controller, enabled: true });
+    await expect(driver.send(device, link, set(cool24))).rejects.toMatchObject({ code: 'notSent' });
+    addr = '192.168.1.50';
+    await expect(driver.send(device, link, set(cool24))).resolves.toBeUndefined();
+  });
+
+  it('re-checks locality when the phone prefixes change', async () => {
+    const other = [{ address: '2401:4900:1c3a:9999::7', bits: 64 }];
+    const home = [{ address: '2401:4900:1c3a:5e10::7', bits: 64 }];
+    const controller = createFakeController({
+      peer: '2401:4900:1c3a:5e10::abcd',
+      prefixes: other,
+    });
     const driver = createMatterDriver({ controller, enabled: true });
     await expect(driver.send(device, link, set(cool24))).rejects.toMatchObject({
       code: 'notLocal',
     });
+    controller.onLinkPrefixes = async () => home;
+    await expect(driver.send(device, link, set(cool24))).resolves.toBeUndefined();
+    controller.onLinkPrefixes = async () => other;
+    await expect(driver.send(device, link, set(cool24))).rejects.toMatchObject({
+      code: 'notLocal',
+    });
+  });
+
+  it('re-checks locality when it resubscribes after a loss', async () => {
+    const controller = createFakeController();
+    const driver = createMatterDriver({ controller, enabled: true });
+    const spy = jest.spyOn(controller, 'subscribe');
+    driver.observe?.(device, link, () => undefined);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(spy).toHaveBeenCalledTimes(1);
+    controller.peerAddress = async () => '8.8.8.8';
+    controller.lose();
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(spy).toHaveBeenCalledTimes(1);
+    await expect(driver.send(device, link, set(cool24))).rejects.toMatchObject({
+      code: 'notLocal',
+    });
+  });
+
+  it('skips a rejected fan write, succeeds, and drops that fan value', async () => {
+    const controller = createFakeController({ rejectKeys: ['fanMode'] });
+    const driver = createMatterDriver({ controller, enabled: true });
+    await expect(driver.send(device, link, set(cool24))).resolves.toBeUndefined();
+    expect(controller.writes).toEqual([
+      { onOff: true },
+      { systemMode: 3 },
+      { occupiedCoolingSetpoint: 2400 },
+    ]);
+    expect(driver.capabilities(device, link).acFan).toEqual([1, 3, 'auto']);
+  });
+
+  it('skips a rejected rock write, succeeds, and drops swing', async () => {
+    const controller = createFakeController({
+      rejectKeys: ['rockSetting'],
+      info: { rockSupport: 1 },
+    });
+    const driver = createMatterDriver({ controller, enabled: true });
+    await expect(
+      driver.send(device, link, set({ ...cool24, swing: true })),
+    ).resolves.toBeUndefined();
+    expect(driver.capabilities(device, link).swing).toBe(false);
+  });
+
+  it('a rejected off does not drop a mode', async () => {
+    const controller = createFakeController({ rejectModes: [0], info: { hasOnOff: false } });
+    const driver = createMatterDriver({ controller, enabled: true });
+    await expect(driver.send(device, link, set({ ...cool24, power: false }))).rejects.toMatchObject(
+      { code: 'unsupported' },
+    );
+    expect(driver.capabilities(device, link).acModes).toEqual(['cool', 'dry', 'fan', 'auto']);
+  });
+
+  it('does not leak a subscription when a resubscribe follows a loss', async () => {
+    const controller = createFakeController();
+    const driver = createMatterDriver({ controller, enabled: true });
+    const seen: Reported[] = [];
+    driver.observe?.(device, link, (r) => seen.push(r));
+    await jest.advanceTimersByTimeAsync(0);
+    controller.lose();
+    await jest.advanceTimersByTimeAsync(1000);
+    const n = seen.length;
+    controller.setAttrs({ occupiedCoolingSetpoint: 2300 });
+    expect(seen.length).toBe(n + 1); // exactly one live subscription
   });
 
   it('does not observe a non-local node', async () => {
