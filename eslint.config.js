@@ -95,11 +95,6 @@ module.exports = [
       'no-restricted-globals': ['error', ...bannedGlobals(['fetch', 'XMLHttpRequest'])],
     },
   },
-  // Primitives are the one place for RN visual building blocks.
-  {
-    files: ['src/ui/primitives/**'],
-    rules: { 'no-restricted-imports': 'off' },
-  },
   // Layering. Domain modules never import app/, screens or ui.
   {
     files: DOMAIN_FOLDERS.map((d) => `src/${d}/**`),
@@ -215,14 +210,6 @@ module.exports = [
         { ...rnVisualRestriction, patterns: [...serviceImports, socketImports] },
       ],
       'import/no-default-export': 'off',
-    },
-  },
-  // Throwaway hardware spike: it drives the device services directly, so service-module
-  // imports are allowed here only (it uses the shared primitives for its UI).
-  {
-    files: ['app/dev/spike.tsx'],
-    rules: {
-      'no-restricted-imports': ['error', { ...rnVisualRestriction, patterns: [socketImports] }],
     },
   },
   // Tests may use any import.

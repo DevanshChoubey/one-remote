@@ -21,6 +21,9 @@ function errorsFor(source: string, filePath: string): string[] {
     ],
     { cwd: ROOT, input: source, encoding: 'utf8' },
   );
+  if (run.status !== 0 && run.status !== 1) {
+    throw new Error(`ESLint crashed (status ${String(run.status)}): ${run.stderr}`);
+  }
   const [result] = JSON.parse(run.stdout) as {
     messages: { ruleId: string | null; severity: number }[];
   }[];
