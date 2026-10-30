@@ -8,10 +8,13 @@ const upsertById = <T extends { id: string }>(all: T[], item: T): T[] =>
 
 /** Pure state transitions shared by the memory and AsyncStorage stores. */
 export const homeOps = {
-  upsertDevice: (s: HomeSnapshot, d: HomeSnapshot['devices'][number]): HomeSnapshot => ({
-    ...s,
-    devices: upsertById(s.devices, d),
-  }),
+  upsertDevice(s: HomeSnapshot, d: HomeSnapshot['devices'][number]): HomeSnapshot {
+    // A device in an unknown room would be invisible on Home.
+    if (!s.rooms.some((r) => r.id === d.roomId)) {
+      throw new StoreError('notFound', `Unknown room ${d.roomId}`);
+    }
+    return { ...s, devices: upsertById(s.devices, d) };
+  },
   removeDevice: (s: HomeSnapshot, id: string): HomeSnapshot => ({
     ...s,
     devices: s.devices.filter((d) => d.id !== id),

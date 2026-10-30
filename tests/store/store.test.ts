@@ -32,8 +32,16 @@ const impls: [string, () => HomeStore][] = [
 ];
 
 describe.each(impls)('HomeStore (%s)', (_name, make) => {
+  it('rejects a device whose room does not exist', async () => {
+    const s = make();
+    await expect(s.upsertDevice(dev('a', 'nope', 0))).rejects.toMatchObject({ code: 'notFound' });
+    await expect(s.upsertDevice(dev('a', 'nope', 0))).rejects.toBeInstanceOf(StoreError);
+    expect(await s.devices()).toEqual([]);
+  });
+
   it('round-trips a device and upserts by id', async () => {
     const s = make();
+    await s.upsertRoom(room('r1'));
     await s.upsertDevice(dev('a', 'r1', 0));
     expect(await s.devices()).toEqual([dev('a', 'r1', 0)]);
     await s.upsertDevice({ ...dev('a', 'r1', 0), name: 'renamed' });
@@ -42,6 +50,7 @@ describe.each(impls)('HomeStore (%s)', (_name, make) => {
 
   it('removes a device', async () => {
     const s = make();
+    await s.upsertRoom(room('r1'));
     await s.upsertDevice(dev('a', 'r1', 0));
     await s.removeDevice('a');
     expect(await s.devices()).toEqual([]);
@@ -67,6 +76,8 @@ describe.each(impls)('HomeStore (%s)', (_name, make) => {
 
   it('moveDevice makes it first in its room and renumbers order', async () => {
     const s = make();
+    await s.upsertRoom(room('r1'));
+    await s.upsertRoom(room('r2'));
     await s.upsertDevice(dev('a', 'r1', 0));
     await s.upsertDevice(dev('b', 'r1', 1));
     await s.upsertDevice(dev('c', 'r1', 2));
@@ -102,6 +113,7 @@ describe.each(impls)('HomeStore (%s)', (_name, make) => {
 
   it('moveDevice clamps the index and rejects unknown ids', async () => {
     const s = make();
+    await s.upsertRoom(room('r1'));
     await s.upsertDevice(dev('a', 'r1', 0));
     await s.upsertDevice(dev('b', 'r1', 1));
     await s.moveDevice('a', 99);
@@ -137,6 +149,7 @@ describe.each(impls)('HomeStore (%s)', (_name, make) => {
 
   it('does not alias returned data', async () => {
     const s = make();
+    await s.upsertRoom(room('r1'));
     await s.upsertDevice(dev('a', 'r1', 0));
     const first = (await s.devices())[0];
     if (first) first.name = 'mutated';
@@ -147,30 +160,58 @@ describe.each(impls)('HomeStore (%s)', (_name, make) => {
 describe('asyncStorage corruption', () => {
   let warn: jest.SpyInstance;
   beforeEach(() => {
-    warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    warn = jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
   afterEach(() => warn.mockRestore());
 
-  it('resolves empty and warns once per store on corrupt JSON', async () => {
-    const s = createAsyncStorageStore(memStorage({ [KEY]: '{not json' }));
-    expect(await s.devices()).toEqual([]);
-    expect(await s.rooms()).toEqual([]);
+  const seededKey = (): string =>
+    JSON.stringify({ devices: [dev('a', 'r1', 0)], rooms: [room('r1')] });
+
+  it.each([
+    ['bad JSON', '{not json'],
+    ['a non-object', '[]'],
+    ['a missing devices list', JSON.stringify({ rooms: [] })],
+    ['a rooms field that is not a list', JSON.stringify({ devices: [], rooms: 'x' })],
+    ['an invalid device', JSON.stringify({ devices: [{ id: 1 }], rooms: [] })],
+    ['an invalid room', JSON.stringify({ devices: [], rooms: [{ id: 'r' }] })],
+  ])('rejects reads of corrupt data (%s) instead of reading it as empty', async (_what, raw) => {
+    const s = createAsyncStorageStore(memStorage({ [KEY]: raw }));
+    await expect(s.devices()).rejects.toMatchObject({ code: 'corrupt' });
+    await expect(s.rooms()).rejects.toBeInstanceOf(StoreError);
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
-  it('treats a wrong shape as empty and keeps valid records only', async () => {
-    const good = dev('a', 'r1', 0);
-    const s = createAsyncStorageStore(
-      memStorage({ [KEY]: JSON.stringify({ devices: [good, { id: 1 }], rooms: 'x' }) }),
-    );
-    expect(await s.devices()).toEqual([good]);
+  it('refuses every write while the data is corrupt and never overwrites it', async () => {
+    const storage = memStorage({ [KEY]: '{not json' });
+    const setItem = jest.spyOn(storage, 'setItem');
+    const s = createAsyncStorageStore(storage);
+    await expect(s.upsertRoom(room('r1'))).rejects.toMatchObject({ code: 'corrupt' });
+    await expect(s.removeDevice('a')).rejects.toMatchObject({ code: 'corrupt' });
+    await expect(s.moveRoom('r1', 0)).rejects.toMatchObject({ code: 'corrupt' });
+    expect(setItem).not.toHaveBeenCalled();
+    expect(await storage.getItem(KEY)).toBe('{not json');
+  });
+
+  it('reads and writes again once the data is valid', async () => {
+    const storage = memStorage({ [KEY]: '{not json' });
+    const s = createAsyncStorageStore(storage);
+    await expect(s.devices()).rejects.toMatchObject({ code: 'corrupt' });
+    await storage.setItem(KEY, seededKey());
+    expect(await s.devices()).toEqual([dev('a', 'r1', 0)]);
+    await s.upsertRoom(room('r2', 1));
+    expect(await s.rooms()).toHaveLength(2);
+  });
+
+  it('reads an empty home when nothing is stored', async () => {
+    const s = createAsyncStorageStore(memStorage());
+    expect(await s.devices()).toEqual([]);
     expect(await s.rooms()).toEqual([]);
-    const t = createAsyncStorageStore(memStorage({ [KEY]: '[]' }));
-    expect(await t.devices()).toEqual([]);
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('serialises concurrent writes', async () => {
     const s = createAsyncStorageStore(memStorage());
+    await s.upsertRoom(room('r'));
     await Promise.all([s.upsertDevice(dev('a', 'r', 0)), s.upsertDevice(dev('b', 'r', 1))]);
     expect((await s.devices()).length).toBe(2);
   });

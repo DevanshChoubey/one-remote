@@ -29,6 +29,7 @@ function make(driver = createFakeDriver('matter')) {
 describe('createServices', () => {
   it('loads stored devices into the hub and follows later changes', async () => {
     const store = createMemoryStore();
+    await store.upsertRoom({ id: 'r', name: 'R', order: 0 });
     await store.upsertDevice(d);
     const services = createServices({
       store,
@@ -49,6 +50,7 @@ describe('createServices', () => {
   it('refreshes observing when a driver becomes available later', async () => {
     const driver = createFakeDriver('matter', { available: false });
     const { store, services } = make(driver);
+    await store.upsertRoom({ id: 'r', name: 'R', order: 0 });
     await store.upsertDevice(d);
     await flush();
     const cb = jest.fn();
@@ -106,6 +108,7 @@ describe('services.removeDevice', () => {
     });
     const forgetIr = jest.fn(async () => undefined);
     const { store, services } = withDrivers(forgetWebos, forgetIr);
+    await store.upsertRoom({ id: 'r', name: 'R', order: 0 });
     await store.upsertDevice(tv);
     const remove = store.removeDevice.bind(store);
     jest.spyOn(store, 'removeDevice').mockImplementation(async (id) => {
@@ -128,6 +131,7 @@ describe('services.removeDevice', () => {
       }),
       forgetIr,
     );
+    await store.upsertRoom({ id: 'r', name: 'R', order: 0 });
     await store.upsertDevice(tv);
     await expect(services.removeDevice('t1')).resolves.toBeUndefined();
     expect(await store.devices()).toEqual([]);
@@ -143,6 +147,7 @@ describe('services.removeDevice', () => {
         throw new Error('sync');
       }),
     );
+    await store.upsertRoom({ id: 'r', name: 'R', order: 0 });
     await store.upsertDevice(tv);
     await services.removeDevice('t1');
     expect(await store.devices()).toEqual([]);
@@ -151,6 +156,7 @@ describe('services.removeDevice', () => {
 
   it('deletes the webos client key too', async () => {
     const { store, secrets, services } = withDrivers(jest.fn(async () => undefined));
+    await store.upsertRoom({ id: 'r', name: 'R', order: 0 });
     await store.upsertDevice(tv);
     await secrets.set('ck', 'secret');
     await services.removeDevice('t1');
@@ -160,6 +166,7 @@ describe('services.removeDevice', () => {
   it('does not forget anything when the store write fails', async () => {
     const forgetWebos = jest.fn(async () => undefined);
     const { store, services } = withDrivers(forgetWebos);
+    await store.upsertRoom({ id: 'r', name: 'R', order: 0 });
     await store.upsertDevice(tv);
     jest.spyOn(store, 'removeDevice').mockRejectedValue(new Error('disk'));
     await expect(services.removeDevice('t1')).rejects.toThrow('disk');
