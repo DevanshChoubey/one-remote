@@ -33,6 +33,19 @@ describe('primitives', () => {
     expect(flat(screen.getByTestId('b').props.style).backgroundColor).toBe(darkTokens.color.bg);
   });
 
+  it('Touchable forwards a long press', async () => {
+    const onLongPress = jest.fn();
+    await render(
+      <ThemeProvider scheme="light">
+        <Touchable onPress={jest.fn()} onLongPress={onLongPress} accessibilityLabel="Hold me">
+          <Txt>x</Txt>
+        </Touchable>
+      </ThemeProvider>,
+    );
+    await fireEvent(screen.getByLabelText('Hold me'), 'longPress');
+    expect(onLongPress).toHaveBeenCalledTimes(1);
+  });
+
   it('Touchable has min 48 hit area and the given role and label', async () => {
     const onPress = jest.fn();
     await render(

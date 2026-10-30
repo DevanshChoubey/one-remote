@@ -9,6 +9,8 @@ export interface TxtProps {
   color?: ColorToken;
   numberOfLines?: number;
   selectable?: boolean;
+  /** Announces the text when it appears (status and error messages). */
+  live?: boolean;
   children: ReactNode;
 }
 
@@ -40,6 +42,7 @@ export function Txt(props: TxtProps): ReactElement {
       style={style}
       numberOfLines={props.numberOfLines}
       selectable={props.selectable}
+      accessibilityLiveRegion={props.live ? 'polite' : undefined}
     >
       {props.children}
     </Text>
