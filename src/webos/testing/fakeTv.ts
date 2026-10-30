@@ -13,6 +13,8 @@ export interface FakeTv {
   setVolume(v: number, muted?: boolean): void;
   setApp(appId: string): void;
   setPower(on: boolean): void;
+  /** Push a raw power state ('Active', 'Active Standby', ...) to power subscribers. */
+  setPowerState(state: string): void;
   /** Close every open socket from the TV's side. */
   drop(): void;
   /** Open sockets stop replying (new ones work). */
@@ -25,6 +27,8 @@ export interface FakeTv {
   /** Used by the fake LAN: the port the TV listens on. */
   port(): 3000 | 3001;
   isUp(): boolean;
+  /** Open sockets, pointer sockets included. */
+  connections(): number;
 }
 
 export interface FakeTvOpts {
@@ -272,6 +276,7 @@ export function createFakeTv(opts: FakeTvOpts): FakeTv {
       if (on) push(URI.power, powerPayload());
       else dropAll();
     },
+    setPowerState: (state) => push(URI.power, { returnValue: true, state }),
     drop: dropAll,
     stopAnswering: () => {
       for (const c of conns) c.muted = true;
@@ -281,6 +286,7 @@ export function createFakeTv(opts: FakeTvOpts): FakeTv {
       dropAll();
     },
     isUp: () => up,
+    connections: () => conns.size,
     port: () => (secure ? 3001 : 3000),
     ssdpReply: () =>
       up

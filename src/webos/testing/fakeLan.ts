@@ -28,6 +28,7 @@ export function createFakeLan(opts: { tvs: FakeTv[]; wifi?: boolean; hang?: stri
     wifi: opts.wifi ?? true,
     open(url: string, timeoutMs: number): Promise<TvSocket> {
       opened.push(url);
+      if (!lan.wifi) return Promise.reject(new DeviceError('notSent', 'not on Wi-Fi'));
       const host = hostOf(url);
       if (hang.includes(host)) {
         return new Promise<TvSocket>((_resolve, reject) => {
@@ -44,7 +45,7 @@ export function createFakeLan(opts: { tvs: FakeTv[]; wifi?: boolean; hang?: stri
       return Promise.reject(new DeviceError('notSent', `cannot open ${url}`));
     },
     ssdpSearch(_message, windowMs, onReply): Promise<void> {
-      if (lan.ssdpEnabled) {
+      if (lan.ssdpEnabled && lan.wifi) {
         for (const tv of opts.tvs) {
           const text = hang.includes(tv.host) ? null : tv.ssdpReply();
           if (text) void Promise.resolve().then(() => onReply(text, tv.host));
@@ -53,7 +54,7 @@ export function createFakeLan(opts: { tvs: FakeTv[]; wifi?: boolean; hang?: stri
       return new Promise((resolve) => setTimeout(resolve, windowMs));
     },
     probe(ports, perHostMs, onOpen): Promise<void> {
-      for (const tv of opts.tvs) {
+      for (const tv of lan.wifi ? opts.tvs : []) {
         if (!tv.isUp() || hang.includes(tv.host)) continue;
         const port = tv.port();
         if (ports.includes(port)) void Promise.resolve().then(() => onOpen(tv.host, port));
