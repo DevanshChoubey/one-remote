@@ -241,8 +241,8 @@ export class DeviceHub {
 
   private shouldTryNext(e: unknown, cmd: Command): boolean {
     if (!(e instanceof DeviceError)) return false;
-    // Nothing went out in either case, so the next link may carry it.
-    if (e.code === 'notSent' || e.code === 'notLocal') return true;
+    // Nothing went out in any of these cases, so the next link may carry it.
+    if (e.code === 'notSent' || e.code === 'notLocal' || e.code === 'notPaired') return true;
     // A timed-out send may have gone out: only repeat it when that is harmless.
     return e.code === 'timeout' && isIdempotent(cmd);
   }

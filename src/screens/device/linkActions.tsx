@@ -14,3 +14,16 @@ export type LinkActionRenderer = (props: LinkActionProps) => ReactElement | null
  * `IrBackupAction` or `MatterLinkActions`; each shows under its own links in the device sheet.
  */
 export const LINK_ACTIONS: readonly LinkActionRenderer[] = [];
+
+export interface DeviceActionProps {
+  device: Device;
+}
+
+/** Renders one lane's device-level actions, or null when the device is not that lane's. */
+export type DeviceActionRenderer = (props: DeviceActionProps) => ReactElement | null;
+
+/**
+ * The seam for actions on the device as a whole, rendered once per device, for example
+ * "Add IR backup". Each lane adds one line here.
+ */
+export const DEVICE_ACTIONS: readonly DeviceActionRenderer[] = [];

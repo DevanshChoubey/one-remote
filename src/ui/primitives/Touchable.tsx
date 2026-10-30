@@ -4,12 +4,14 @@ import { useTheme } from '@/theme';
 
 export interface TouchableProps {
   onPress: () => void;
+  onLongPress?: () => void;
   accessibilityLabel: string;
   accessibilityRole?: 'button' | 'link' | 'tab' | 'checkbox' | 'togglebutton' | 'switch';
   disabled?: boolean;
   selected?: boolean;
   checked?: boolean;
   busy?: boolean;
+  expanded?: boolean;
   children: ReactNode;
 }
 
@@ -18,6 +20,7 @@ export function Touchable(props: TouchableProps): ReactElement {
   return (
     <Pressable
       onPress={props.onPress}
+      onLongPress={props.onLongPress}
       disabled={props.disabled}
       accessibilityLabel={props.accessibilityLabel}
       accessibilityRole={props.accessibilityRole ?? 'button'}
@@ -26,6 +29,7 @@ export function Touchable(props: TouchableProps): ReactElement {
         selected: props.selected,
         checked: props.checked,
         busy: props.busy,
+        expanded: props.expanded,
       }}
       style={({ pressed }) => ({
         minHeight: theme.touch.min,

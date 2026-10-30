@@ -6,8 +6,8 @@ import { t } from '@/i18n';
 import { useServices } from '@/services';
 import { Box, Button, Chip, Column, Input, Row, Screen, Txt } from '@/ui';
 import { useHomeData } from '../shared/useHomeData';
-import { LINK_ACTIONS } from './linkActions';
-import type { LinkActionRenderer } from './linkActions';
+import { DEVICE_ACTIONS, LINK_ACTIONS } from './linkActions';
+import type { DeviceActionRenderer, LinkActionRenderer } from './linkActions';
 
 const LINK_LABEL: Record<Link['kind'], string> = {
   webos: 'device.linkWebos',
@@ -23,10 +23,12 @@ export interface DeviceSheetProps {
   deviceId: string;
   /** Lane actions per link; defaults to the registry in `linkActions.tsx`. */
   linkActions?: readonly LinkActionRenderer[];
+  /** Actions for the device as a whole; defaults to `DEVICE_ACTIONS`. */
+  deviceActions?: readonly DeviceActionRenderer[];
 }
 
 export function DeviceSheet(props: DeviceSheetProps): ReactElement {
-  const { store } = useServices();
+  const { store, secrets } = useServices();
   const router = useRouter();
   const data = useHomeData();
   const device = data.devices.find((d) => d.id === props.deviceId);
@@ -45,8 +47,11 @@ export function DeviceSheet(props: DeviceSheetProps): ReactElement {
       rooms={data.rooms}
       siblings={data.devices.filter((d) => d.roomId === device.roomId)}
       actions={props.linkActions ?? LINK_ACTIONS}
+      deviceActions={props.deviceActions ?? DEVICE_ACTIONS}
       store={store}
+      secrets={secrets}
       onBack={() => router.back()}
+      onRemoved={() => router.dismissAll()}
     />
   );
 }
@@ -56,11 +61,24 @@ interface SheetProps {
   rooms: ReturnType<typeof useHomeData>['rooms'];
   siblings: Device[];
   actions: readonly LinkActionRenderer[];
+  deviceActions: readonly DeviceActionRenderer[];
   store: ReturnType<typeof useServices>['store'];
+  secrets: ReturnType<typeof useServices>['secrets'];
   onBack: () => void;
+  onRemoved: () => void;
 }
 
-function Sheet({ device, rooms, siblings, actions, store, onBack }: SheetProps): ReactElement {
+function Sheet({
+  device,
+  rooms,
+  siblings,
+  actions,
+  deviceActions,
+  store,
+  secrets,
+  onBack,
+  onRemoved,
+}: SheetProps): ReactElement {
   const [name, setName] = useState(device.name);
   const [confirming, setConfirming] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -88,6 +106,21 @@ function Sheet({ device, rooms, siblings, actions, store, onBack }: SheetProps):
           .reduce((m, d) => Math.max(m, d.order + 1), 0);
         return store.upsertDevice({ ...device, roomId, order });
       }),
+    );
+  };
+  // The pairing keys go with the device. Best effort: a failure is logged and never blocks removal.
+  const remove = async (): Promise<void> => {
+    await store.removeDevice(device.id);
+    await Promise.all(
+      device.links.flatMap((l) =>
+        l.kind === 'webos'
+          ? [
+              secrets
+                .delete(l.clientKeyRef)
+                .catch((e: unknown) => console.error('Could not delete a device secret', e)),
+            ]
+          : [],
+      ),
     );
   };
   const trimmed = name.trim();
@@ -165,7 +198,16 @@ function Sheet({ device, rooms, siblings, actions, store, onBack }: SheetProps):
           ))}
         </Column>
 
-        {failed ? <Txt color="ink2">{t('device.failed')}</Txt> : null}
+        {deviceActions.map((render, n) => {
+          const node = render({ device });
+          return node ? <Box key={n}>{node}</Box> : null;
+        })}
+
+        {failed ? (
+          <Txt live color="ink2">
+            {t('device.failed')}
+          </Txt>
+        ) : null}
 
         {confirming ? (
           <Column gap={2}>
@@ -176,10 +218,7 @@ function Sheet({ device, rooms, siblings, actions, store, onBack }: SheetProps):
                 variant="secondary"
                 onPress={() => setConfirming(false)}
               />
-              <Button
-                label={t('device.confirmRemove')}
-                onPress={() => run(store.removeDevice(device.id), onBack)}
-              />
+              <Button label={t('device.confirmRemove')} onPress={() => run(remove(), onRemoved)} />
             </Row>
           </Column>
         ) : (

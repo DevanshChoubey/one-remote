@@ -51,21 +51,43 @@ export function NameRoomStep(props: NameRoomStepProps): ReactElement {
     );
   };
 
-  const canSave = name.trim() !== '' && roomId !== null && !busy;
+  // While "New room" is chosen, Done creates the typed room and saves into it.
+  const newRoomName = roomName.trim();
+  const hasRoom = creating ? newRoomName !== '' : roomId !== null;
+  const canSave = name.trim() !== '' && hasRoom && !busy;
   const save = (): void => {
-    if (!canSave || roomId === null) return;
+    if (!canSave) return;
     setBusy(true);
-    const order = data.devices
-      .filter((d) => d.roomId === roomId)
-      .reduce((m, d) => Math.max(m, d.order + 1), 0);
-    const device: Device = { ...props.draft, id: newId(), name: name.trim(), roomId, order };
-    store.upsertDevice(device).then(
-      () => props.onDone(device),
-      () => {
-        setBusy(false);
-        setError(true);
-      },
-    );
+    const target = creating ? newId() : roomId;
+    if (target === null) return;
+    const order = creating
+      ? 0
+      : data.devices
+          .filter((d) => d.roomId === target)
+          .reduce((m, d) => Math.max(m, d.order + 1), 0);
+    const device: Device = {
+      ...props.draft,
+      id: newId(),
+      name: name.trim(),
+      roomId: target,
+      order,
+    };
+    const roomFirst = creating
+      ? store.upsertRoom({
+          id: target,
+          name: newRoomName,
+          order: data.rooms.reduce((m, r) => Math.max(m, r.order + 1), 0),
+        })
+      : Promise.resolve();
+    roomFirst
+      .then(() => store.upsertDevice(device))
+      .then(
+        () => props.onDone(device),
+        () => {
+          setBusy(false);
+          setError(true);
+        },
+      );
   };
 
   return (
@@ -122,7 +144,11 @@ export function NameRoomStep(props: NameRoomStepProps): ReactElement {
             </Row>
           ) : null}
         </Column>
-        {error ? <Txt color="ink2">{t('add.saveFailed')}</Txt> : null}
+        {error ? (
+          <Txt live color="ink2">
+            {t('add.saveFailed')}
+          </Txt>
+        ) : null}
       </Column>
     </Screen>
   );

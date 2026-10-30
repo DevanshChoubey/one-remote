@@ -57,6 +57,7 @@ function Section(props: {
         onPress={props.onToggle}
         accessibilityLabel={props.title}
         accessibilityRole="button"
+        expanded={props.open}
       >
         <Row justify="between" align="center">
           <Txt variant="bodyBold">{props.title}</Txt>

@@ -112,6 +112,16 @@ describe('HomeScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/device/l1');
   });
 
+  it('opens the device sheet on a long press, even for a device that needs IR', async () => {
+    const s = setup({ irAvailable: false });
+    await seed(s, [dev('l1', 'tv', 'liv', 0, [matter]), dev('i1', 'ac', 'bed', 0, [ir])]);
+    await renderHome(s);
+    await fireEvent(await screen.findByLabelText('Name l1'), 'longPress');
+    expect(mockPush).toHaveBeenCalledWith('/device-sheet/l1');
+    await fireEvent(screen.getByLabelText(`Name i1, ${t('home.needsIr')}`), 'longPress');
+    expect(mockPush).toHaveBeenCalledWith('/device-sheet/i1');
+  });
+
   it('flips power from the last known state with the AC toggle', async () => {
     const s = setup();
     await seed(s, [dev('a1', 'ac', 'liv', 0, [matter])]);

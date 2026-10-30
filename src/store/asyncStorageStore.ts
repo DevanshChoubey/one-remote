@@ -69,6 +69,7 @@ export function createAsyncStorageStore(storage: AsyncStorageLike): HomeStore {
     upsertRoom: (r) => mutate((s) => homeOps.upsertRoom(s, r)),
     removeRoom: (id) => mutate((s) => homeOps.removeRoom(s, id)),
     moveDevice: (id, i) => mutate((s) => homeOps.moveDevice(s, id, i)),
+    moveRoom: (id, i) => mutate((s) => homeOps.moveRoom(s, id, i)),
     subscribe: (cb) => subscribeTo(subs, cb),
   };
 }

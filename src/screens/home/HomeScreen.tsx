@@ -65,6 +65,7 @@ export function HomeScreen(): ReactElement {
                   key={card.view.device.id}
                   card={card}
                   onOpen={(id) => router.push(`/device/${id}`)}
+                  onSettings={(id) => router.push(`/device-sheet/${id}`)}
                   onTogglePower={home.togglePower}
                 />
               ))}

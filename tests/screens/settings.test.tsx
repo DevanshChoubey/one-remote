@@ -94,6 +94,29 @@ describe('SettingsScreen', () => {
     expect((await s.store.rooms()).length).toBe(1);
   });
 
+  it('marks the section rows expanded or collapsed', async () => {
+    await renderWith(makeServices(), <SettingsScreen />);
+    const row = await screen.findByLabelText(t('settings.privacy'));
+    expect(row.props.accessibilityState.expanded).toBe(false);
+    await fireEvent.press(row);
+    expect(screen.getByLabelText(t('settings.privacy')).props.accessibilityState.expanded).toBe(
+      true,
+    );
+  });
+
+  it('announces the room error politely', async () => {
+    const s = makeServices();
+    await s.store.upsertRoom(room('a', 'Bedroom', 0));
+    await s.store.upsertDevice(device('d', 'a', 0));
+    await renderWith(s, <SettingsScreen />);
+    await fireEvent.press(await screen.findByLabelText(t('settings.rooms')));
+    await fireEvent.press(
+      await screen.findByLabelText(t('settings.removeRoom', { name: 'Bedroom' })),
+    );
+    const msg = await screen.findByText(t('settings.roomNotEmpty'));
+    expect(msg.props.accessibilityLiveRegion).toBe('polite');
+  });
+
   it('shows the privacy text', async () => {
     await renderWith(makeServices(), <SettingsScreen />);
     await fireEvent.press(await screen.findByLabelText(t('settings.privacy')));

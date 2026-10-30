@@ -27,15 +27,7 @@ function RoomRow(props: {
       },
     );
   };
-  const swap = (other: Room | undefined): void => {
-    if (!other) return;
-    run(
-      Promise.all([
-        store.upsertRoom({ ...room, order: other.order }),
-        store.upsertRoom({ ...other, order: room.order }),
-      ]),
-    );
-  };
+  const moveTo = (to: number): void => run(store.moveRoom(room.id, to));
 
   return (
     <Column gap={2}>
@@ -57,14 +49,14 @@ function RoomRow(props: {
           accessibilityLabel={t('settings.roomUp', { name: room.name })}
           variant="secondary"
           disabled={index === 0}
-          onPress={() => swap(rooms[index - 1])}
+          onPress={() => moveTo(index - 1)}
         />
         <Button
           label="↓"
           accessibilityLabel={t('settings.roomDown', { name: room.name })}
           variant="secondary"
           disabled={index === rooms.length - 1}
-          onPress={() => swap(rooms[index + 1])}
+          onPress={() => moveTo(index + 1)}
         />
         <Button
           label={t('common.delete')}
@@ -92,7 +84,11 @@ export function RoomsEditor(props: { rooms: Room[] }): ReactElement {
           onError={setError}
         />
       ))}
-      {error ? <Txt color="ink2">{t(error)}</Txt> : null}
+      {error ? (
+        <Txt live color="ink2">
+          {t(error)}
+        </Txt>
+      ) : null}
     </Column>
   );
 }

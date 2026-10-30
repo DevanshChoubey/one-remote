@@ -1,11 +1,15 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import { t } from '@/i18n';
-import { DeviceSheet } from '@/screens/device/DeviceSheet';
+import { DeviceSettingsButton, DeviceSheet } from '@/screens/device';
 import { device, makeServices, renderWith, room } from './helpers';
 
 const mockBack = jest.fn();
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: mockBack }) }));
+const mockDismissAll = jest.fn();
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush, back: mockBack, dismissAll: mockDismissAll }),
+}));
 
 async function seeded() {
   const s = makeServices();
@@ -25,7 +29,11 @@ async function seeded() {
   return s;
 }
 
-beforeEach(() => mockBack.mockClear());
+beforeEach(() => {
+  mockBack.mockClear();
+  mockDismissAll.mockClear();
+  mockPush.mockClear();
+});
 
 describe('DeviceSheet', () => {
   it('renames the device', async () => {
@@ -79,7 +87,46 @@ describe('DeviceSheet', () => {
     await fireEvent.press(screen.getByLabelText(t('device.remove')));
     await fireEvent.press(screen.getByLabelText(t('device.confirmRemove')));
     await waitFor(async () => expect((await s.store.devices()).map((d) => d.id)).toEqual(['d2']));
-    expect(mockBack).toHaveBeenCalled();
+    expect(mockDismissAll).toHaveBeenCalled();
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('deletes the client key of every webos link when removing, and still removes if that fails', async () => {
+    const s = await seeded();
+    await s.secrets.set('k', 'secret');
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
+    await fireEvent.press(await screen.findByLabelText(t('device.remove')));
+    await fireEvent.press(screen.getByLabelText(t('device.confirmRemove')));
+    await waitFor(async () => expect((await s.store.devices()).map((d) => d.id)).toEqual(['d2']));
+    expect(await s.secrets.get('k')).toBeNull();
+  });
+
+  it('removes the device even when deleting the secret fails', async () => {
+    const s = await seeded();
+    const err = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    jest.spyOn(s.secrets, 'delete').mockRejectedValue(new Error('keystore'));
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
+    await fireEvent.press(await screen.findByLabelText(t('device.remove')));
+    await fireEvent.press(screen.getByLabelText(t('device.confirmRemove')));
+    await waitFor(async () => expect((await s.store.devices()).map((d) => d.id)).toEqual(['d2']));
+    expect(err).toHaveBeenCalled();
+    expect(mockDismissAll).toHaveBeenCalled();
+    err.mockRestore();
+  });
+
+  it('renders a device-level action once', async () => {
+    const s = await seeded();
+    await renderWith(
+      s,
+      <DeviceSheet deviceId="d1" deviceActions={[() => <Text>add an IR backup</Text>]} />,
+    );
+    expect(await screen.findAllByText('add an IR backup')).toHaveLength(1);
+  });
+
+  it('DeviceSettingsButton opens the sheet for its device', async () => {
+    await renderWith(makeServices(), <DeviceSettingsButton deviceId="d1" />);
+    await fireEvent.press(screen.getByLabelText(t('device.open')));
+    expect(mockPush).toHaveBeenCalledWith('/device-sheet/d1');
   });
 
   it('lists the links, the first as main and the others as backup', async () => {

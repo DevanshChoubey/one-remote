@@ -24,6 +24,18 @@ export const homeOps = {
     if (s.devices.some((d) => d.roomId === id)) throw new StoreError('roomNotEmpty');
     return { ...s, rooms: s.rooms.filter((r) => r.id !== id) };
   },
+  moveRoom(s: HomeSnapshot, id: string, toIndex: number): HomeSnapshot {
+    const moving = s.rooms.find((r) => r.id === id);
+    if (!moving) throw new StoreError('notFound');
+    const others = s.rooms.filter((r) => r.id !== id).sort((a, b) => a.order - b.order);
+    const at = Math.max(0, Math.min(others.length, Math.trunc(toIndex)));
+    others.splice(at, 0, moving);
+    const orderOf = new Map(others.map((r, i) => [r.id, i]));
+    return {
+      ...s,
+      rooms: s.rooms.map((r) => ({ ...r, order: orderOf.get(r.id) ?? r.order })),
+    };
+  },
   moveDevice(s: HomeSnapshot, id: string, toIndex: number): HomeSnapshot {
     const moving = s.devices.find((d) => d.id === id);
     if (!moving) throw new StoreError('notFound');
@@ -76,6 +88,7 @@ export function createMemoryStore(): HomeStore {
     upsertRoom: (r) => apply((s) => homeOps.upsertRoom(s, r)),
     removeRoom: (id) => apply((s) => homeOps.removeRoom(s, id)),
     moveDevice: (id, i) => apply((s) => homeOps.moveDevice(s, id, i)),
+    moveRoom: (id, i) => apply((s) => homeOps.moveRoom(s, id, i)),
     subscribe: (cb) => subscribeTo(subs, cb),
   };
 }

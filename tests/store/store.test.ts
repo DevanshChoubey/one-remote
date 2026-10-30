@@ -83,6 +83,23 @@ describe.each(impls)('HomeStore (%s)', (_name, make) => {
     expect((await s.devices()).find((d) => d.id === 'z')?.order).toBe(0);
   });
 
+  it('moveRoom reorders rooms atomically and renumbers order', async () => {
+    const s = make();
+    await s.upsertRoom(room('a', 0));
+    await s.upsertRoom(room('b', 1));
+    await s.upsertRoom(room('c', 2));
+    await s.moveRoom('c', 0);
+    const rooms = (await s.rooms()).sort((x, y) => x.order - y.order);
+    expect(rooms.map((r) => [r.id, r.order])).toEqual([
+      ['c', 0],
+      ['a', 1],
+      ['b', 2],
+    ]);
+    await s.moveRoom('c', 99);
+    expect((await s.rooms()).find((r) => r.id === 'c')?.order).toBe(2);
+    await expect(s.moveRoom('nope', 0)).rejects.toMatchObject({ code: 'notFound' });
+  });
+
   it('moveDevice clamps the index and rejects unknown ids', async () => {
     const s = make();
     await s.upsertDevice(dev('a', 'r1', 0));

@@ -188,9 +188,9 @@ describe('DeviceHub', () => {
 
   it('rethrows other codes without falling back', async () => {
     const { hub, webos, ir } = setup();
-    webos.failNext('notPaired');
+    webos.failNext('unsupported');
     const err = await hub.send('tv1', { kind: 'tv.powerOn' }).catch((e: unknown) => e);
-    expect(codeOf(err)).toBe('notPaired');
+    expect(codeOf(err)).toBe('unsupported');
     expect(ir.sent).toHaveLength(0);
   });
 
@@ -442,6 +442,20 @@ describe('DeviceHub', () => {
     webos.failNext('notLocal');
     await expect(hub.send('tv1', okKey)).resolves.toEqual({ via: 'ir', fellBack: true });
     expect(ir.sent).toHaveLength(1);
+  });
+
+  it('treats notPaired like notSent: nothing went out, so a key press falls back', async () => {
+    const { hub, webos, ir } = setup();
+    webos.failNext('notPaired');
+    await expect(hub.send('tv1', okKey)).resolves.toEqual({ via: 'ir', fellBack: true });
+    expect(ir.sent).toHaveLength(1);
+  });
+
+  it('never resends a tv.key after a timeout', async () => {
+    const { hub, webos, ir } = setup();
+    webos.failNext('timeout');
+    await expect(hub.send('tv1', okKey)).rejects.toMatchObject({ code: 'timeout' });
+    expect(ir.sent).toHaveLength(0);
   });
 
   it('tells onDevicesChanged listeners after setDevices, until they unsubscribe', () => {

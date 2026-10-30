@@ -82,6 +82,27 @@ describe('NameRoomStep', () => {
     expect(onDone).toHaveBeenCalledWith(saved);
   });
 
+  it('creates the typed new room when Done is pressed, and saves into it', async () => {
+    const s = makeServices();
+    await s.store.upsertRoom(room('r1', 'Bedroom', 0));
+    const onDone = jest.fn();
+    await renderWith(s, <NameRoomStep draft={draft} suggestedName="AC" onDone={onDone} />);
+    await fireEvent.press(await screen.findByLabelText(t('add.newRoom')));
+    await fireEvent.changeText(screen.getByLabelText(t('add.roomName')), 'Study');
+    await fireEvent.press(screen.getByLabelText(t('common.done')));
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    const study = (await s.store.rooms()).find((r) => r.name === 'Study');
+    expect(study).toBeDefined();
+    expect(onDone.mock.calls[0][0]).toMatchObject({ roomId: study?.id, order: 0 });
+  });
+
+  it('keeps Done disabled while New room is chosen but unnamed', async () => {
+    const s = makeServices();
+    await renderWith(s, <NameRoomStep draft={draft} suggestedName="AC" onDone={jest.fn()} />);
+    const done = await screen.findByLabelText(t('common.done'));
+    expect(done.props.accessibilityState.disabled).toBe(true);
+  });
+
   it('disables Done while the name is empty', async () => {
     const s = makeServices();
     await s.store.upsertRoom(room('r1', 'Bedroom', 0));

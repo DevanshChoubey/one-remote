@@ -23,6 +23,8 @@ export interface HomeStore {
   removeRoom(id: string): Promise<void>;
   /** Reorders within the device's room; `order` is renumbered 0..n. */
   moveDevice(id: string, toIndex: number): Promise<void>;
+  /** Reorders rooms; `order` is renumbered 0..n. Throws StoreError('notFound') for an unknown id. */
+  moveRoom(id: string, toIndex: number): Promise<void>;
   subscribe(cb: () => void): Unsubscribe;
 }
 
