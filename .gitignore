@@ -5,3 +5,10 @@ coverage/
 *.apk
 *.xapk
 .DS_Store
+dist/
+web-build/
+expo-env.d.ts
+*.tsbuildinfo
+.env*.local
+/ios
+/android
