@@ -1,0 +1,24 @@
+# Git hooks. Install with `bunx lefthook install` (runs automatically via `bun install`).
+commit-msg:
+  commands:
+    conventional-commit:
+      run: node scripts/check-commit-msg.js {1}
+
+pre-commit:
+  parallel: true
+  commands:
+    prettier:
+      glob: '*.{ts,tsx,js,json,md,yml,yaml}'
+      run: bunx prettier --write --ignore-unknown {staged_files}
+      stage_fixed: true
+    eslint:
+      glob: '*.{ts,tsx,js}'
+      run: bunx eslint --max-warnings=0 {staged_files}
+
+pre-push:
+  commands:
+    no-main:
+      run: node scripts/check-push-target.js
+      use_stdin: true
+    verify:
+      run: bun run typecheck && bun run test
