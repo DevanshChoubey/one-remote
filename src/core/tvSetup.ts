@@ -14,8 +14,8 @@ export type PairErrorCode = 'denied' | 'timeout' | 'unreachable';
 export class PairError extends Error {
   readonly code: PairErrorCode;
 
-  constructor(code: PairErrorCode) {
-    super(code);
+  constructor(code: PairErrorCode, detail?: string) {
+    super(detail ? `${code}: ${detail}` : code);
     this.name = 'PairError';
     this.code = code;
     Object.setPrototypeOf(this, PairError.prototype);

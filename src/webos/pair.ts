@@ -21,6 +21,7 @@ export async function pairTv(
 ): Promise<PairedTv> {
   let client: SsapClient | undefined;
   let secure = tv.secure;
+  const failures: string[] = [];
   // SSDP cannot say which port a TV uses: when ws:3000 is refused, try wss:3001.
   for (const tryWss of tv.secure ? [true] : [false, true]) {
     try {
@@ -29,9 +30,10 @@ export async function pairTv(
       break;
     } catch (e) {
       if (e instanceof DeviceError && e.code === 'notLocal') throw e;
+      failures.push(e instanceof Error ? e.message : String(e));
     }
   }
-  if (!client) throw new PairError('unreachable');
+  if (!client) throw new PairError('unreachable', failures.join('; '));
   try {
     let key: string;
     try {

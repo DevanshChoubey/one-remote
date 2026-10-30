@@ -152,7 +152,10 @@ export function createRnTvTransport(
           clearTimeout(timer);
           resolve(wrapSocket(ws));
         };
-        ws.onerror = (): void => fail(`cannot open ${url}`);
+        ws.onerror = (e?: Event): void => {
+          const detail = (e as (Event & { message?: string }) | undefined)?.message;
+          fail(detail ? `cannot open ${url}: ${detail}` : `cannot open ${url}`);
+        };
         ws.onclose = (): void => fail(`closed while opening ${url}`);
       });
     },

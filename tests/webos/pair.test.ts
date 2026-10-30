@@ -71,6 +71,8 @@ describe('pairTv', () => {
     const err = await pairTv(lan, memorySecrets(), found, jest.fn()).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(PairError);
     expect((err as PairError).code).toBe('unreachable');
+    // The reason for each port that failed is kept, so a hardware run can say why.
+    expect((err as PairError).message).toMatch(/^unreachable: .*3000.*; .*3001/);
   });
 
   it('re-pair keeps the ref', async () => {
