@@ -150,6 +150,77 @@ describe('matter driver', () => {
     expect(driver.capabilities(device, link).acModes).toEqual(['cool', 'dry', 'fan', 'auto']);
   });
 
+  it('a rejected setpoint or onOff still fails and records nothing', async () => {
+    for (const key of ['occupiedCoolingSetpoint', 'onOff'] as const) {
+      const controller = createFakeController({ rejectKeys: [key] });
+      const driver = createMatterDriver({ controller, enabled: true });
+      await expect(driver.send(device, link, set(cool24))).rejects.toMatchObject({
+        code: 'unsupported',
+      });
+      const seen: Reported[] = [];
+      driver.observe?.(device, link, (r) => seen.push(r));
+      await jest.advanceTimersByTimeAsync(0);
+      controller.setAttrs({ fanMode: undefined });
+      const last = seen[seen.length - 1];
+      expect(last?.kind === 'ac' && last.state.fan).toBe('auto'); // not the refused 2
+    }
+  });
+
+  it('records the fan and swing actually applied after skipped writes', async () => {
+    const controller = createFakeController({
+      rejectKeys: ['fanMode', 'rockSetting'],
+      info: { rockSupport: 1 },
+    });
+    const driver = createMatterDriver({ controller, enabled: true });
+    await driver.send(device, link, set({ ...cool24, fan: 2, swing: true }));
+    const seen: Reported[] = [];
+    driver.observe?.(device, link, (r) => seen.push(r));
+    await jest.advanceTimersByTimeAsync(0);
+    controller.setAttrs({ fanMode: undefined, rockSetting: undefined });
+    const last = seen[seen.length - 1];
+    expect(last?.kind === 'ac' && last.state).toMatchObject({ fan: 'auto', swing: false });
+  });
+
+  it('resumes observing once the phone is back on the home network', async () => {
+    const home = [{ address: '2401:4900:1c3a:5e10::7', bits: 64 }];
+    const away = [{ address: '2401:4900:1c3a:9999::7', bits: 64 }];
+    const controller = createFakeController({ peer: '2401:4900:1c3a:5e10::abcd', prefixes: home });
+    const driver = createMatterDriver({ controller, enabled: true });
+    const spy = jest.spyOn(controller, 'subscribe');
+    const seen: Reported[] = [];
+    driver.observe?.(device, link, (r) => seen.push(r));
+    await jest.advanceTimersByTimeAsync(0);
+    expect(spy).toHaveBeenCalledTimes(1);
+    controller.onLinkPrefixes = async () => away;
+    controller.lose();
+    await jest.advanceTimersByTimeAsync(1000); // resubscribe -> notLocal
+    expect(spy).toHaveBeenCalledTimes(1);
+    controller.onLinkPrefixes = async () => home;
+    await jest.advanceTimersByTimeAsync(29999);
+    expect(spy).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(spy).toHaveBeenCalledTimes(2);
+    const n = seen.length;
+    controller.setAttrs({ occupiedCoolingSetpoint: 2200 });
+    expect(seen.length).toBe(n + 1);
+  });
+
+  it('unsubscribe cancels the pending slow retry', async () => {
+    const home = [{ address: '2401:4900:1c3a:5e10::7', bits: 64 }];
+    const controller = createFakeController({
+      peer: '2401:4900:1c3a:5e10::abcd',
+      prefixes: [{ address: '2401:4900:1c3a:9999::7', bits: 64 }],
+    });
+    const driver = createMatterDriver({ controller, enabled: true });
+    const spy = jest.spyOn(controller, 'subscribe');
+    const off = driver.observe?.(device, link, () => undefined);
+    await jest.advanceTimersByTimeAsync(0); // notLocal, retry pending
+    off?.();
+    controller.onLinkPrefixes = async () => home;
+    await jest.advanceTimersByTimeAsync(60000);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
   it('does not leak a subscription when a resubscribe follows a loss', async () => {
     const controller = createFakeController();
     const driver = createMatterDriver({ controller, enabled: true });

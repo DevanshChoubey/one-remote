@@ -135,6 +135,7 @@ export function createMatterDriver(o: MatterDriverOptions): LinkDriver & { kind:
         }
       }
       const writes = toWrites(cmd.state, info);
+      let applied = cmd.state;
       for (let i = 0; i < writes.length; i++) {
         const w = writes[i];
         if (!w) continue;
@@ -149,18 +150,25 @@ export function createMatterDriver(o: MatterDriverOptions): LinkDriver & { kind:
               }
               throw new DeviceError('unsupported');
             }
-            // Fan and swing are optional extras: skip the write, remember the AC refuses it.
+            // Only fan and swing are optional extras: skip the write, remember the AC refuses it,
+            // and record what it still does. Anything else rejected fails the send.
             if (w.fanMode !== undefined && n.caps?.acFan) {
               const fan = cmd.state.fan;
               n.caps = { ...n.caps, acFan: n.caps.acFan.filter((f) => f !== fan) };
+              applied = { ...applied, fan: n.last.fan };
+              continue;
             }
-            if (w.rockSetting !== undefined && n.caps) n.caps = { ...n.caps, swing: false };
-            continue;
+            if (w.rockSetting !== undefined) {
+              if (n.caps) n.caps = { ...n.caps, swing: false };
+              applied = { ...applied, swing: n.last.swing };
+              continue;
+            }
+            throw new DeviceError('unsupported');
           }
           throw new DeviceError(i === 0 ? 'notSent' : 'timeout');
         }
       }
-      n.last = cmd.state;
+      n.last = applied;
     },
 
     observe: (_device: Device, link: Link, cb: (r: Reported) => void): Unsubscribe => {
@@ -179,13 +187,14 @@ export function createMatterDriver(o: MatterDriverOptions): LinkDriver & { kind:
         cb(roomTemp === undefined ? { kind: 'ac', state } : { kind: 'ac', state, roomTemp });
       };
 
-      const scheduleResubscribe = (): void => {
+      const scheduleResubscribe = (slow = false): void => {
         if (disposed) return;
         n.lost = true;
         if (timer) clearTimeout(timer);
         unsub?.();
         unsub = undefined;
-        const delay = backoff[Math.min(attempt, backoff.length - 1)] ?? 1000;
+        const last = backoff.length - 1;
+        const delay = backoff[slow ? last : Math.min(attempt, last)] ?? 1000;
         attempt++;
         timer = setTimeout(() => void connect(), delay);
       };
@@ -209,9 +218,8 @@ export function createMatterDriver(o: MatterDriverOptions): LinkDriver & { kind:
           attempt = 0;
           emit(attrs);
         } catch (e) {
-          // A non-local node is never observed; a transient failure retries.
-          if (e instanceof DeviceError && e.code === 'notLocal') return;
-          scheduleResubscribe();
+          // Off the home network: retry slowly, the phone may come back. Otherwise back off normally.
+          scheduleResubscribe(e instanceof DeviceError && e.code === 'notLocal');
         }
       };
 
