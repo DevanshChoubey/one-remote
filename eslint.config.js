@@ -55,8 +55,18 @@ function bannedProperties(names) {
 }
 
 const socketImports = {
-  group: ['dgram', 'node:dgram', 'react-native-udp', 'react-native-udp/**'],
-  message: 'Raw sockets (dgram, react-native-udp) are allowed only in src/transport.',
+  group: [
+    'dgram',
+    'node:dgram',
+    'react-native-udp',
+    'react-native-udp/**',
+    // The local lan-socket native module (WebSockets with per-socket certificate pinning).
+    'lan-socket',
+    'lan-socket/**',
+    '**/modules/lan-socket',
+    '**/modules/lan-socket/**',
+  ],
+  message: 'Raw sockets (dgram, react-native-udp, lan-socket) are allowed only in src/transport.',
 };
 
 // expo/fetch ships a working fetch with the SDK, so it is banned in every folder, src/transport too.
@@ -67,7 +77,8 @@ const fetchImports = {
 
 // no-restricted-imports does not see require() or import(). esquery regexes cannot hold a `/`,
 // so `.` stands in for it.
-const SOCKET_MODULE = '/^(node:)?dgram$|^react-native-udp($|.)/';
+const SOCKET_MODULE =
+  '/^(node:)?dgram$|^react-native-udp($|.)|^lan-socket($|.)|(^|.)modules.lan-socket($|.)/';
 const FETCH_MODULE = '/^expo.fetch($|.)/';
 
 function bannedLoads(moduleRegex, message) {
@@ -82,6 +93,27 @@ function bannedLoads(moduleRegex, message) {
 
 const fetchLoads = bannedLoads(FETCH_MODULE, NETWORK_MESSAGE);
 const socketLoads = bannedLoads(SOCKET_MODULE, socketImports.message);
+
+// The lan-socket native module is reached only through modules/lan-socket (imported by
+// src/transport), never by name from anywhere else.
+const NATIVE_SOCKET_MESSAGE =
+  'Load the LanSocket native module only through modules/lan-socket, from src/transport.';
+const nativeSocketLoads = [
+  {
+    selector:
+      "CallExpression[callee.name=/^require(Optional)?NativeModule$/][arguments.0.value='LanSocket']",
+    message: NATIVE_SOCKET_MESSAGE,
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name=/^require(Optional)?NativeModule$/][arguments.0.value='LanSocket']",
+    message: NATIVE_SOCKET_MESSAGE,
+  },
+  {
+    selector: "MemberExpression[object.name='NativeModules'][property.name='LanSocket']",
+    message: NATIVE_SOCKET_MESSAGE,
+  },
+];
 
 // A template-literal module name would slip past the literal checks above, so none is allowed.
 const TEMPLATE_LOAD_MESSAGE = 'Load modules by a plain string, so the network bans can see them.';
@@ -153,7 +185,13 @@ module.exports = [
         'error',
         ...bannedProperties(['fetch', 'XMLHttpRequest', 'WebSocket']),
       ],
-      'no-restricted-syntax': ['error', ...socketLoads, ...fetchLoads, ...templateLoads],
+      'no-restricted-syntax': [
+        'error',
+        ...socketLoads,
+        ...fetchLoads,
+        ...templateLoads,
+        ...nativeSocketLoads,
+      ],
     },
   },
   // Sockets belong to src/transport only.
@@ -162,7 +200,14 @@ module.exports = [
     rules: {
       'no-restricted-globals': ['error', ...bannedGlobals(['fetch', 'XMLHttpRequest'])],
       'no-restricted-properties': ['error', ...bannedProperties(['fetch', 'XMLHttpRequest'])],
-      'no-restricted-syntax': ['error', ...fetchLoads, ...templateLoads],
+      'no-restricted-syntax': ['error', ...fetchLoads, ...templateLoads, ...nativeSocketLoads],
+    },
+  },
+  // The lan-socket module itself loads its native half (and nothing else on the network).
+  {
+    files: ['modules/lan-socket/**'],
+    rules: {
+      'no-restricted-syntax': ['error', ...socketLoads, ...fetchLoads, ...templateLoads],
     },
   },
   // Layering. Domain modules never import app/, screens or ui.
