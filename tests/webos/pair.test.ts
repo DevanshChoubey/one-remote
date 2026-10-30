@@ -2,18 +2,22 @@ import { PairError } from '@/core/tvSetup';
 import { pairTv } from '@/webos/pair';
 import { createFakeLan } from '@/webos/testing/fakeLan';
 import { createFakeTv } from '@/webos/testing/fakeTv';
-import type { TvSecrets } from '@/webos/transport';
+import type { TvSecretsWithDelete } from '@/webos/transport';
 
 const HOST = '192.168.1.23';
 const MAC = 'aa:bb:cc:00:11:22';
 
-function memorySecrets(): TvSecrets & { map: Map<string, string> } {
+function memorySecrets(): TvSecretsWithDelete & { map: Map<string, string> } {
   const map = new Map<string, string>();
   return {
     map,
     get: (ref) => Promise.resolve(map.get(ref) ?? null),
     set: (ref, v) => {
       map.set(ref, v);
+      return Promise.resolve();
+    },
+    delete: (ref) => {
+      map.delete(ref);
       return Promise.resolve();
     },
   };
@@ -105,6 +109,17 @@ describe('pairTv', () => {
     expect(secrets.map.has(`${paired.link.clientKeyRef}:cert`)).toBe(false);
   });
 
+  it('deletes an old pin when a re-pair lands on plain ws', async () => {
+    const tv = createFakeTv({ host: HOST, mac: MAC });
+    const secrets = memorySecrets();
+    secrets.map.set('webos:abc:cert', 'old-pin');
+    await pairTv(createFakeLan({ tvs: [tv] }), secrets, found, jest.fn(), {
+      clientKeyRef: 'webos:abc',
+    });
+    expect(secrets.map.has('webos:abc:cert')).toBe(false);
+    expect(secrets.map.get('webos:abc')).toMatch(/^fake-key-/);
+  });
+
   it('fails unreachable, storing nothing, when the secure socket reports no certificate', async () => {
     const tv = createFakeTv({ host: HOST, mac: MAC, secure: true });
     const lan = createFakeLan({ tvs: [tv] });
@@ -133,9 +148,10 @@ describe('pairTv', () => {
 
   it('fails with a PairError when the key cannot be kept', async () => {
     const tv = createFakeTv({ host: HOST, mac: MAC });
-    const secrets: TvSecrets = {
+    const secrets: TvSecretsWithDelete = {
       get: () => Promise.resolve(null),
       set: () => Promise.reject(new Error('keystore')),
+      delete: () => Promise.resolve(),
     };
     const err = await pairTv(createFakeLan({ tvs: [tv] }), secrets, found, jest.fn()).catch(
       (e: unknown) => e,

@@ -15,7 +15,7 @@ const lan = (): Promise<Prefix[]> => Promise.resolve(LAN);
 interface FakeOpen {
   id: string;
   url: string;
-  opts: { pinSha256?: string; pairing?: boolean; timeoutMs: number };
+  opts: { pinSha256?: string; pairing?: boolean; probe?: boolean; timeoutMs: number };
   resolve(r: { certSha256?: string }): void;
   reject(e: unknown): void;
 }
@@ -386,6 +386,8 @@ describe('probe', () => {
       ['192.168.1.40', 3001],
     ]);
     expect(mockNative.opens).toHaveLength(253 * 2);
+    // Probes run in their own native pool, apart from real connects.
+    expect(mockNative.opens.every((o) => o.opts.probe === true)).toBe(true);
     expect(
       mockNative.opens.filter((o) => o.url.startsWith('wss:')).every((o) => o.opts.pairing),
     ).toBe(true);

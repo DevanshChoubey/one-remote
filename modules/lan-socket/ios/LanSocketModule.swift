@@ -5,6 +5,8 @@ import Foundation
 struct OpenOptions: Record {
   @Field var pinSha256: String? = nil
   @Field var pairing: Bool = false
+  /// Android runs probes in their own pool; every iOS socket has its own session already.
+  @Field var probe: Bool = false
   @Field var timeoutMs: Double = 3000
 }
 
@@ -137,14 +139,22 @@ private final class LanConnection: NSObject, URLSessionWebSocketDelegate {
     self.module = module
   }
 
+  /// URLSession's request timeout is an idle timeout (time between data), so it must not be the
+  /// open deadline: a TV socket is idle for long stretches (the pairing prompt waits up to 60 s).
+  /// The open deadline is the explicit timer below.
+  private static let idleForever: TimeInterval = 7 * 24 * 3600
+
   func start(url: URL, timeout: TimeInterval) {
     let config = URLSessionConfiguration.ephemeral
-    config.timeoutIntervalForRequest = timeout
+    config.timeoutIntervalForRequest = LanConnection.idleForever
+    config.timeoutIntervalForResource = LanConnection.idleForever
     config.waitsForConnectivity = false
     config.urlCache = nil
+    // No proxy: TV traffic never leaves the LAN through a system or MDM proxy.
+    config.connectionProxyDictionary = [:]
     let session = URLSession(configuration: config, delegate: self, delegateQueue: queue)
     var request = URLRequest(url: url)
-    request.timeoutInterval = timeout
+    request.timeoutInterval = LanConnection.idleForever
     let task = session.webSocketTask(with: request)
     queue.addOperation {
       self.session = session
@@ -207,6 +217,14 @@ private final class LanConnection: NSObject, URLSessionWebSocketDelegate {
     }
     // Pairing, or the pinned leaf: accept without chain or host-name evaluation.
     completionHandler(.useCredential, URLCredential(trust: trust))
+  }
+
+  /// Redirects are never followed: the target would skip the local-address check.
+  func urlSession(
+    _ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+    newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void
+  ) {
+    completionHandler(nil)
   }
 
   // MARK: - Socket
@@ -292,7 +310,7 @@ enum LocalHost {
   static func isLocalLiteral(_ rawHost: String) -> Bool {
     var host = rawHost
     if host.hasPrefix("[") && host.hasSuffix("]") { host = String(host.dropFirst().dropLast()) }
-    if let pct = host.firstIndex(of: "%") { host = String(host[..<pct]) }
+    if host.contains("%") { return false }  // zone ids are not supported (as on Android)
     var v4 = in_addr()
     if host.allSatisfy({ $0.isNumber || $0 == "." }), inet_pton(AF_INET, host, &v4) == 1 {
       return isLocalV4(withUnsafeBytes(of: v4.s_addr) { Array($0) })

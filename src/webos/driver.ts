@@ -69,6 +69,9 @@ interface Entry {
   sawPrompt: boolean;
   /** A register produced a prompt: stay quiet until `clearNotPaired` or an app restart. */
   notPaired: boolean;
+  /** The last connect met a certificate other than the pinned one: search before saying "Pair
+   *  again", since the TV may have moved and something else taken its address. */
+  pinMismatch: boolean;
   noKey: boolean;
   nextPlayPause: 'PAUSE' | 'PLAY';
 }
@@ -124,6 +127,7 @@ export function createWebosDriver(
         offTimer: undefined,
         sawPrompt: false,
         notPaired: false,
+        pinMismatch: false,
         noKey: false,
         nextPlayPause: 'PAUSE',
       };
@@ -194,6 +198,13 @@ export function createWebosDriver(
         connectMs,
       );
     } catch (err) {
+      if (err instanceof DeviceError && err.code === 'notPaired') {
+        // The TV's certificate is not the one pinned at pairing (a renewed certificate, or another
+        // TV at this address). Not "off": the failure handler searches for the TV once, and says
+        // "Pair again" only if it is not found elsewhere.
+        e.sawPrompt = true;
+        e.pinMismatch = true;
+      }
       throw asDeviceError(err);
     }
     let asked = false;
@@ -312,6 +323,13 @@ export function createWebosDriver(
   async function onConnectFailed(e: Entry, _err: unknown): Promise<void> {
     if (e.observers.size === 0) return;
     if (e.noKey || e.notPaired) return; // nothing to retry until the TV is paired
+    const mismatch = e.pinMismatch;
+    e.pinMismatch = false;
+    if (mismatch && !e.link.mac) {
+      // Nothing to search by: the pinned TV is gone from this address.
+      e.notPaired = true;
+      return;
+    }
     const onWifi = await t.onWifi().catch(() => false);
     if (!onWifi) {
       // Off the home Wi-Fi: say nothing, keep trying.
@@ -321,7 +339,7 @@ export function createWebosDriver(
     const now = Date.now();
     const throttled =
       e.lastRediscoverAt !== undefined && now - e.lastRediscoverAt < REDISCOVER_EVERY_MS;
-    if (throttled || probing) {
+    if ((throttled && !mismatch) || probing) {
       scheduleBackoff(e);
       return;
     }
@@ -376,10 +394,19 @@ export function createWebosDriver(
       }
     }
     if (e.observers.size === 0) return;
+    if (moved) {
+      // A changed host is worth trying at once.
+      scheduleAttempt(e, 0);
+      return;
+    }
+    if (mismatch) {
+      // The pinned TV is nowhere else: its certificate changed, so it needs pairing again.
+      e.notPaired = true;
+      return;
+    }
     if (host) {
-      // A changed host is worth trying at once; the same host that just failed is not.
-      if (moved) scheduleAttempt(e, 0);
-      else scheduleBackoff(e);
+      // The same host that just failed is not worth trying at once.
+      scheduleBackoff(e);
       return;
     }
     // The link's own host may have prompted meanwhile (notPaired): then say nothing more.
@@ -568,6 +595,7 @@ export function createWebosDriver(
         e.host = link.host;
       }
       e.notPaired = false;
+      e.pinMismatch = false;
       e.sawPrompt = false;
       e.attempt = 0;
       if (e.observers.size > 0 && !e.client) scheduleAttempt(e, 0);
