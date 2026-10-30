@@ -27,6 +27,8 @@ export interface FakeTv {
   /** Used by the fake LAN: the port the TV listens on. */
   port(): 3000 | 3001;
   isUp(): boolean;
+  /** Keys the TV accepts silently; push to simulate pairing elsewhere. */
+  knownKeys: string[];
   /** Open sockets, pointer sockets included. */
   connections(): number;
 }
@@ -79,7 +81,7 @@ function decodeOut(text: string): SsapOut | null {
 export function createFakeTv(opts: FakeTvOpts): FakeTv {
   const secure = opts.secure ?? false;
   const prompt = opts.prompt ?? 'allow';
-  const known = new Set(opts.knownKeys ?? []);
+  const knownKeys = [...(opts.knownKeys ?? [])];
   const usn = opts.usn ?? `uuid:fake-${opts.mac.replace(/:/g, '')}`;
   const name = opts.name ?? '[LG] webOS TV OLED55C4';
   let keyCount = 0;
@@ -153,7 +155,7 @@ export function createFakeTv(opts: FakeTvOpts): FakeTv {
   const issueKey = (): string => {
     keyCount += 1;
     const key = `fake-key-${keyCount}`;
-    known.add(key);
+    knownKeys.push(key);
     return key;
   };
 
@@ -169,7 +171,7 @@ export function createFakeTv(opts: FakeTvOpts): FakeTv {
     frames.push(m);
     if (m.type === 'register') {
       const key = m.payload['client-key'];
-      if (key !== undefined && known.has(key)) {
+      if (key !== undefined && knownKeys.includes(key)) {
         c.registered = true;
         reply(c, { type: 'registered', id: m.id, payload: { 'client-key': key } });
         return;
@@ -295,6 +297,7 @@ export function createFakeTv(opts: FakeTvOpts): FakeTv {
       host = h;
       dropAll();
     },
+    knownKeys,
     isUp: () => up,
     connections: () => conns.size,
     port: () => (secure ? 3001 : 3000),

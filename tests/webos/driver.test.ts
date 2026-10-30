@@ -189,16 +189,16 @@ describe('webos driver: basics', () => {
     expect(r.lan.opened).toEqual([]);
   });
 
-  it('rejects notPaired when the TV asks to pair again, and does not ask twice in a minute', async () => {
+  it('rejects notPaired when the TV asks to pair again, and never asks twice', async () => {
     const r = rig({ tvs: [tvAt({ knownKeys: [], prompt: 'never' })] });
     await expect(r.key('ok')).rejects.toMatchObject({ code: 'notPaired' });
     const registers = (): number => r.tv.frames.filter((f) => f.type === 'register').length;
     expect(registers()).toBe(1);
     await expect(r.key('ok')).rejects.toMatchObject({ code: 'notPaired' });
     expect(registers()).toBe(1);
-    await advance(60000);
+    await advance(600000);
     await expect(r.key('ok')).rejects.toMatchObject({ code: 'notPaired' });
-    expect(registers()).toBe(2);
+    expect(registers()).toBe(1);
   });
 
   it('follows a host change saved in the store', async () => {
@@ -587,6 +587,52 @@ describe('webos driver: fix round 1', () => {
     expect(mainSockets(r.lan)).toHaveLength(1);
     expect(reports[0]).toMatchObject({ state: { power: true } });
     stop();
+  });
+
+  it('a revoked key over 300 s produces exactly one register and is not reported as off', async () => {
+    const tv = tvAt({ knownKeys: [], prompt: 'never' });
+    const r = rig({ tvs: [tv] });
+    const { reports, stop } = r.observe();
+    await advance(300000);
+    expect(tv.frames.filter((f) => f.type === 'register')).toHaveLength(1);
+    expect(reports).not.toContainEqual({ kind: 'tv', state: { power: false } });
+    stop();
+  });
+
+  it('after the prompt a send throws notPaired at once and opens no socket', async () => {
+    const tv = tvAt({ knownKeys: [], prompt: 'never' });
+    const r = rig({ tvs: [tv] });
+    await expect(r.key('ok')).rejects.toMatchObject({ code: 'notPaired' });
+    const opened = r.lan.opened.length;
+    await expect(r.key('ok')).rejects.toMatchObject({ code: 'notPaired' });
+    await advance(120000);
+    await expect(r.send({ kind: 'tv.text', text: 'a' })).rejects.toMatchObject({
+      code: 'notPaired',
+    });
+    expect(r.lan.opened).toHaveLength(opened);
+  });
+
+  it('a prompt seen by rediscovery marks the link notPaired too', async () => {
+    const other = createFakeTv({ host: '192.168.1.41', mac: '00:11:22:33:44:55', prompt: 'never' });
+    const r = rig({ tvs: [other] });
+    const { stop } = r.observe();
+    await advance(10000);
+    const opened = r.lan.opened.length;
+    await expect(r.key('ok')).rejects.toMatchObject({ code: 'notPaired' });
+    await advance(300000);
+    expect(r.lan.opened).toHaveLength(opened);
+    expect(other.frames.filter((f) => f.type === 'register')).toHaveLength(1);
+    stop();
+  });
+
+  it('clearNotPaired lets the driver connect again', async () => {
+    const tv = tvAt({ knownKeys: [], prompt: 'never' });
+    const r = rig({ tvs: [tv] });
+    await expect(r.key('ok')).rejects.toMatchObject({ code: 'notPaired' });
+    tv.knownKeys.push('k');
+    r.driver.clearNotPaired('tv1');
+    await r.key('ok');
+    expect(tv.buttons).toEqual(['ENTER']);
   });
 
   it('a revoked key: at most one register a minute, and not reported as off', async () => {

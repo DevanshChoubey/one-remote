@@ -67,6 +67,8 @@ interface Entry {
   offTimer: ReturnType<typeof setTimeout> | undefined;
   /** The TV (or something at its address) asked us to pair since the last failed connect. */
   sawPrompt: boolean;
+  /** A register produced a prompt: stay quiet until `clearNotPaired` or an app restart. */
+  notPaired: boolean;
   noKey: boolean;
   nextPlayPause: 'PAUSE' | 'PLAY';
 }
@@ -77,7 +79,9 @@ function asDeviceError(e: unknown): DeviceError {
 }
 
 /** The `webos` link driver: one SSAP connection per TV, kept alive while the screen observes. */
-export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'webos' } {
+export function createWebosDriver(
+  o: WebosDriverOpts,
+): LinkDriver & { kind: 'webos'; clearNotPaired(deviceId: string): void } {
   const t = o.transport;
   const connectMs = o.connectMs ?? 1500;
   const heartbeatMs = o.heartbeatMs ?? 5000;
@@ -119,6 +123,7 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
         offEmitted: false,
         offTimer: undefined,
         sawPrompt: false,
+        notPaired: false,
         noKey: false,
         nextPlayPause: 'PAUSE',
       };
@@ -163,6 +168,7 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
   // ---- connection ------------------------------------------------------------------------------
 
   async function doConnect(e: Entry): Promise<SsapClient> {
+    if (e.notPaired) throw new DeviceError('notPaired', 'The TV asked to pair again');
     const link = e.link;
     const key = await o.secrets.get(link.clientKeyRef);
     e.noKey = !key;
@@ -196,6 +202,7 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
         // keep making a prompt appear on a TV screen.
         promptedAt.set(host, Date.now());
         e.sawPrompt = true;
+        e.notPaired = true;
         throw new DeviceError('notPaired', 'The TV asked to pair again');
       }
       throw asDeviceError(err);
@@ -278,7 +285,7 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
   }
 
   async function runAttempt(e: Entry): Promise<void> {
-    if (e.observers.size === 0 || e.client || e.rediscovering) return;
+    if (e.observers.size === 0 || e.client || e.rediscovering || e.notPaired) return;
     e.sawPrompt = false;
     try {
       await connectOnce(e);
@@ -289,7 +296,7 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
 
   async function onConnectFailed(e: Entry, _err: unknown): Promise<void> {
     if (e.observers.size === 0) return;
-    if (e.noKey) return; // nothing to retry until the TV is paired
+    if (e.noKey || e.notPaired) return; // nothing to retry until the TV is paired
     const onWifi = await t.onWifi().catch(() => false);
     if (!onWifi) {
       // Off the home Wi-Fi: say nothing, keep trying.
@@ -329,10 +336,11 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
         { ...e.link, host: e.host },
         {
           connectMs,
-          isHeldOff,
+          isHeldOff: (h) => e.notPaired || isHeldOff(h),
           onPrompted: (h) => {
             promptedAt.set(h, Date.now());
             e.sawPrompt = true;
+            e.notPaired = true;
           },
         },
       );
@@ -359,12 +367,8 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
       else scheduleBackoff(e);
       return;
     }
-    if (e.sawPrompt) {
-      // Something at this address wants pairing. Stay quiet (not "off") and do not make the
-      // prompt come back more than once a minute.
-      scheduleAttempt(e, PROMPT_COOLDOWN_MS);
-      return;
-    }
+    // Something wants pairing: not "off", and no more automatic tries (notPaired is set).
+    if (e.notPaired) return;
     emitOff(e);
     scheduleBackoff(e);
   }
@@ -528,6 +532,16 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
 
   return {
     kind: 'webos',
+    /** Call after a successful `pairTv` for this device: lets the driver connect again. */
+    clearNotPaired(deviceId: string): void {
+      const e = entries.get(deviceId);
+      if (!e) return;
+      e.notPaired = false;
+      e.sawPrompt = false;
+      promptedAt.clear();
+      e.attempt = 0;
+      if (e.observers.size > 0 && !e.client) scheduleAttempt(e, 0);
+    },
     available: () => true,
     capabilities: (): Capabilities => ({}),
 
@@ -553,6 +567,7 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
       }
       if (cmd.kind !== 'tv.key' && cmd.kind !== 'tv.text') throw new DeviceError('unsupported');
       const e = entryFor(device, link);
+      if (e.notPaired) throw new DeviceError('notPaired', 'The TV asked to pair again');
       try {
         await sendOverSsap(e, cmd);
       } finally {
@@ -571,7 +586,7 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
       if (e.state) cb({ kind: 'tv', state: { ...e.state } });
       if (e.client) {
         if (!e.session) startSession(e, e.client);
-      } else if (!e.retryTimer && !e.rediscovering && !e.connecting) {
+      } else if (!e.retryTimer && !e.rediscovering && !e.connecting && !e.notPaired) {
         e.attempt = 0;
         e.noKey = false;
         scheduleAttempt(e, 0);
