@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { t } from '@/i18n';
+import { interpolate, t } from '@/i18n';
 import common from '@/i18n/en/common';
 
 const NAMESPACES: Record<string, Record<string, string>> = { common };
@@ -21,8 +21,30 @@ describe('i18n', () => {
     expect(t('common.appName')).toBe('One Remote');
   });
 
-  it('interpolates variables', () => {
-    expect(t('common.appName', { unused: 1 })).toBe('One Remote');
+  describe('interpolate', () => {
+    it('replaces a variable', () => {
+      expect(interpolate('Hi {name}', { name: 'Sam' })).toBe('Hi Sam');
+      expect(interpolate('{n}%', { n: 42 })).toBe('42%');
+    });
+
+    it('replaces a repeated variable everywhere', () => {
+      expect(interpolate('{a} and {a}', { a: 'x' })).toBe('x and x');
+    });
+
+    it('throws on a missing variable in dev, naming the key', () => {
+      expect(() => interpolate('Hi {name}', {}, 'common.hi')).toThrow(/\{name\}.*common\.hi/);
+    });
+
+    it('leaves a missing variable in place in prod', () => {
+      const g = globalThis as { __DEV__?: boolean };
+      const was = g.__DEV__;
+      g.__DEV__ = false;
+      try {
+        expect(interpolate('Hi {name}')).toBe('Hi {name}');
+      } finally {
+        g.__DEV__ = was;
+      }
+    });
   });
 
   it('throws on a missing key in dev', () => {
