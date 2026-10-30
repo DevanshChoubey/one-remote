@@ -1,0 +1,27 @@
+export default {
+  welcomeTitle: 'One Remote',
+  welcomeBody:
+    'Your TV, ACs and fans in one place. No account, no ads, nothing leaves your home network.',
+  title: 'Home',
+  deviceCountOne: '1 device',
+  deviceCountMany: '{count} devices',
+  addFirst: 'Add your first device',
+  needsIr: 'Needs a phone with IR',
+  noIrBanner:
+    "This phone has no IR blaster. Devices that only take IR can't be controlled from it.",
+  settings: 'Settings',
+  add: 'Add a device',
+  power: 'Power {name}',
+  summaryOff: 'Off',
+  summaryOn: 'On',
+  summaryAc: '{mode} · {setpoint}°',
+  summaryFan: 'Speed {speed}',
+  summaryTv: '{app} · Vol {volume}',
+  summaryVolume: 'Vol {volume}',
+  modeCool: 'Cool',
+  modeDry: 'Dry',
+  modeFan: 'Fan',
+  modeAuto: 'Auto',
+  placeholderBody: 'The remote for {name} is coming soon.',
+  notFound: 'This device is no longer here.',
+} as const;

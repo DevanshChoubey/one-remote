@@ -101,6 +101,10 @@ export function defaultAcState(): AcState {
   return { power: false, mode: 'cool', setpoint: 24, fan: 'auto', swing: false, sleep: false };
 }
 
+export function defaultFanState(): FanState {
+  return { power: false, speed: 3, boost: false, sleep: false, timerHours: 0 };
+}
+
 export function clampSetpoint(n: number, caps?: Capabilities): number {
   const min = caps?.setpoint?.min ?? DEFAULT_SETPOINT_MIN;
   const max = caps?.setpoint?.max ?? DEFAULT_SETPOINT_MAX;
