@@ -4,6 +4,7 @@ import DeviceRoute from '../../app/device/[id]';
 import { device, makeServices, renderWith, room } from '../screens/helpers';
 
 let mockId = 'd1';
+jest.mock('expo-haptics', () => ({ selectionAsync: jest.fn() }));
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: mockId }),
   useRouter: () => ({ push: jest.fn(), back: jest.fn(), dismissAll: jest.fn() }),
@@ -12,7 +13,7 @@ jest.mock('expo-router', () => ({
 const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
 describe('app/device/[id]', () => {
-  it.each(['tv', 'ac', 'fan'] as const)('renders the %s placeholder for a %s', async (kind) => {
+  it.each(['tv', 'fan'] as const)('renders the %s placeholder for a %s', async (kind) => {
     const s = makeServices();
     await s.store.upsertRoom(room('r1', 'Bedroom', 0));
     await s.store.upsertDevice(device('d1', 'r1', 0, { kind, name: `My ${kind}` }));
@@ -21,6 +22,16 @@ describe('app/device/[id]', () => {
     await renderWith(s, <DeviceRoute />);
     expect(await screen.findByText(t('home.placeholderBody', { name: `My ${kind}` }))).toBeTruthy();
     expect(screen.getByTestId(`remote-placeholder-${kind}`)).toBeTruthy();
+  });
+
+  it('renders the AC remote for an ac', async () => {
+    const s = makeServices();
+    await s.store.upsertRoom(room('r1', 'Bedroom', 0));
+    await s.store.upsertDevice(device('d1', 'r1', 0, { kind: 'ac', name: 'My ac' }));
+    await flush();
+    mockId = 'd1';
+    await renderWith(s, <DeviceRoute />);
+    expect(await screen.findByLabelText(t('ac.power'))).toBeTruthy();
   });
 
   it('says the device is gone for an unknown id', async () => {

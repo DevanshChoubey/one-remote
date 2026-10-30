@@ -1,3 +1,4 @@
+import ac from './en/ac';
 import add from './en/add';
 import common from './en/common';
 import device from './en/device';
@@ -6,6 +7,7 @@ import settings from './en/settings';
 
 const namespaces: Record<string, Record<string, string>> = {
   common,
+  ac,
   home,
   add,
   device,
