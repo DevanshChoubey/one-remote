@@ -1,13 +1,16 @@
 import type { FanState } from '@/core';
 import type { FanKey } from './catalogue';
 
+/** What the driver knows about a fan. `togglesUnknown`: boost, sleep and light may be anything. */
+export type FanMemory = FanState & { togglesUnknown?: boolean };
+
 /**
  * The keys a fan remote must send to go from `prev` (what we last sent, if known) to `next`.
  * Speed keys are absolute, so they are safe to send. Boost, sleep and light are toggles: they are
  * sent only when the last state is known and the fan was on, never guessed.
  */
 export function fanKeys(
-  prev: FanState | undefined,
+  prev: FanMemory | undefined,
   next: FanState,
   keys: ReadonlySet<FanKey>,
 ): FanKey[] {
@@ -18,7 +21,7 @@ export function fanKeys(
   };
   const wasOn = prev?.power === true;
   if (!prev || !wasOn || prev.speed !== next.speed) add(`speed${next.speed}`);
-  if (prev && wasOn) {
+  if (prev && wasOn && !prev.togglesUnknown) {
     if (prev.boost !== next.boost) add('boost');
     if (prev.sleep !== next.sleep) add('sleep');
     if ((prev.light ?? false) !== (next.light ?? false)) add('light');

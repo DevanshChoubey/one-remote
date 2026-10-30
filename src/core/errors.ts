@@ -1,5 +1,12 @@
 export type DeviceErrorCode =
-  'notSent' | 'timeout' | 'notPaired' | 'noIrEmitter' | 'noLink' | 'notLocal' | 'unsupported';
+  | 'notSent'
+  | 'timeout'
+  | 'notPaired'
+  | 'noIrEmitter'
+  | 'noLink'
+  | 'notLocal'
+  | 'unsupported'
+  | 'partiallySent';
 
 export class DeviceError extends Error {
   readonly code: DeviceErrorCode;

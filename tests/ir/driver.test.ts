@@ -1,6 +1,8 @@
 import type { AcState, Command, Device, FanState, Link } from '@/core';
-import { defaultAcState } from '@/core';
+import { DeviceError, defaultAcState } from '@/core';
+import { createCatalogue, type FanKey } from '@/ir/catalogue';
 import { createIrDriver } from '@/ir/driver';
+import type { IrSignal } from '@/ir/emitter';
 import { necSignal } from '@/ir/nec';
 import { createFakeEmitter } from '@/ir/testing/fakeEmitter';
 
@@ -58,57 +60,151 @@ describe('ir driver', () => {
   });
 
   describe('fan keys', () => {
-    beforeEach(() => jest.useFakeTimers());
-    afterEach(() => jest.useRealTimers());
-
-    it('spaces consecutive keys by at least 200 ms', async () => {
+    // A fan remote with every key, each with its own signal, so sent signals name the keys.
+    const KEYS: FanKey[] = [
+      'off',
+      'speed1',
+      'speed2',
+      'speed3',
+      'speed4',
+      'speed5',
+      'boost',
+      'sleep',
+      'light',
+      'timer1',
+      'timer2',
+      'timer4',
+      'timer8',
+      'timerOff',
+    ];
+    const sigOf = (k: FanKey): IrSignal => ({ freqHz: 38000, pattern: [KEYS.indexOf(k) + 1, 1] });
+    const fullKeys = Object.fromEntries(KEYS.map((k) => [k, sigOf(k)])) as Record<FanKey, IrSignal>;
+    const catalogue = createCatalogue(
+      [{ id: 'test/full', kind: 'fan', brandId: 'test', label: 'Full', caps: {}, keys: fullKeys }],
+      [],
+    );
+    const names = (e: { sent: IrSignal[] }): FanKey[] =>
+      e.sent.map((s) => KEYS[(s.pattern[0] ?? 1) - 1] as FanKey);
+    const known = (o: Partial<FanState> = {}): FanState => ({
+      power: true,
+      speed: 3,
+      boost: false,
+      sleep: false,
+      timerHours: 0,
+      ...o,
+    });
+    const setup = (gapMs = 0) => {
       const emitter = createFakeEmitter();
-      const times: number[] = [];
-      const spy = jest.spyOn(emitter, 'transmit').mockImplementation(() => {
-        times.push(Date.now());
-        return Promise.resolve();
+      const driver = createIrDriver({ emitter, catalogue, gapMs });
+      const [d, l] = dev('fan', 'test/full');
+      return { emitter, driver, d, l };
+    };
+
+    describe('spacing', () => {
+      beforeEach(() => jest.useFakeTimers());
+      afterEach(() => jest.useRealTimers());
+
+      it('sends the exact keys in order, at least 200 ms apart', async () => {
+        const emitter = createFakeEmitter();
+        const times: number[] = [];
+        const spy = jest.spyOn(emitter, 'transmit').mockImplementation(() => {
+          times.push(Date.now());
+          return Promise.resolve();
+        });
+        const driver = createIrDriver({ emitter, catalogue });
+        const [d, l] = dev('fan', 'test/full');
+        driver.seedFan(d.id, known());
+        const p = driver.send(d, l, fan({ speed: 4, boost: true, light: true }));
+        await jest.runAllTimersAsync();
+        await p;
+        expect(spy.mock.calls.map(([s]) => s)).toEqual([
+          sigOf('speed4'),
+          sigOf('boost'),
+          sigOf('light'),
+        ]);
+        expect(times[1]! - times[0]!).toBeGreaterThanOrEqual(200);
+        expect(times[2]! - times[1]!).toBeGreaterThanOrEqual(200);
       });
-      const driver = createIrDriver({ emitter });
-      const [d, l] = dev('fan', 'atomberg-fan/1170');
-      // Make the last state known: on at speed 3.
-      let p = driver.send(d, l, fan());
-      await jest.runAllTimersAsync();
-      await p;
-      times.length = 0;
-      // 1170 has no light key, so use speed change plus the boost of 1160 instead.
-      const [d2, l2] = dev('fan', 'atomberg-fan/1160', 'd2');
-      p = driver.send(d2, l2, fan({ speed: 4 }));
-      await jest.runAllTimersAsync();
-      await p;
-      p = driver.send(d2, l2, fan({ speed: 5, boost: true }));
-      await jest.runAllTimersAsync();
-      await p;
-      expect(spy.mock.calls.length).toBe(4);
-      expect(times).toHaveLength(3);
-      expect(times[2]! - times[1]!).toBeGreaterThanOrEqual(200);
     });
 
-    it('does not remember the state when a key fails, so the next press starts fresh', async () => {
-      const emitter = createFakeEmitter();
-      const driver = createIrDriver({ emitter, gapMs: 0 });
-      const [d, l] = dev('fan', 'atomberg-fan/1160');
-      await driver.send(d, l, fan({ speed: 4 }));
-      emitter.sent.length = 0;
-      // speed 5 + boost needs two keys; the second fails.
-      let n = 0;
+    it('a failure after some keys went out is partiallySent and memory reflects them', async () => {
+      const { emitter, driver, d, l } = setup();
+      driver.seedFan(d.id, known());
       const real = emitter.transmit.bind(emitter);
+      let n = 0;
       jest.spyOn(emitter, 'transmit').mockImplementation((s) => {
         n += 1;
-        return n === 2 ? Promise.reject(new Error('x')) : real(s);
+        return n === 2 ? Promise.reject(new DeviceError('notSent')) : real(s);
       });
-      await expect(driver.send(d, l, fan({ speed: 5, boost: true }))).rejects.toMatchObject({
+      await expect(driver.send(d, l, fan({ boost: true, sleep: true }))).rejects.toMatchObject({
+        code: 'partiallySent',
+      });
+      expect(names(emitter)).toEqual(['boost']);
+      // Boost is remembered as on, so the same press now sends only sleep.
+      await driver.send(d, l, fan({ boost: true, sleep: true }));
+      expect(names(emitter)).toEqual(['boost', 'sleep']);
+    });
+
+    it('a failure of the first key is notSent and memory is unchanged', async () => {
+      const { emitter, driver, d, l } = setup();
+      driver.seedFan(d.id, known());
+      emitter.failNext();
+      await expect(driver.send(d, l, fan({ boost: true, sleep: true }))).rejects.toMatchObject({
         code: 'notSent',
       });
-      // Last state is still "on, speed 4": an identical retry sends speed5 and boost again.
-      n = 0;
-      jest.spyOn(emitter, 'transmit').mockImplementation((s) => real(s));
-      await driver.send(d, l, fan({ speed: 5, boost: true }));
-      expect(emitter.sent).toHaveLength(3);
+      expect(emitter.sent).toHaveLength(0);
+      await driver.send(d, l, fan({ boost: true, sleep: true }));
+      expect(names(emitter)).toEqual(['boost', 'sleep']);
+    });
+
+    it('does not record toggles that were never sent: they stay unknown', async () => {
+      const { emitter, driver, d, l } = setup();
+      await driver.send(d, l, fan({ boost: true }));
+      expect(names(emitter)).toEqual(['speed3']);
+      await driver.send(d, l, fan({ boost: false }));
+      await driver.send(d, l, fan({ boost: true }));
+      expect(names(emitter)).toEqual(['speed3']);
+    });
+
+    it('forgets the toggles after a power off and on cycle', async () => {
+      const { emitter, driver, d, l } = setup();
+      driver.seedFan(d.id, known({ boost: true }));
+      await driver.send(d, l, fan({ power: false }));
+      await driver.send(d, l, fan({ boost: false }));
+      await driver.send(d, l, fan({ boost: true }));
+      expect(names(emitter)).toEqual(['off', 'speed3']);
+    });
+
+    it('serialises sends: two concurrent presses do not double-send a toggle', async () => {
+      const { emitter, driver, d, l } = setup();
+      driver.seedFan(d.id, known());
+      const [d2] = dev('fan', 'test/full', 'd2');
+      driver.seedFan(d2.id, known());
+      await Promise.all([
+        driver.send(d, l, fan({ boost: true })),
+        driver.send(d, l, fan({ boost: true })),
+        driver.send(d2, l, fan({ boost: true })),
+      ]);
+      // d once, d again suppressed, d2 once (its own memory).
+      expect(names(emitter)).toEqual(['boost', 'boost']);
+    });
+
+    it('sends emitter calls one at a time across devices', async () => {
+      const emitter = createFakeEmitter();
+      let active = 0;
+      let max = 0;
+      jest.spyOn(emitter, 'transmit').mockImplementation(async () => {
+        active += 1;
+        max = Math.max(max, active);
+        await Promise.resolve();
+        await Promise.resolve();
+        active -= 1;
+      });
+      const driver = createIrDriver({ emitter, catalogue, gapMs: 0 });
+      const [a, l] = dev('fan', 'test/full', 'a');
+      const [b] = dev('fan', 'test/full', 'b');
+      await Promise.all([driver.send(a, l, fan()), driver.send(b, l, fan())]);
+      expect(max).toBe(1);
     });
 
     it('rejects unsupported before transmitting anything when a needed key is missing', async () => {
@@ -120,9 +216,8 @@ describe('ir driver', () => {
         code: 'unsupported',
       });
       expect(emitter.sent).toHaveLength(0);
-      // Known on at speed 4; speed 5 plus a light toggle (no light key) must not half-send speed 5.
-      await driver.send(d, l, fan({ speed: 4 }));
-      emitter.sent.length = 0;
+      // Known state: on at speed 4. Speed 5 plus a light toggle (no light key) must not half-send.
+      driver.seedFan(d.id, known({ speed: 4 }));
       await expect(driver.send(d, l, fan({ speed: 5, light: true }))).rejects.toMatchObject({
         code: 'unsupported',
       });
@@ -138,9 +233,9 @@ describe('ir driver', () => {
       const emitter = createFakeEmitter();
       const driver = createIrDriver({ emitter, gapMs: 0 });
       const [d, l] = dev('fan', 'atomberg-fan/1160');
-      await driver.send(d, l, fan({ speed: 4 }));
+      driver.seedFan(d.id, known({ speed: 4 }));
       await driver.send(d, l, fan({ speed: 5, boost: true }));
-      expect(emitter.sent).toHaveLength(3);
+      expect(emitter.sent).toHaveLength(2);
     });
 
     it('sends nothing when the keys are empty', async () => {
