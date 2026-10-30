@@ -436,4 +436,34 @@ describe('DeviceHub', () => {
     matter.emit('ac1', { kind: 'ac', state: acState });
     expect(cb).toHaveBeenCalledTimes(2);
   });
+
+  it('treats notLocal like notSent: nothing went out, so the press falls back to the next link', async () => {
+    const { hub, webos, ir } = setup();
+    webos.failNext('notLocal');
+    await expect(hub.send('tv1', okKey)).resolves.toEqual({ via: 'ir', fellBack: true });
+    expect(ir.sent).toHaveLength(1);
+  });
+
+  it('tells onDevicesChanged listeners after setDevices, until they unsubscribe', () => {
+    const { hub } = setup();
+    const seen: string[][] = [];
+    const stop = hub.onDevicesChanged(() => {
+      // The new set is already visible when the listener runs.
+      seen.push(
+        ['ac1', 'tv1', 'fan1'].filter((id) => {
+          try {
+            hub.view(id);
+            return true;
+          } catch {
+            return false;
+          }
+        }),
+      );
+    });
+    hub.setDevices([ac]);
+    expect(seen).toEqual([['ac1']]);
+    stop();
+    hub.setDevices([ac, tv]);
+    expect(seen).toHaveLength(1);
+  });
 });

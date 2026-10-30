@@ -72,6 +72,7 @@ export class DeviceHub {
   private readonly queues = new Map<string, Promise<unknown>>();
   private readonly subscribers = new Map<string, Set<(v: DeviceView) => void>>();
   private readonly observers = new Map<string, Unsubscribe[]>();
+  private readonly deviceListeners = new Set<() => void>();
 
   constructor(opts: DeviceHubOptions) {
     for (const d of opts.drivers) this.drivers.set(d.kind, d);
@@ -90,6 +91,26 @@ export class DeviceHub {
     }
     // Subscribed devices may have new links: observe them afresh.
     this.refresh();
+    this.deviceListeners.forEach((cb) => {
+      try {
+        cb();
+      } catch (e) {
+        console.error('DeviceHub devices listener threw', e);
+      }
+    });
+  }
+
+  /** Fires after every setDevices; the hub is the source of truth for which devices exist. */
+  onDevicesChanged(cb: () => void): Unsubscribe {
+    this.deviceListeners.add(cb);
+    return () => {
+      this.deviceListeners.delete(cb);
+    };
+  }
+
+  /** The devices the hub currently knows. */
+  devicesKnown(): Device[] {
+    return [...this.devices.values()];
   }
 
   /**
@@ -220,7 +241,8 @@ export class DeviceHub {
 
   private shouldTryNext(e: unknown, cmd: Command): boolean {
     if (!(e instanceof DeviceError)) return false;
-    if (e.code === 'notSent') return true;
+    // Nothing went out in either case, so the next link may carry it.
+    if (e.code === 'notSent' || e.code === 'notLocal') return true;
     // A timed-out send may have gone out: only repeat it when that is harmless.
     return e.code === 'timeout' && isIdempotent(cmd);
   }

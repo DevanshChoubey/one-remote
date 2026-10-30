@@ -1,6 +1,10 @@
 export default {
   welcomeTitle: 'One Remote',
-  welcomeBody: 'Control your TV, ACs and fans from one place, with no cloud and no account.',
+  welcomeBody:
+    'Your TV, ACs and fans in one place. No account, no ads, nothing leaves your home network.',
+  title: 'Home',
+  deviceCountOne: '1 device',
+  deviceCountMany: '{count} devices',
   addFirst: 'Add your first device',
   needsIr: 'Needs a phone with IR',
   noIrBanner:

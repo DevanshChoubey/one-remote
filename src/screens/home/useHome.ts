@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { defaultAcState } from '@/core';
-import type { AcState, Device, Room } from '@/core';
+import { defaultAcState, defaultFanState } from '@/core';
+import type { AcState, Device, FanState, Room } from '@/core';
 import { useServices } from '@/services';
-import type { DeviceView } from '@/services';
+import type { DeviceView, ViewState } from '@/services';
 
 export interface HomeCard {
   view: DeviceView;
   /** An IR-only device on a phone without an IR emitter. */
   needsIr: boolean;
+  /** What the power switch shows: the last command, else the reported state. */
+  power: boolean;
 }
 
 export interface HomeSection {
@@ -18,114 +20,145 @@ export interface HomeSection {
 export interface HomeModel {
   loaded: boolean;
   sections: HomeSection[];
+  /** Cards on screen. */
   deviceCount: number;
   showNoIrBanner: boolean;
   togglePower(id: string): void;
 }
 
-const MAX_HUB_WAITS = 5;
+/** What a device was last told, and the hub state it was told against. */
+interface Told {
+  state: AcState | FanState;
+  base: ViewState | undefined;
+}
 
-function viewOf(
-  hub: ReturnType<typeof useServices>['hub'],
-  device: Device,
-): DeviceView | undefined {
-  try {
-    return hub.view(device.id);
-  } catch {
-    return undefined; // The hub has not caught up with the store yet.
-  }
+function reportedPower(state: ViewState | undefined): boolean {
+  return state?.kind === 'ac' || state?.kind === 'fan' ? state.state.power : false;
 }
 
 export function useHome(): HomeModel {
   const { hub, store } = useServices();
-  const [data, setData] = useState<{ devices: Device[]; rooms: Room[] } | null>(null);
+  const [rooms, setRooms] = useState<Room[] | null>(null);
+  const [storeCount, setStoreCount] = useState<number | null>(null);
   const [, bump] = useReducer((n: number) => n + 1, 0);
-  // What each AC was last told, so a quick second tap flips from it, not from a stale view.
-  const told = useRef(new Map<string, AcState>());
+  // So a quick second tap flips from the last command, not from a state that has not caught up.
+  const told = useRef(new Map<string, Told>());
+  // The same map as a render-safe snapshot; `commit` publishes the ref's current content.
+  const [toldNow, setToldNow] = useState<ReadonlyMap<string, Told>>(new Map());
+  const commit = useCallback((): void => setToldNow(new Map(told.current)), []);
 
+  // Rooms (and the number of stored devices) come from the store; latest read wins.
   useEffect(() => {
     let alive = true;
-    let waits = 0;
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    let latest = 0;
+    let applied = 0;
     const load = (): void => {
-      Promise.all([store.devices(), store.rooms()]).then(
-        ([devices, rooms]) => {
-          if (!alive) return;
-          setData({ devices, rooms });
-          // The hub syncs from the same store; look again shortly if it is a step behind.
-          if (devices.some((d) => !viewOf(hub, d)) && waits++ < MAX_HUB_WAITS) {
-            timer = setTimeout(load, 0);
-          }
+      const mine = ++latest;
+      Promise.all([store.rooms(), store.devices()]).then(
+        ([r, d]) => {
+          if (!alive || mine < applied) return;
+          applied = mine;
+          setRooms(r);
+          setStoreCount(d.length);
         },
         (e: unknown) => console.error('Could not load the home', e),
       );
     };
     load();
-    const stop = store.subscribe(() => {
-      waits = 0;
-      load();
-    });
+    const stop = store.subscribe(load);
     return () => {
       alive = false;
-      if (timer) clearTimeout(timer);
       stop();
     };
-  }, [hub, store]);
+  }, [store]);
 
-  const ids = data?.devices.map((d) => d.id).join('|') ?? '';
+  // The hub owns the device set; re-render whenever it changes.
   useEffect(() => {
-    const stops = (data?.devices ?? []).flatMap((d) => {
-      try {
-        return [
-          hub.subscribe(d.id, (v) => {
-            if (v.state) told.current.delete(d.id); // The hub now knows the real or last-sent state.
-            bump();
-          }),
-        ];
-      } catch {
-        return [];
-      }
-    });
+    const stop = hub.onDevicesChanged(bump);
+    bump(); // It may have changed between the render and this effect.
+    return stop;
+  }, [hub]);
+
+  const devices = hub.devicesKnown();
+  const ids = devices.map((d) => d.id).join('|');
+  useEffect(() => {
+    const stops = ids
+      .split('|')
+      .filter((id) => id !== '')
+      .flatMap((id) => {
+        try {
+          return [
+            hub.subscribe(id, (v) => {
+              const t = told.current.get(id);
+              if (t && v.state !== t.base) told.current.delete(id); // The hub learned something new.
+              commit();
+              bump();
+            }),
+          ];
+        } catch {
+          return [];
+        }
+      });
     return () => stops.forEach((stop) => stop());
-    // `ids` is the identity of the device set; `data` itself changes on every reload.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hub, ids]);
+  }, [hub, ids, commit]);
 
   const togglePower = useCallback(
     (id: string): void => {
-      const view = hub.view(id);
-      if (view.device.kind !== 'ac') return;
+      let view: DeviceView;
+      try {
+        view = hub.view(id);
+      } catch {
+        return; // The device was removed under the tap.
+      }
+      const kind = view.device.kind;
+      if (kind !== 'ac' && kind !== 'fan') return;
+      const prior = told.current.get(id)?.state;
+      const reported = view.state;
       const last =
-        told.current.get(id) ?? (view.state?.kind === 'ac' ? view.state.state : defaultAcState());
+        prior ??
+        (kind === 'ac'
+          ? reported?.kind === 'ac'
+            ? reported.state
+            : defaultAcState()
+          : reported?.kind === 'fan'
+            ? reported.state
+            : defaultFanState());
       const next = { ...last, power: !last.power };
-      told.current.set(id, next);
-      hub.send(id, { kind: 'ac.set', state: next }).catch((e: unknown) => {
+      const entry: Told = { state: next, base: reported };
+      told.current.set(id, entry);
+      commit();
+      const sent =
+        kind === 'ac'
+          ? hub.send(id, { kind: 'ac.set', state: { ...defaultAcState(), ...next } })
+          : hub.send(id, { kind: 'fan.set', state: { ...defaultFanState(), ...next } });
+      sent.catch((e: unknown) => {
         console.error('Power toggle failed', e);
-        told.current.delete(id);
-        bump();
+        if (told.current.get(id) === entry) told.current.delete(id);
+        commit();
       });
     },
-    [hub],
+    [hub, commit],
   );
 
-  const rooms = [...(data?.rooms ?? [])].sort((a, b) => a.order - b.order);
-  const sections: HomeSection[] = rooms.flatMap((room) => {
-    const cards = (data?.devices ?? [])
-      .filter((d) => d.roomId === room.id)
+  const sorted = [...(rooms ?? [])].sort((a, b) => a.order - b.order);
+  const sections: HomeSection[] = sorted.flatMap((room) => {
+    const cards = devices
+      .filter((d: Device) => d.roomId === room.id)
       .sort((a, b) => a.order - b.order)
-      .flatMap((d) => {
-        const view = viewOf(hub, d);
-        if (!view) return [];
+      .map((d): HomeCard => {
+        const view = hub.view(d.id);
         const needsIr = !view.usable && d.links.length > 0 && d.links.every((l) => l.kind === 'ir');
-        return [{ view, needsIr }];
+        const t = toldNow.get(d.id);
+        return { view, needsIr, power: t ? t.state.power : reportedPower(view.state) };
       });
     return cards.length > 0 ? [{ room, cards }] : [];
   });
 
   return {
-    loaded: data !== null,
+    // Not loaded until the hub has caught up with the store, so Home never flashes the welcome.
+    loaded: rooms !== null && storeCount === devices.length,
     sections,
-    deviceCount: data?.devices.length ?? 0,
+    deviceCount: sections.reduce((n, s) => n + s.cards.length, 0),
     showNoIrBanner: sections.some((s) => s.cards.some((c) => c.needsIr)),
     togglePower,
   };

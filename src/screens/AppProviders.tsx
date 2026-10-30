@@ -15,10 +15,15 @@ function ThemeFromPrefs(props: { services: Services; children: ReactNode }): Rea
   const [theme, setTheme] = useState<Preferences['theme']>('system');
   useEffect(() => {
     let alive = true;
+    let issued = 0;
+    let applied = 0;
     const load = (): void => {
+      const mine = ++issued;
       prefs.get().then(
         (p) => {
-          if (alive) setTheme(p.theme);
+          if (!alive || mine < applied) return;
+          applied = mine;
+          setTheme(p.theme);
         },
         (e: unknown) => console.error('Could not load preferences', e),
       );

@@ -12,7 +12,18 @@ export function HomeScreen(): ReactElement {
 
   const header = (
     <Row align="center" justify="between">
-      {empty ? <Box /> : <Txt variant="title">{t('common.appName')}</Txt>}
+      {empty ? (
+        <Box />
+      ) : (
+        <Column>
+          <Txt variant="title">{t('home.title')}</Txt>
+          <Txt variant="caption" color="ink2">
+            {home.deviceCount === 1
+              ? t('home.deviceCountOne')
+              : t('home.deviceCountMany', { count: home.deviceCount })}
+          </Txt>
+        </Column>
+      )}
       <Row gap={1} align="center">
         {empty ? null : (
           <Touchable onPress={() => router.push('/add')} accessibilityLabel={t('home.add')}>

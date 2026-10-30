@@ -15,14 +15,13 @@ export function DeviceCard(props: DeviceCardProps): ReactElement {
   const { device } = view;
   const disabled = !view.usable;
   const summary = needsIr ? t('home.needsIr') : cardSummary(view);
-  const on = view.state?.kind !== 'tv' && view.state?.state.power === true;
   return (
     <Card testID={`device-card-${device.id}`}>
       <Row align="center" justify="between" gap={3}>
         <Box flex={1}>
           <Touchable
             onPress={() => props.onOpen(device.id)}
-            accessibilityLabel={device.name}
+            accessibilityLabel={summary ? `${device.name}, ${summary}` : device.name}
             disabled={disabled}
           >
             <Column gap={1}>
@@ -35,10 +34,11 @@ export function DeviceCard(props: DeviceCardProps): ReactElement {
             </Column>
           </Touchable>
         </Box>
-        {device.kind === 'ac' ? (
+        {device.kind === 'ac' || device.kind === 'fan' ? (
           <Toggle
             label={t('home.power', { name: device.name })}
-            value={on}
+            value={props.card.power}
+            hideLabel
             onChange={() => props.onTogglePower(device.id)}
             disabled={disabled}
           />

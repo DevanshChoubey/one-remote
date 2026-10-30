@@ -6,14 +6,17 @@ import { createAsyncStoragePreferenceStore } from '@/store/preferences';
 import { createSecureSecretStore } from '@/store/secrets';
 import type { Services } from './services';
 
-/** Keeps the hub's device list equal to the store's; the latest read wins. */
+/** Keeps the hub's device list equal to the store's; applies the newest read that succeeded. */
 function syncHub(hub: DeviceHub, store: Services['store']): void {
-  let latest = 0;
+  let issued = 0;
+  let applied = 0;
   const load = (): void => {
-    const mine = ++latest;
+    const mine = ++issued;
     store.devices().then(
       (devices: Device[]) => {
-        if (mine === latest) hub.setDevices(devices);
+        if (mine < applied) return;
+        applied = mine;
+        hub.setDevices(devices);
       },
       (e: unknown) => console.error('Could not load devices into the hub', e),
     );
