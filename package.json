@@ -8,7 +8,7 @@
     "ios": "expo run:ios",
     "test": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 jest",
     "typecheck": "tsc --noEmit",
-    "lint": "expo lint",
+    "lint": "expo lint --max-warnings=0",
     "format": "prettier --write .",
     "prepare": "lefthook install"
   },

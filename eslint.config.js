@@ -34,10 +34,43 @@ function bannedGlobals(names) {
   return names.map((name) => ({ name, message: NETWORK_MESSAGE }));
 }
 
+// The same globals reached through a global object, e.g. `globalThis.fetch` or `window['fetch']`.
+const GLOBAL_OBJECTS = ['globalThis', 'window', 'global', 'self'];
+
+function bannedProperties(names) {
+  return GLOBAL_OBJECTS.flatMap((object) =>
+    names.map((property) => ({ object, property, message: NETWORK_MESSAGE })),
+  );
+}
+
 const socketImports = {
   group: ['dgram', 'node:dgram', 'react-native-udp', 'react-native-udp/**'],
   message: 'Raw sockets (dgram, react-native-udp) are allowed only in src/transport.',
 };
+
+// expo/fetch ships a working fetch with the SDK, so it is banned in every folder, src/transport too.
+const fetchImports = {
+  group: ['expo/fetch', 'expo/fetch/**'],
+  message: NETWORK_MESSAGE,
+};
+
+// no-restricted-imports does not see require() or import(). esquery regexes cannot hold a `/`,
+// so `.` stands in for it.
+const SOCKET_MODULE = '/^(node:)?dgram$|^react-native-udp($|.)/';
+const FETCH_MODULE = '/^expo.fetch($|.)/';
+
+function bannedLoads(moduleRegex, message) {
+  return [
+    {
+      selector: `CallExpression[callee.name='require'][arguments.0.value=${moduleRegex}]`,
+      message,
+    },
+    { selector: `ImportExpression[source.value=${moduleRegex}]`, message },
+  ];
+}
+
+const fetchLoads = bannedLoads(FETCH_MODULE, NETWORK_MESSAGE);
+const socketLoads = bannedLoads(SOCKET_MODULE, socketImports.message);
 
 const domainLayering = {
   group: ['@/screens', '@/screens/**', '@/ui', '@/ui/**', '**/app/**'],
@@ -81,11 +114,19 @@ module.exports = [
           allowHigherOrderFunctions: true,
         },
       ],
-      'no-restricted-imports': ['error', { ...rnVisualRestriction, patterns: [socketImports] }],
+      'no-restricted-imports': [
+        'error',
+        { ...rnVisualRestriction, patterns: [socketImports, fetchImports] },
+      ],
       'no-restricted-globals': [
         'error',
         ...bannedGlobals(['fetch', 'XMLHttpRequest', 'WebSocket']),
       ],
+      'no-restricted-properties': [
+        'error',
+        ...bannedProperties(['fetch', 'XMLHttpRequest', 'WebSocket']),
+      ],
+      'no-restricted-syntax': ['error', ...socketLoads, ...fetchLoads],
     },
   },
   // Sockets belong to src/transport only.
@@ -93,6 +134,8 @@ module.exports = [
     files: ['src/transport/**'],
     rules: {
       'no-restricted-globals': ['error', ...bannedGlobals(['fetch', 'XMLHttpRequest'])],
+      'no-restricted-properties': ['error', ...bannedProperties(['fetch', 'XMLHttpRequest'])],
+      'no-restricted-syntax': ['error', ...fetchLoads],
     },
   },
   // Layering. Domain modules never import app/, screens or ui.
@@ -103,7 +146,7 @@ module.exports = [
         'error',
         {
           ...rnVisualRestriction,
-          patterns: [domainLayering, socketImports],
+          patterns: [domainLayering, socketImports, fetchImports],
         },
       ],
     },
@@ -112,7 +155,10 @@ module.exports = [
   {
     files: ['src/transport/**'],
     rules: {
-      'no-restricted-imports': ['error', { ...rnVisualRestriction, patterns: [domainLayering] }],
+      'no-restricted-imports': [
+        'error',
+        { ...rnVisualRestriction, patterns: [domainLayering, fetchImports] },
+      ],
     },
   },
   // Core, device, ir, webos and matter stay pure TypeScript so they run in plain Jest and Node.
@@ -127,6 +173,7 @@ module.exports = [
           patterns: [
             domainLayering,
             socketImports,
+            fetchImports,
             {
               group: [
                 'react-native',
@@ -161,6 +208,7 @@ module.exports = [
             },
             ...serviceImports,
             socketImports,
+            fetchImports,
           ],
         },
       ],
@@ -179,6 +227,7 @@ module.exports = [
             },
             ...serviceImports,
             socketImports,
+            fetchImports,
           ],
         },
       ],
@@ -196,6 +245,7 @@ module.exports = [
             { group: ['**/app/**'], message: 'Screens must not import from app/.' },
             ...serviceImports,
             socketImports,
+            fetchImports,
           ],
         },
       ],
@@ -207,16 +257,16 @@ module.exports = [
     rules: {
       'no-restricted-imports': [
         'error',
-        { ...rnVisualRestriction, patterns: [...serviceImports, socketImports] },
+        { ...rnVisualRestriction, patterns: [...serviceImports, socketImports, fetchImports] },
       ],
       'import/no-default-export': 'off',
     },
   },
-  // Tests may use any import.
+  // Tests may use any import, except a working fetch.
   {
     files: ['tests/**'],
     rules: {
-      'no-restricted-imports': 'off',
+      'no-restricted-imports': ['error', { patterns: [fetchImports] }],
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/explicit-function-return-type': 'off',
     },
