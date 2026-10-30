@@ -82,6 +82,16 @@ function bannedLoads(moduleRegex, message) {
 const fetchLoads = bannedLoads(FETCH_MODULE, NETWORK_MESSAGE);
 const socketLoads = bannedLoads(SOCKET_MODULE, socketImports.message);
 
+// A template-literal module name would slip past the literal checks above, so none is allowed.
+const TEMPLATE_LOAD_MESSAGE = 'Load modules by a plain string, so the network bans can see them.';
+const templateLoads = [
+  {
+    selector: "CallExpression[callee.name='require'][arguments.0.type='TemplateLiteral']",
+    message: TEMPLATE_LOAD_MESSAGE,
+  },
+  { selector: "ImportExpression[source.type='TemplateLiteral']", message: TEMPLATE_LOAD_MESSAGE },
+];
+
 const domainLayering = {
   group: ['@/screens', '@/screens/**', '@/ui', '@/ui/**', '**/app/**'],
   message: 'Domain modules must not import from app/, screens or ui.',
@@ -124,6 +134,12 @@ module.exports = [
           allowHigherOrderFunctions: true,
         },
       ],
+    },
+  },
+  // The network bans cover every script Metro can bundle, not only TypeScript.
+  {
+    files: ['**/*.{js,jsx,mjs,cjs,ts,tsx}'],
+    rules: {
       'no-restricted-imports': [
         'error',
         { ...rnVisualRestriction, patterns: [socketImports, fetchImports] },
@@ -136,7 +152,7 @@ module.exports = [
         'error',
         ...bannedProperties(['fetch', 'XMLHttpRequest', 'WebSocket']),
       ],
-      'no-restricted-syntax': ['error', ...socketLoads, ...fetchLoads],
+      'no-restricted-syntax': ['error', ...socketLoads, ...fetchLoads, ...templateLoads],
     },
   },
   // Sockets belong to src/transport only.
@@ -145,7 +161,7 @@ module.exports = [
     rules: {
       'no-restricted-globals': ['error', ...bannedGlobals(['fetch', 'XMLHttpRequest'])],
       'no-restricted-properties': ['error', ...bannedProperties(['fetch', 'XMLHttpRequest'])],
-      'no-restricted-syntax': ['error', ...fetchLoads],
+      'no-restricted-syntax': ['error', ...fetchLoads, ...templateLoads],
     },
   },
   // Layering. Domain modules never import app/, screens or ui.

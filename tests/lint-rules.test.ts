@@ -193,6 +193,31 @@ describe('architecture lint rules', () => {
     );
   });
 
+  it('applies the network bans to JavaScript files too', () => {
+    for (const file of [
+      'src/screens/zz.js',
+      'app/zz.jsx',
+      'src/services/zz.mjs',
+      'src/ui/zz.cjs',
+    ]) {
+      expect(errorsFor("fetch('https://x.com');\n", file)).toContain('no-restricted-globals');
+    }
+    expect(
+      errorsFor("const m = require('dgram');\nmodule.exports = m;\n", 'src/screens/zz.js'),
+    ).toContain('no-restricted-syntax');
+  });
+
+  it('bans loading a module by a template literal', () => {
+    for (const file of ['src/screens/zz.ts', 'src/transport/zz.ts']) {
+      expect(errorsFor('export const m = require(`dgram`);\n', file)).toContain(
+        'no-restricted-syntax',
+      );
+      expect(errorsFor('export const m = import(`expo/fetch`);\n', file)).toContain(
+        'no-restricted-syntax',
+      );
+    }
+  });
+
   it('runs lint with --max-warnings=0', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as {
       scripts: Record<string, string>;
