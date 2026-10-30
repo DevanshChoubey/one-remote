@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import type { Device, Link } from '@/core';
+import { TvLinkActions } from '../tv/TvLinkActions';
 
 export interface LinkActionProps {
   device: Device;
@@ -16,6 +17,10 @@ export type LinkActionRenderer = (props: LinkActionProps) => ReactElement | null
  */
 export const LINK_ACTIONS: readonly LinkActionRenderer[] = [
   // tv lane
+  ({ device, link }: LinkActionProps): ReactElement | null =>
+    device.kind === 'tv' && link.kind === 'webos' ? (
+      <TvLinkActions deviceId={device.id} link={link} />
+    ) : null,
   // matter lane
   // ir lane
 ];

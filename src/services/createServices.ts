@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Device, LinkDriver } from '@/core';
+import type { Device, Link, LinkDriver, TvSetup } from '@/core';
 import { DeviceHub } from '@/device/hub';
 import { createAsyncStorageStore } from '@/store/asyncStorageStore';
 import { createAsyncStoragePreferenceStore } from '@/store/preferences';
@@ -104,6 +104,63 @@ export function webosHostChanged(
   };
 }
 
+type ClearsNotPaired = LinkDriver & {
+  clearNotPaired(deviceId: string, link?: Extract<Link, { kind: 'webos' }>): void;
+};
+
+function canClearNotPaired(d: LinkDriver): d is ClearsNotPaired {
+  return 'clearNotPaired' in d && typeof d.clearNotPaired === 'function';
+}
+
+/**
+ * Makes the TV setup finish its job: a TV found at a new address is saved (as the driver's own
+ * rediscovery does), and after pairing again the driver is released from its "not paired" latch,
+ * so it connects with the new key without an app restart.
+ */
+export function withTvFollowUp(
+  tv: TvSetup,
+  store: Services['store'],
+  drivers: Services['drivers'],
+): TvSetup {
+  const hostChanged = webosHostChanged(store);
+  return {
+    ...tv,
+    async findAgain(device) {
+      const host = await tv.findAgain(device);
+      const current = device.links.find((l) => l.kind === 'webos');
+      if (host !== null && (current?.kind !== 'webos' || current.host !== host)) {
+        await hostChanged(device.id, host);
+      }
+      return host;
+    },
+    async pair(found, onPrompt, clientKeyRef) {
+      const paired = await tv.pair(found, onPrompt, clientKeyRef);
+      const driver = drivers.find(canClearNotPaired);
+      if (driver && clientKeyRef !== undefined) {
+        try {
+          for (const d of await store.devices()) {
+            const link = d.links.find(
+              (l) => l.kind === 'webos' && l.clientKeyRef === paired.link.clientKeyRef,
+            );
+            if (link?.kind !== 'webos') continue;
+            // Save the new address first, then release the driver with that same link, so a
+            // stale stored host can never put the old one back.
+            const merged = { ...link, ...paired.link };
+            await store.upsertDevice({
+              ...d,
+              links: d.links.map((l) => (l === link ? merged : l)),
+            });
+            driver.clearNotPaired(d.id, merged);
+          }
+        } catch (e) {
+          console.error('Could not release the TV driver after pairing', e);
+        }
+      }
+      return paired;
+    },
+  };
+}
+
 /** `tvTransport` replaces the real TV network (tests pass a fake). */
 export type CreateServicesDeps = Partial<Services> & { tvTransport?: TvTransport };
 
@@ -134,7 +191,11 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
     drivers,
     removeDevice,
     // tv lane
-    tv: deps.tv ?? createTvSetup({ transport: tvTransport, secrets, frames: tvTap }),
+    tv: withTvFollowUp(
+      deps.tv ?? createTvSetup({ transport: tvTransport, secrets, frames: tvTap }),
+      store,
+      drivers,
+    ),
     // ir lane
     // matter lane
   };

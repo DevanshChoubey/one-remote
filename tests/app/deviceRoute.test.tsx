@@ -1,18 +1,38 @@
+import 'react-native-gesture-handler/jestSetup';
 import { act, screen } from '@testing-library/react-native';
 import { t } from '@/i18n';
 import DeviceRoute from '../../app/device/[id]';
 import { device, makeServices, renderWith, room } from '../screens/helpers';
 
 let mockId = 'd1';
-jest.mock('expo-router', () => ({
-  useLocalSearchParams: () => ({ id: mockId }),
-  useRouter: () => ({ push: jest.fn(), back: jest.fn(), dismissAll: jest.fn() }),
+jest.mock('expo-router', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { useEffect } = require('react');
+  return {
+    useLocalSearchParams: () => ({ id: mockId }),
+    useRouter: () => ({ push: jest.fn(), back: jest.fn(), dismissAll: jest.fn() }),
+    useFocusEffect: (cb: () => void | (() => void)) => useEffect(cb, [cb]),
+  };
+});
+jest.mock('expo-network', () => ({
+  NetworkStateType: { WIFI: 'WIFI' },
+  useNetworkState: () => ({ type: 'WIFI' }),
 }));
 
 const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
 describe('app/device/[id]', () => {
-  it.each(['tv', 'ac', 'fan'] as const)('renders the %s placeholder for a %s', async (kind) => {
+  it('renders the TV remote for a TV', async () => {
+    const s = makeServices();
+    await s.store.upsertRoom(room('r1', 'Bedroom', 0));
+    await s.store.upsertDevice(device('d1', 'r1', 0, { kind: 'tv', name: 'My tv' }));
+    await flush();
+    mockId = 'd1';
+    await renderWith(s, <DeviceRoute />);
+    expect(await screen.findByTestId('tv-screen')).toBeTruthy();
+  });
+
+  it.each(['ac', 'fan'] as const)('renders the %s placeholder for a %s', async (kind) => {
     const s = makeServices();
     await s.store.upsertRoom(room('r1', 'Bedroom', 0));
     await s.store.upsertDevice(device('d1', 'r1', 0, { kind, name: `My ${kind}` }));
