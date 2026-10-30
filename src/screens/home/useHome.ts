@@ -45,6 +45,8 @@ export function useHome(): HomeModel {
   const told = useRef(new Map<string, Told>());
   // The same map as a render-safe snapshot; `commit` publishes the ref's current content.
   const [toldNow, setToldNow] = useState<ReadonlyMap<string, Told>>(new Map());
+  // Sends not yet settled per device: while any is in flight, state changes cannot clear `told`.
+  const inflight = useRef(new Map<string, number>());
   const commit = useCallback((): void => setToldNow(new Map(told.current)), []);
 
   // Rooms (and the number of stored devices) come from the store; latest read wins.
@@ -61,7 +63,13 @@ export function useHome(): HomeModel {
           setRooms(r);
           setStoreCount(d.length);
         },
-        (e: unknown) => console.error('Could not load the home', e),
+        (e: unknown) => {
+          console.error('Could not load the home', e);
+          if (!alive) return;
+          // Show what the hub has rather than staying blank.
+          setRooms((prev) => prev ?? []);
+          setStoreCount(hub.devicesKnown().length);
+        },
       );
     };
     load();
@@ -70,7 +78,7 @@ export function useHome(): HomeModel {
       alive = false;
       stop();
     };
-  }, [store]);
+  }, [hub, store]);
 
   // The hub owns the device set; re-render whenever it changes.
   useEffect(() => {
@@ -90,7 +98,9 @@ export function useHome(): HomeModel {
           return [
             hub.subscribe(id, (v) => {
               const t = told.current.get(id);
-              if (t && v.state !== t.base) told.current.delete(id); // The hub learned something new.
+              if (t && (inflight.current.get(id) ?? 0) === 0 && v.state !== t.base) {
+                told.current.delete(id); // Idle, and the hub learned something new.
+              }
               commit();
               bump();
             }),
@@ -127,14 +137,33 @@ export function useHome(): HomeModel {
       const entry: Told = { state: next, base: reported };
       told.current.set(id, entry);
       commit();
+      inflight.current.set(id, (inflight.current.get(id) ?? 0) + 1);
+      const settle = (): void => {
+        const left = (inflight.current.get(id) ?? 1) - 1;
+        if (left > 0) {
+          inflight.current.set(id, left);
+          return;
+        }
+        inflight.current.delete(id);
+        // Idle again: drop the entry if the hub's state moved on while we were busy.
+        const now = told.current.get(id);
+        if (now) {
+          try {
+            if (hub.view(id).state !== now.base) told.current.delete(id);
+          } catch {
+            told.current.delete(id);
+          }
+        }
+        commit();
+      };
       const sent =
         kind === 'ac'
           ? hub.send(id, { kind: 'ac.set', state: { ...defaultAcState(), ...next } })
           : hub.send(id, { kind: 'fan.set', state: { ...defaultFanState(), ...next } });
-      sent.catch((e: unknown) => {
+      sent.then(settle, (e: unknown) => {
         console.error('Power toggle failed', e);
         if (told.current.get(id) === entry) told.current.delete(id);
-        commit();
+        settle();
       });
     },
     [hub, commit],

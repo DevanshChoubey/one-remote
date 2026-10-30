@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { defaultAcState, defaultFanState } from '@/core';
-import type { Device, Room } from '@/core';
+import type { Command, Device, LinkDriver, Room } from '@/core';
 import { t } from '@/i18n';
 import { HomeScreen } from '@/screens/home/HomeScreen';
 import { createServices, ServicesProvider } from '@/services';
@@ -220,6 +220,115 @@ describe('HomeScreen', () => {
       s.matterDriver.emit('a1', { kind: 'ac', state: { ...defaultAcState(), power: false } });
     });
     expect(await screen.findByLabelText('Name a1, Off')).toBeTruthy();
+  });
+
+  describe('with sends that stay in flight', () => {
+    /** A driver whose sends settle only when the test says so; `observing` keeps the fake's observe. */
+    function deferred(kind: 'ir' | 'matter', observing: boolean) {
+      const fake = createFakeDriver(kind);
+      const pending: (() => void)[] = [];
+      const sent: Command[] = [];
+      const base: LinkDriver = {
+        kind,
+        available: fake.available,
+        supports: fake.supports,
+        capabilities: fake.capabilities,
+        send: (_d, _l, cmd) => {
+          sent.push(cmd);
+          return new Promise<void>((resolve) => pending.push(resolve));
+        },
+      };
+      const driver: LinkDriver = observing ? { ...base, observe: fake.observe } : base;
+      return {
+        driver,
+        fake,
+        sent,
+        settle: async (): Promise<void> => {
+          await act(async () => {
+            pending.shift()?.();
+          });
+        },
+      };
+    }
+    const flush = (): Promise<void> => act(async () => undefined);
+
+    async function boot(d: ReturnType<typeof deferred>, device: Device): Promise<Services> {
+      const s = createServices({
+        store: createMemoryStore(),
+        secrets: createMemorySecretStore(),
+        prefs: createMemoryPreferenceStore(),
+        drivers: [d.driver],
+      });
+      await seed(s, [device]);
+      await renderHome(s);
+      await screen.findByLabelText(powerLabel(device.id));
+      return s;
+    }
+    const link = (kind: 'ir' | 'matter') =>
+      kind === 'ir' ? ([ir] as Device['links']) : ([matter] as Device['links']);
+    const power = (cmd: Command | undefined): boolean | undefined =>
+      cmd && (cmd.kind === 'ac.set' || cmd.kind === 'fan.set') ? cmd.state.power : undefined;
+
+    it('keeps a double and a triple tap consistent on a non-observing driver, with no flicker', async () => {
+      const d = deferred('ir', false);
+      await boot(d, dev('a1', 'ac', 'liv', 0, link('ir')));
+      const toggle = (): Promise<unknown> =>
+        fireEvent.press(screen.getByLabelText(powerLabel('a1')));
+      await toggle(); // on
+      await toggle(); // off, queued behind the first
+      expect(checked('a1')).toBe(false);
+      await d.settle(); // send 1 done: the hub replaces its remembered state
+      await flush();
+      expect(checked('a1')).toBe(false); // no flicker back to "on"
+      await toggle(); // third tap while send 2 is still queued: on again
+      expect(checked('a1')).toBe(true);
+      await d.settle();
+      await d.settle();
+      await waitFor(() => expect(d.sent).toHaveLength(3));
+      expect(d.sent.map(power)).toEqual([true, false, true]);
+      await d.settle();
+    });
+
+    it('keeps a quick double tap consistent on a fan', async () => {
+      const d = deferred('ir', false);
+      await boot(d, dev('f1', 'fan', 'liv', 0, link('ir')));
+      const toggle = (): Promise<unknown> =>
+        fireEvent.press(screen.getByLabelText(powerLabel('f1')));
+      await toggle();
+      await toggle();
+      await d.settle();
+      await flush();
+      expect(checked('f1')).toBe(false);
+      await d.settle();
+      await waitFor(() => expect(d.sent).toHaveLength(2));
+      expect(d.sent.map(power)).toEqual([true, false]);
+      expect(d.sent.every((c) => c.kind === 'fan.set')).toBe(true);
+    });
+
+    it('ignores an observed update that arrives during an in-flight send', async () => {
+      const d = deferred('matter', true);
+      await boot(d, dev('a1', 'ac', 'liv', 0, link('matter')));
+      await act(async () => {
+        d.fake.emit('a1', { kind: 'ac', state: { ...defaultAcState(), power: false } });
+      });
+      await fireEvent.press(screen.getByLabelText(powerLabel('a1')));
+      await act(async () => {
+        d.fake.emit('a1', { kind: 'ac', state: { ...defaultAcState(), power: false } }); // a poll
+      });
+      expect(checked('a1')).toBe(true);
+      await d.settle();
+      await flush();
+    });
+  });
+
+  it('does not stay unloaded when a store read fails', async () => {
+    const err = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const s = setup();
+    const broken = { ...s.store, rooms: () => Promise.reject(new Error('disk')) };
+    await renderHome({ ...s, store: broken });
+    expect(await screen.findByText(t('home.welcomeTitle'))).toBeTruthy();
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
   });
 });
 
