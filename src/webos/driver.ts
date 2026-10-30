@@ -194,6 +194,13 @@ export function createWebosDriver(
         connectMs,
       );
     } catch (err) {
+      if (err instanceof DeviceError && err.code === 'notPaired') {
+        // The TV's certificate is not the one pinned at pairing (a renewed certificate, or another
+        // TV at this address). Like a prompt: stop retrying and let sends say "Pair again",
+        // instead of showing the TV as off.
+        e.sawPrompt = true;
+        e.notPaired = true;
+      }
       throw asDeviceError(err);
     }
     let asked = false;

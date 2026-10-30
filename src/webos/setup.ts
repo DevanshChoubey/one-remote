@@ -3,12 +3,12 @@ import { discoverTvs, probeHost } from './discovery';
 import type { FrameTap } from './frameTap';
 import { pairTv } from './pair';
 import { rediscover } from './rediscover';
-import type { TvSecrets, TvTransport } from './transport';
+import type { TvSecretsWithDelete, TvTransport } from './transport';
 
 /** The Add TV flow's view of the webOS code. Builds without touching the network. */
 export function createTvSetup(o: {
   transport: TvTransport;
-  secrets: TvSecrets;
+  secrets: TvSecretsWithDelete;
   /** Dev-only: exposes the frame log as `onFrame`. */
   frames?: FrameTap;
 }): TvSetup {

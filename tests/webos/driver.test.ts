@@ -849,6 +849,30 @@ describe('webos driver: secure (wss) links', () => {
     });
     expect(r.tv.buttons).toEqual([]);
     expect(r.tv.frames).toEqual([]);
+    // Latched like a prompt: the next press does not even try.
+    const opens = r.lan.opened.length;
+    await expect(r.key('volumeUp')).rejects.toMatchObject({ code: 'notPaired' });
+    expect(r.lan.opened).toHaveLength(opens);
+  });
+
+  it('a pin mismatch stops the observe loop instead of reporting the TV as off', async () => {
+    const r = secureRig('the-pin-from-pairing');
+    const reports: Reported[] = [];
+    const stop = r.driver.observe?.(r.dev, r.link, (rep) => reports.push(rep));
+    await advance(60000);
+    expect(reports).toEqual([]);
+    expect(r.lan.opened).toHaveLength(1);
+    await expect(r.key('volumeUp')).rejects.toMatchObject({ code: 'notPaired' });
+    stop?.();
+  });
+
+  it('connects again once re-paired after a mismatch', async () => {
+    const r = secureRig('the-pin-from-pairing');
+    await expect(r.key('volumeUp')).rejects.toMatchObject({ code: 'notPaired' });
+    await r.s.set(`${REF}:cert`, r.tv.certSha256);
+    r.driver.clearNotPaired(r.dev.id, r.link);
+    await r.key('volumeUp');
+    expect(r.tv.buttons).toEqual([KEY_BUTTON.volumeUp]);
   });
 
   it('treats a secure link with no stored pin as not paired and never opens it', async () => {

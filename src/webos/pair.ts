@@ -2,7 +2,7 @@ import { DeviceError } from '@/core';
 import { PairError, type FoundTv, type PairedTv } from '@/core/tvSetup';
 import { SsapClient } from './client';
 import { parseMac, URI } from './ssap';
-import type { TvSecrets, TvTransport } from './transport';
+import type { TvSecretsWithDelete, TvTransport } from './transport';
 
 const CONNECT_MS = 3000;
 const PROMPT_MS = 60000;
@@ -16,7 +16,7 @@ function newRef(): string {
  *  `${clientKeyRef}:cert`; every later connect accepts only that certificate. */
 export async function pairTv(
   t: TvTransport,
-  secrets: TvSecrets,
+  secrets: TvSecretsWithDelete,
   tv: FoundTv,
   onPrompt: () => void,
   opts: { clientKeyRef?: string; promptMs?: number } = {},
@@ -56,7 +56,9 @@ export async function pairTv(
     try {
       await secrets.set(ref, key);
       if (tv.usn) await secrets.set(`${ref}:usn`, tv.usn);
+      // A re-pair that landed on plain ws must not leave an old pin behind.
       if (cert) await secrets.set(`${ref}:cert`, cert);
+      else await secrets.delete(`${ref}:cert`);
     } catch {
       // The key could not be kept: pairing did not complete.
       throw new PairError('unreachable');
