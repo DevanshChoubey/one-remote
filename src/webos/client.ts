@@ -1,5 +1,5 @@
 import { DeviceError, type Unsubscribe } from '@/core';
-import { manifest } from './manifest';
+import { manifest, unsignedManifest } from './manifest';
 import { parseSocketUrl } from './url';
 import { buttonFrame, decodeSsap, encodeSsap, URI, type SsapIn, type SsapOut } from './ssap';
 import type { TvSocket, TvTls, TvTransport } from './transport';
@@ -22,6 +22,8 @@ interface Handler {
 }
 
 /** One SSAP session with one TV. Pure: the network is behind `TvTransport`. */
+const BLACKLISTED = 'blacklisted certificate';
+
 export class SsapClient {
   private readonly handlers = new Map<string, Handler>();
   private readonly closeCbs: (() => void)[] = [];
@@ -88,6 +90,7 @@ export class SsapClient {
       if (this.closed) return reject(new DeviceError('notSent', 'closed'));
       const id = `${this.prefix}_register`;
       let prompted = false;
+      let signed = true;
       const done = (): void => {
         clearTimeout(timer);
         this.handlers.delete(id);
@@ -102,6 +105,12 @@ export class SsapClient {
             done();
             resolve(m.payload['client-key']);
           } else if (m.type === 'error') {
+            // 2026 LG firmware blacklists the signed manifest: ask once more without it.
+            if (signed && m.error.includes(BLACKLISTED)) {
+              signed = false;
+              send(unsignedManifest);
+              return;
+            }
             done();
             reject(new DeviceError('notPaired', m.error));
           } else if (m.payload.pairingType === 'PROMPT' && !prompted) {
@@ -114,16 +123,19 @@ export class SsapClient {
           reject(e);
         },
       });
-      const payload: Extract<SsapOut, { type: 'register' }>['payload'] = {
-        forcePairing: false,
-        pairingType: 'PROMPT',
-        manifest,
-        ...(clientKey === undefined ? {} : { 'client-key': clientKey }),
+      const send = (man: object): void => {
+        const payload: Extract<SsapOut, { type: 'register' }>['payload'] = {
+          forcePairing: false,
+          pairingType: 'PROMPT',
+          manifest: man,
+          ...(clientKey === undefined ? {} : { 'client-key': clientKey }),
+        };
+        this.write({ type: 'register', id, payload }, (e) => {
+          done();
+          reject(e);
+        });
       };
-      this.write({ type: 'register', id, payload }, (e) => {
-        done();
-        reject(e);
-      });
+      send(manifest);
     });
   }
 

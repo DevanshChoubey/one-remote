@@ -49,6 +49,8 @@ export interface FakeTvOpts {
   socketHost?: string;
   /** Drop every connection as soon as this URI is requested, without replying. */
   dropOn?: string;
+  /** Refuse a register that carries the signed manifest, as 2026 LG firmware does. */
+  rejectSigned?: boolean;
   /** SHA-256 of the TV's TLS certificate (default derived from the MAC). */
   certSha256?: string;
 }
@@ -174,6 +176,15 @@ export function createFakeTv(opts: FakeTvOpts): FakeTv {
     if (!m) return;
     frames.push(m);
     if (m.type === 'register') {
+      if (opts.rejectSigned && 'signatures' in m.payload.manifest) {
+        reply(c, {
+          type: 'error',
+          id: m.id,
+          error: '403 Pairing rejected: blacklisted certificate detected',
+          payload: {},
+        });
+        return;
+      }
       const key = m.payload['client-key'];
       if (key !== undefined && knownKeys.includes(key)) {
         c.registered = true;

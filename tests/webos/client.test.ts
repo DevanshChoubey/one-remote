@@ -42,6 +42,50 @@ describe('SsapClient', () => {
     });
   });
 
+  it('retries without the signature when the TV blacklists the signed manifest', async () => {
+    const tv = createFakeTv({ host: HOST, mac: MAC, knownKeys: ['k'], rejectSigned: true });
+    const client = await SsapClient.connect(
+      createFakeLan({ tvs: [tv] }),
+      { host: HOST, secure: false },
+      1500,
+    );
+    const onPrompt = jest.fn();
+    await expect(client.register(undefined, onPrompt, 1000)).resolves.toMatch(/^fake-key-/);
+    expect(onPrompt).toHaveBeenCalledTimes(1);
+    const regs = tv.frames.filter((f) => f.type === 'register');
+    expect(regs).toHaveLength(2);
+    expect(JSON.stringify(regs[0])).toContain('signatures');
+    expect(JSON.stringify(regs[1])).not.toContain('signatures');
+    expect(JSON.stringify(regs[1])).not.toContain('"signed"');
+    expect(JSON.stringify(regs[1])).toContain('CONTROL_POWER');
+    // The signed block held the pointer and text permissions: the unsigned manifest must carry them.
+    const unsigned = regs[1] as { payload: { manifest: { permissions: string[] } } };
+    expect(unsigned.payload.manifest.permissions).toEqual(
+      expect.arrayContaining(['CONTROL_MOUSE_AND_KEYBOARD', 'CONTROL_INPUT_TEXT', 'CONTROL_POWER']),
+    );
+    expect(new Set(unsigned.payload.manifest.permissions).size).toBe(
+      unsigned.payload.manifest.permissions.length,
+    );
+  });
+
+  it('reconnects with a known key on a TV that blacklists the signed manifest', async () => {
+    const tv = createFakeTv({ host: HOST, mac: MAC, knownKeys: ['k'], rejectSigned: true });
+    const client = await SsapClient.connect(
+      createFakeLan({ tvs: [tv] }),
+      { host: HOST, secure: false },
+      1500,
+    );
+    await expect(client.register('k', jest.fn(), 1000)).resolves.toBe('k');
+  });
+
+  it('does not retry any other refusal', async () => {
+    const { tv, client } = await setup({ prompt: 'deny' });
+    await expect(client.register(undefined, jest.fn(), 1000)).rejects.toMatchObject({
+      code: 'notPaired',
+    });
+    expect(tv.frames.filter((f) => f.type === 'register')).toHaveLength(1);
+  });
+
   it('request resolves the matching reply only', async () => {
     const { client, tv } = await setup();
     await client.register('k', jest.fn(), 1000);

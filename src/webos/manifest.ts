@@ -1,6 +1,6 @@
 /**
  * The SSAP registration manifest, copied from lgtv2 (https://github.com/hobbyquaker/lgtv2,
- * `pairing.json`), MIT licence, Copyright (c) Sebastian Raff. LG TVs only accept a register
+ * `pairing.json`), MIT licence, Copyright (c) Sebastian Raff. Older LG TVs only accept a register
  * request that carries this signed manifest.
  */
 export const manifest: object = {
@@ -100,3 +100,23 @@ export const manifest: object = {
     },
   ],
 };
+
+/**
+ * The same manifest without its signature. 2026 LG firmware refuses the signed one ("403 Pairing
+ * rejected: blacklisted certificate detected") but still pairs with this. The pointer and text
+ * permissions sit only inside the signed block, so they are copied up; without them the TV answers
+ * the pointer socket and text input with "401 insufficient permissions". Permissions that only a
+ * signature grants (such as WRITE_SETTINGS, which One Remote does not use) are still refused.
+ */
+export const unsignedManifest: object = (() => {
+  const {
+    signed,
+    signatures: _signatures,
+    ...rest
+  } = manifest as {
+    signed: { permissions: string[] };
+    signatures: unknown;
+    permissions: string[];
+  };
+  return { ...rest, permissions: [...new Set([...rest.permissions, ...signed.permissions])] };
+})();
