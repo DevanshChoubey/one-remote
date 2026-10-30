@@ -38,7 +38,7 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
   const { rooms } = useHomeData();
   const hubShown = acView(view);
   const irFirst = view.device.links[0]?.kind === 'ir';
-  const { stored, save } = useLastSent(view.device.id, irFirst);
+  const { stored, save } = useLastSent(view.device.id, irFirst, view.state?.kind === 'ac');
   // After a restart the hub knows nothing yet: fall back to what was last sent.
   const shown =
     hubShown.source === 'none' && stored?.kind === 'ac'

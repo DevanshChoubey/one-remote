@@ -10,6 +10,8 @@ import { useServices } from '@/services';
 export function useLastSent(
   deviceId: string,
   enabled: boolean,
+  /** The hub already holds a state: it is newer than the saved one, so nothing is seeded. */
+  hubHasState: boolean,
 ): { stored: LastSent | undefined; save: (entry: LastSent) => void } {
   const { prefs, ir } = useServices();
   const [stored, setStored] = useState<LastSent | undefined>(undefined);
@@ -21,14 +23,14 @@ export function useLastSent(
         const entry = p.lastSent[deviceId];
         if (!alive || !entry) return;
         setStored(entry);
-        if (entry.kind === 'fan') ir.seedFan(deviceId, entry.state);
+        if (entry.kind === 'fan' && !hubHasState) ir.seedFan(deviceId, entry.state);
       },
       () => undefined,
     );
     return () => {
       alive = false;
     };
-  }, [prefs, ir, deviceId, enabled]);
+  }, [prefs, ir, deviceId, enabled, hubHasState]);
 
   const save = (entry: LastSent): void => {
     if (!enabled) return;

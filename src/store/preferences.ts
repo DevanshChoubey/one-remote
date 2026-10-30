@@ -32,6 +32,37 @@ const KEY = 'one-remote/prefs/v1';
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
+const isBool = (v: unknown): boolean => typeof v === 'boolean';
+
+/** True only when every field the screen and the encoder need is present and of the right type. */
+function validState(kind: unknown, s: unknown): boolean {
+  if (!isRecord(s)) return false;
+  if (kind === 'ac') {
+    return (
+      isBool(s.power) &&
+      ['cool', 'dry', 'fan', 'auto'].includes(String(s.mode)) &&
+      typeof s.setpoint === 'number' &&
+      Number.isFinite(s.setpoint) &&
+      (s.fan === 'auto' || s.fan === 1 || s.fan === 2 || s.fan === 3) &&
+      isBool(s.swing) &&
+      isBool(s.sleep)
+    );
+  }
+  if (kind === 'fan') {
+    return (
+      isBool(s.power) &&
+      [1, 2, 3, 4, 5].includes(Number(s.speed)) &&
+      typeof s.speed === 'number' &&
+      isBool(s.boost) &&
+      isBool(s.sleep) &&
+      [0, 1, 2, 4, 8].includes(Number(s.timerHours)) &&
+      typeof s.timerHours === 'number' &&
+      (s.light === undefined || isBool(s.light))
+    );
+  }
+  return false;
+}
+
 /** Keeps only valid fields, so a bad value falls back to its default. */
 function sanitize(v: unknown): Partial<Preferences> {
   if (!isRecord(v)) return {};
@@ -49,9 +80,7 @@ function sanitize(v: unknown): Partial<Preferences> {
   if (isRecord(v.lastSent)) {
     const sent: Preferences['lastSent'] = {};
     for (const [k, e] of Object.entries(v.lastSent)) {
-      if (isRecord(e) && (e.kind === 'ac' || e.kind === 'fan') && isRecord(e.state)) {
-        if (typeof e.state.power === 'boolean') sent[k] = e as unknown as LastSent;
-      }
+      if (isRecord(e) && validState(e.kind, e.state)) sent[k] = e as unknown as LastSent;
     }
     out.lastSent = sent;
   }

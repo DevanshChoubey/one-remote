@@ -174,6 +174,23 @@ describe('FanScreen quick taps and restarts', () => {
   });
 });
 
+describe('FanScreen seeding', () => {
+  it('does not seed the driver over a state the hub already holds', async () => {
+    const emitter = createFakeEmitter();
+    const s = await servicesWith(
+      [createIrDriver({ emitter, gapMs: 0 })],
+      [fanDevice({ links: [{ kind: 'ir', remoteId: 'atomberg-fan/1170' }] })],
+    );
+    const seed = jest.spyOn(s.ir, 'seedFan');
+    await s.hub.send('d1', { kind: 'fan.set', state: { ...on, speed: 5 } });
+    await s.prefs.set({ lastSent: { d1: { kind: 'fan', state: { ...on, speed: 1 } } } });
+    await renderWith(s, <FanScreen deviceId="d1" />);
+    await waitFor(async () => expect((await s.prefs.get()).lastSent.d1).toBeDefined());
+    await new Promise((r) => setTimeout(r, 20));
+    expect(seed).not.toHaveBeenCalled();
+  });
+});
+
 jest.mock('@react-native-async-storage/async-storage', () =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),

@@ -38,7 +38,7 @@ function FanRemote({ view }: { view: DeviceView }): ReactElement {
   const { hub, prefs } = useServices();
   const { rooms } = useHomeData();
   const irFirst = view.device.links[0]?.kind === 'ir';
-  const { stored, save } = useLastSent(view.device.id, irFirst);
+  const { stored, save } = useLastSent(view.device.id, irFirst, view.state?.kind === 'fan');
   const shown = fanView(view, stored?.kind === 'fan' ? stored.state : undefined);
   const { caps } = shown;
   const [error, setError] = useState<string | null>(null);
