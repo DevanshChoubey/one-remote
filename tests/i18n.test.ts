@@ -5,6 +5,7 @@ import ac from '@/i18n/en/ac';
 import add from '@/i18n/en/add';
 import common from '@/i18n/en/common';
 import device from '@/i18n/en/device';
+import fan from '@/i18n/en/fan';
 import home from '@/i18n/en/home';
 import settings from '@/i18n/en/settings';
 
@@ -15,6 +16,7 @@ const NAMESPACES: Record<string, Record<string, string>> = {
   device,
   settings,
   ac,
+  fan,
 };
 
 const ROOT = path.resolve(__dirname, '..');

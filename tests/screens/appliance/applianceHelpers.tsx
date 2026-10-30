@@ -32,3 +32,6 @@ export async function servicesWith(drivers: LinkDriver[], devices: Device[]): Pr
 
 export const acDevice = (over: Partial<Device> = {}): Device =>
   device('d1', 'r1', 0, { kind: 'ac', name: 'Bedroom AC', ...over });
+
+export const fanDevice = (over: Partial<Device> = {}): Device =>
+  device('d1', 'r1', 0, { kind: 'fan', name: 'Study fan', ...over });

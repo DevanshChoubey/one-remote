@@ -173,7 +173,7 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
           </Txt>
         ) : null}
 
-        {status.key === 'ac.status.connected' ? (
+        {status.key.endsWith('.connected') ? (
           <Touchable
             onPress={() => router.push(`/device-sheet/${deviceId}`)}
             accessibilityLabel={statusText}

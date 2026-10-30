@@ -13,7 +13,7 @@ jest.mock('expo-router', () => ({
 const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
 describe('app/device/[id]', () => {
-  it.each(['tv', 'fan'] as const)('renders the %s placeholder for a %s', async (kind) => {
+  it.each(['tv'] as const)('renders the %s placeholder for a %s', async (kind) => {
     const s = makeServices();
     await s.store.upsertRoom(room('r1', 'Bedroom', 0));
     await s.store.upsertDevice(device('d1', 'r1', 0, { kind, name: `My ${kind}` }));
@@ -52,7 +52,7 @@ describe('app/device/[id]', () => {
       await s.store.upsertDevice(device('d1', 'r1', 0, { kind: 'fan', name: 'Fan' }));
       await flush();
     });
-    expect(await screen.findByTestId('remote-placeholder-fan')).toBeTruthy();
+    expect(await screen.findByLabelText(t('fan.power'))).toBeTruthy();
   });
 });
 

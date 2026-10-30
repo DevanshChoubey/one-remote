@@ -50,6 +50,14 @@ describe('statusLine', () => {
     expect(text(v)).toBe('Needs a phone with IR');
   });
 
+  it('uses the fan copy for a fan', () => {
+    const v = view({
+      device: device('d', 'r', 0, { kind: 'fan' }),
+      status: { via: 'ir', fellBack: false },
+    });
+    expect(text(v)).toBe('Sent over IR · point the phone at the fan');
+  });
+
   it('before any press, an IR-first device says IR, others say connected', () => {
     expect(statusLine(view({ device: device('d', 'r', 0) })).key).toBe('ac.status.irOnly');
     expect(statusLine(view({})).key).toBe('ac.status.connected');

@@ -10,6 +10,8 @@ export function sendErrorKey(e: unknown, ns: 'ac' | 'fan'): string {
       return `${ns}.error.timeout`;
     case 'partiallySent':
       return `${ns}.error.partial`;
+    case 'unsupported':
+      return ns === 'fan' ? 'fan.error.unsupported' : `${ns}.error.notSent`;
     default:
       return `${ns}.error.notSent`;
   }
