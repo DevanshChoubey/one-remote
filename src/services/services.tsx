@@ -17,6 +17,10 @@ export interface Services {
   drivers: LinkDriver[];
   /** Removes a device and lets each link's driver forget it. Use this, not `store.removeDevice`. */
   removeDevice(id: string): Promise<void>;
+  // Lanes add their typed field just under their own slot comment.
+  // tv lane
+  // ir lane
+  // matter lane
 }
 
 const ServicesContext = createContext<Services | null>(null);

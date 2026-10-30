@@ -13,6 +13,16 @@ const rnVisualRestriction = {
   ],
 };
 
+// Dev-only spike screens (app/dev/*-spike.tsx; each redirects to / unless __DEV__) drive services
+// and drivers directly, so they may import service modules and React Native visuals. Each lane adds
+// its spike file on its own line, just under its own slot comment. (ESLint rejects an empty `files`,
+// so the override below is added only once a file is listed.)
+const DEV_SPIKE_FILES = [
+  // tv lane
+  // ir lane
+  // matter lane
+];
+
 const SERVICE_MODULES = ['device', 'store', 'transport', 'ir', 'webos', 'matter'];
 // `services` is the composition root (useServices); it is layered like a domain module but is not pure.
 const DOMAIN_FOLDERS = [
@@ -262,6 +272,17 @@ module.exports = [
       'import/no-default-export': 'off',
     },
   },
+  // Dev-only spike screens: see DEV_SPIKE_FILES. The network bans still apply there.
+  ...(DEV_SPIKE_FILES.length > 0
+    ? [
+        {
+          files: DEV_SPIKE_FILES,
+          rules: {
+            'no-restricted-imports': ['error', { patterns: [socketImports, fetchImports] }],
+          },
+        },
+      ]
+    : []),
   // Tests may use any import, except a working fetch.
   {
     files: ['tests/**'],

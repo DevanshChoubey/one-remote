@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Device } from '@/core';
+import type { Device, LinkDriver } from '@/core';
 import { DeviceHub } from '@/device/hub';
 import { createAsyncStorageStore } from '@/store/asyncStorageStore';
 import { createAsyncStoragePreferenceStore } from '@/store/preferences';
@@ -64,17 +64,40 @@ function removeDeviceWith(
   };
 }
 
+/** The real drivers, one per line, each just under its lane's slot comment. */
+function laneDrivers(): LinkDriver[] {
+  return [
+    // tv lane
+    // ir lane
+    // matter lane
+  ];
+}
+
 /**
  * Builds the app's services. Pass any part to replace it (tests pass memory stores and fake
- * drivers). Lanes add their driver to `drivers` below and their setup object to the result.
+ * drivers). Each lane adds its lines just under its own slot comments below (its setup lines, its
+ * driver in `drivers`, its setup object in the result), so lane merges do not conflict.
  */
 export function createServices(deps: Partial<Services> = {}): Services {
-  const drivers = deps.drivers ?? [];
+  // tv lane
+  // ir lane
+  // matter lane
+  const drivers = deps.drivers ?? laneDrivers();
   const hub = deps.hub ?? new DeviceHub({ drivers });
   const store = deps.store ?? createAsyncStorageStore(AsyncStorage);
   const secrets = deps.secrets ?? createSecureSecretStore();
   const prefs = deps.prefs ?? createAsyncStoragePreferenceStore(AsyncStorage);
   syncHub(hub, store);
   const removeDevice = deps.removeDevice ?? removeDeviceWith(store, secrets, drivers);
-  return { hub, store, secrets, prefs, drivers, removeDevice };
+  return {
+    hub,
+    store,
+    secrets,
+    prefs,
+    drivers,
+    removeDevice,
+    // tv lane
+    // ir lane
+    // matter lane
+  };
 }

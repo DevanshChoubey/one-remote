@@ -10,10 +10,15 @@ export interface LinkActionProps {
 export type LinkActionRenderer = (props: LinkActionProps) => ReactElement | null;
 
 /**
- * The seam for the lanes. Each lane adds one line here, for example `TvLinkActions`,
- * `IrBackupAction` or `MatterLinkActions`; each shows under its own links in the device sheet.
+ * The seam for the lanes. Each lane adds its renderer on its own line, just under its own slot
+ * comment (TV: `TvLinkActions`, Matter: `MatterLinkActions`); each shows under its own links in the
+ * device sheet. Separate slots keep lane merges free of conflicts.
  */
-export const LINK_ACTIONS: readonly LinkActionRenderer[] = [];
+export const LINK_ACTIONS: readonly LinkActionRenderer[] = [
+  // tv lane
+  // matter lane
+  // ir lane
+];
 
 export interface DeviceActionProps {
   device: Device;
@@ -24,6 +29,10 @@ export type DeviceActionRenderer = (props: DeviceActionProps) => ReactElement | 
 
 /**
  * The seam for actions on the device as a whole, rendered once per device, for example
- * "Add IR backup". Each lane adds one line here.
+ * "Add IR backup". Each lane adds its renderer on its own line, just under its own slot comment.
  */
-export const DEVICE_ACTIONS: readonly DeviceActionRenderer[] = [];
+export const DEVICE_ACTIONS: readonly DeviceActionRenderer[] = [
+  // ir lane
+  // tv lane
+  // matter lane
+];
