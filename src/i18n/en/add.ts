@@ -1,0 +1,18 @@
+export default {
+  title: 'Add device',
+  question: 'What is it?',
+  kindTv: 'TV',
+  kindAc: 'Air conditioner',
+  kindFan: 'Fan',
+  hint: 'Next you pick the brand. The app finds out how to talk to it.',
+  noIr: "This phone has no IR blaster. Devices that only take IR can't be controlled from it.",
+  nameTitle: 'Name it',
+  nameStep: 'Last step',
+  name: 'Name',
+  room: 'Room',
+  newRoom: '＋ New room',
+  roomName: 'Room name',
+  createRoom: 'Add room',
+  saveFailed: "Couldn't save the device. Try again.",
+  placeholderBody: 'Adding a {kind} is coming soon.',
+} as const;

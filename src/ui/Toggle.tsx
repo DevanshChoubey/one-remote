@@ -8,6 +8,8 @@ export interface ToggleProps {
   value: boolean;
   onChange: (value: boolean) => void;
   disabled?: boolean;
+  /** Keeps the spoken label but shows only the switch (e.g. on a card that already names it). */
+  hideLabel?: boolean;
 }
 
 /** The whole row is the control: one announcement, and tapping the label toggles it. */
@@ -21,8 +23,8 @@ export function Toggle(props: ToggleProps): ReactElement {
       checked={props.value}
       disabled={props.disabled}
     >
-      <Row align="center" justify="between" gap={3}>
-        <Txt variant="bodyBold">{props.label}</Txt>
+      <Row align="center" justify={props.hideLabel ? 'end' : 'between'} gap={3}>
+        {props.hideLabel ? null : <Txt variant="bodyBold">{props.label}</Txt>}
         <Switch
           value={props.value}
           disabled={props.disabled}

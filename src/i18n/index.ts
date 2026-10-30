@@ -1,7 +1,15 @@
+import add from './en/add';
 import common from './en/common';
+import device from './en/device';
+import home from './en/home';
+import settings from './en/settings';
 
 const namespaces: Record<string, Record<string, string>> = {
   common,
+  home,
+  add,
+  device,
+  settings,
 };
 
 /** Replaces every {name} in the template. A missing variable throws in dev and stays as {name} in prod. */
