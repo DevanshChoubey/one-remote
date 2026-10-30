@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { interpolate, t } from '@/i18n';
 import add from '@/i18n/en/add';
+import addTv from '@/i18n/en/addTv';
 import common from '@/i18n/en/common';
 import device from '@/i18n/en/device';
 import home from '@/i18n/en/home';
@@ -15,6 +16,7 @@ const NAMESPACES: Record<string, Record<string, string>> = {
   device,
   settings,
   tv,
+  addTv,
 };
 
 const ROOT = path.resolve(__dirname, '..');
