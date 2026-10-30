@@ -202,7 +202,7 @@ export class DeviceHub {
     let lastError: unknown;
     for (const c of order) {
       try {
-        await this.withTimeout(c.driver.send(device, c.link, cmd));
+        await this.withTimeout((signal) => c.driver.send(device, c.link, cmd, signal));
       } catch (e) {
         this.markFailed(device.id, c.link.kind);
         lastError = e;
@@ -252,9 +252,23 @@ export class DeviceHub {
     return allIr && !this.drivers.get('ir')?.available() ? 'noIrEmitter' : 'noLink';
   }
 
-  private withTimeout(p: Promise<void>): Promise<void> {
+  /** Gives `start` a signal that is aborted when the timeout fires, so the driver can stop. */
+  private withTimeout(start: (signal: AbortSignal) => Promise<void>): Promise<void> {
+    const controller = new AbortController();
     return new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new DeviceError('timeout')), this.timeoutMs);
+      const timer = setTimeout(() => {
+        const error = new DeviceError('timeout');
+        controller.abort(error);
+        reject(error);
+      }, this.timeoutMs);
+      let p: Promise<void>;
+      try {
+        p = start(controller.signal);
+      } catch (e) {
+        clearTimeout(timer);
+        reject(e);
+        return;
+      }
       p.then(
         () => {
           clearTimeout(timer);
