@@ -1,0 +1,191 @@
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import type { ReactElement } from 'react';
+import type { Device, Link } from '@/core';
+import { t } from '@/i18n';
+import { useServices } from '@/services';
+import { Box, Button, Chip, Column, Input, Row, Screen, Txt } from '@/ui';
+import { useHomeData } from '../shared/useHomeData';
+import { LINK_ACTIONS } from './linkActions';
+import type { LinkActionRenderer } from './linkActions';
+
+const LINK_LABEL: Record<Link['kind'], string> = {
+  webos: 'device.linkWebos',
+  matter: 'device.linkMatter',
+  ir: 'device.linkIr',
+};
+
+function linkDetail(link: Link): string | null {
+  return link.kind === 'webos' ? link.host : null;
+}
+
+export interface DeviceSheetProps {
+  deviceId: string;
+  /** Lane actions per link; defaults to the registry in `linkActions.tsx`. */
+  linkActions?: readonly LinkActionRenderer[];
+}
+
+export function DeviceSheet(props: DeviceSheetProps): ReactElement {
+  const { store } = useServices();
+  const router = useRouter();
+  const data = useHomeData();
+  const device = data.devices.find((d) => d.id === props.deviceId);
+  if (!data.loaded) return <Screen title={t('device.title')}>{null}</Screen>;
+  if (!device) {
+    return (
+      <Screen title={t('device.title')} onBack={() => router.back()}>
+        <Txt color="ink2">{t('home.notFound')}</Txt>
+      </Screen>
+    );
+  }
+  return (
+    <Sheet
+      key={device.id}
+      device={device}
+      rooms={data.rooms}
+      siblings={data.devices.filter((d) => d.roomId === device.roomId)}
+      actions={props.linkActions ?? LINK_ACTIONS}
+      store={store}
+      onBack={() => router.back()}
+    />
+  );
+}
+
+interface SheetProps {
+  device: Device;
+  rooms: ReturnType<typeof useHomeData>['rooms'];
+  siblings: Device[];
+  actions: readonly LinkActionRenderer[];
+  store: ReturnType<typeof useServices>['store'];
+  onBack: () => void;
+}
+
+function Sheet({ device, rooms, siblings, actions, store, onBack }: SheetProps): ReactElement {
+  const [name, setName] = useState(device.name);
+  const [confirming, setConfirming] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const run = (job: Promise<unknown>, then?: () => void): void => {
+    job.then(
+      () => {
+        setFailed(false);
+        then?.();
+      },
+      () => setFailed(true),
+    );
+  };
+
+  const ordered = [...siblings].sort((a, b) => a.order - b.order);
+  const index = ordered.findIndex((d) => d.id === device.id);
+  const move = (to: number): void => run(store.moveDevice(device.id, to));
+  const changeRoom = (roomId: string): void => {
+    if (roomId === device.roomId) return;
+    // Joins the end of the destination room; read fresh so a stale list cannot clash.
+    run(
+      store.devices().then((all) => {
+        const order = all
+          .filter((d) => d.roomId === roomId)
+          .reduce((m, d) => Math.max(m, d.order + 1), 0);
+        return store.upsertDevice({ ...device, roomId, order });
+      }),
+    );
+  };
+  const trimmed = name.trim();
+
+  return (
+    <Screen title={t('device.title')} onBack={onBack} scroll>
+      <Column gap={5}>
+        <Column gap={2}>
+          <Txt variant="bodyBold">{t('device.name')}</Txt>
+          <Input value={name} onChangeText={setName} accessibilityLabel={t('device.name')} />
+          <Button
+            label={t('device.saveName')}
+            variant="secondary"
+            disabled={trimmed === '' || trimmed === device.name}
+            onPress={() => run(store.upsertDevice({ ...device, name: trimmed }))}
+          />
+        </Column>
+
+        <Column gap={2}>
+          <Txt variant="bodyBold">{t('device.room')}</Txt>
+          <Row gap={2} wrap>
+            {rooms.map((r) => (
+              <Chip
+                key={r.id}
+                label={r.name}
+                state={r.id === device.roomId ? 'selected' : 'neutral'}
+                onToggle={() => changeRoom(r.id)}
+              />
+            ))}
+          </Row>
+        </Column>
+
+        <Column gap={2}>
+          <Txt variant="bodyBold">{t('device.order')}</Txt>
+          <Row gap={2}>
+            <Button
+              label={t('device.moveUp')}
+              variant="secondary"
+              disabled={index <= 0}
+              onPress={() => move(index - 1)}
+            />
+            <Button
+              label={t('device.moveDown')}
+              variant="secondary"
+              disabled={index < 0 || index >= ordered.length - 1}
+              onPress={() => move(index + 1)}
+            />
+          </Row>
+        </Column>
+
+        <Column gap={2}>
+          <Txt variant="bodyBold">{t('device.connected')}</Txt>
+          {device.links.map((link, i) => (
+            <Box key={`${link.kind}-${i}`} bg="surface" border="line" radius="md" p={4}>
+              <Column gap={2}>
+                <Row justify="between" align="center">
+                  <Column>
+                    <Txt variant="bodyBold">{t(LINK_LABEL[link.kind])}</Txt>
+                    {linkDetail(link) ? (
+                      <Txt variant="caption" color="ink2">
+                        {linkDetail(link)}
+                      </Txt>
+                    ) : null}
+                  </Column>
+                  <Txt variant="caption" color="ink2">
+                    {i === 0 ? t('device.main') : t('device.backup')}
+                  </Txt>
+                </Row>
+                {actions.map((render, n) => {
+                  const node = render({ device, link });
+                  return node ? <Box key={n}>{node}</Box> : null;
+                })}
+              </Column>
+            </Box>
+          ))}
+        </Column>
+
+        {failed ? <Txt color="ink2">{t('device.failed')}</Txt> : null}
+
+        {confirming ? (
+          <Column gap={2}>
+            <Txt>{t('device.removeAsk', { name: device.name })}</Txt>
+            <Row gap={2}>
+              <Button
+                label={t('common.cancel')}
+                variant="secondary"
+                onPress={() => setConfirming(false)}
+              />
+              <Button
+                label={t('device.confirmRemove')}
+                onPress={() => run(store.removeDevice(device.id), onBack)}
+              />
+            </Row>
+          </Column>
+        ) : (
+          <Button label={t('device.remove')} variant="ghost" onPress={() => setConfirming(true)} />
+        )}
+      </Column>
+    </Screen>
+  );
+}

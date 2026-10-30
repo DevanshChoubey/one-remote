@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Screen, Txt } from '@/ui';
+import { Button, Column, Screen, Txt } from '@/ui';
 
 /** Stands in for the per-kind remotes until the lane plans replace it. */
 export function PlaceholderRemote(props: { id: string }): ReactElement {
@@ -16,9 +16,18 @@ export function PlaceholderRemote(props: { id: string }): ReactElement {
   }
   return (
     <Screen title={name ?? t('common.appName')} onBack={() => router.back()}>
-      <Txt color="ink2">
-        {name === undefined ? t('home.notFound') : t('home.placeholderBody', { name })}
-      </Txt>
+      <Column gap={4}>
+        <Txt color="ink2">
+          {name === undefined ? t('home.notFound') : t('home.placeholderBody', { name })}
+        </Txt>
+        {name === undefined ? null : (
+          <Button
+            label={t('device.open')}
+            variant="secondary"
+            onPress={() => router.push(`/device-sheet/${props.id}`)}
+          />
+        )}
+      </Column>
     </Screen>
   );
 }
