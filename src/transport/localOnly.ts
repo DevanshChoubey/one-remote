@@ -7,6 +7,7 @@ type Ip = { v: 4; n: number } | { v: 6; g: number[] };
 
 const DECIMAL_OCTET = /^(0|[1-9]\d{0,2})$/;
 const HEX_GROUP = /^[0-9a-fA-F]{1,4}$/;
+const ZONE_ID = /^[A-Za-z0-9_.-]{1,64}$/;
 
 function parseV4(s: string): number | null {
   const parts = s.split('.');
@@ -26,7 +27,8 @@ function parseV6(input: string): number[] | null {
   const pct = s.indexOf('%');
   if (pct >= 0) {
     const zone = s.slice(pct + 1);
-    if (zone === '' || /[\s%]/.test(zone)) return null;
+    // A zone is an interface name or index; anything else (`@`, `/`, `]`...) could become a URL part.
+    if (!ZONE_ID.test(zone)) return null;
     s = s.slice(0, pct);
   }
   if (!s.includes(':')) return null;
@@ -108,7 +110,9 @@ function parsePrefix(p: Prefix): ParsedPrefix | null {
   const ip = parse(p.address);
   if (ip === null || !Number.isInteger(p.bits)) return null;
   const max = ip.v === 4 ? 32 : 128;
-  if (p.bits < 1 || p.bits > max) return null;
+  // A prefix shorter than /8 (v4) or /16 (v6), e.g. from a VPN, would make most of the internet local.
+  const min = ip.v === 4 ? 8 : 16;
+  if (p.bits < min || p.bits > max) return null;
   return { ip, bits: p.bits };
 }
 

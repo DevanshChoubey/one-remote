@@ -66,6 +66,14 @@ describe('isLocalAddress', () => {
     'fd12::g',
     'fd12::12345',
     'fe80::1%',
+    'fe80::1%@evil.com',
+    'fe80::1%a/b',
+    'fe80::1%a]',
+    'fe80::1%a:b',
+    'fe80::1%a#b',
+    `fe80::1%${'a'.repeat(65)}`,
+    '::ffff:192.168.01.1',
+    '::ffff:1.2.3',
     '192.168.1.5%eth0',
     ' 192.168.1.5',
     '192.168.1.5 ',
@@ -90,6 +98,19 @@ describe('isLocalAddress', () => {
     expect(isLocalAddress('8.8.8.8', [{ address: '8.8.8.8', bits: 1.5 }])).toBe(false);
     expect(isLocalAddress('2001:db8::1', [{ address: '2001:db8::', bits: 129 }])).toBe(false);
     expect(isLocalAddress('2001:db8::1', [{ address: '2001:db8::', bits: 0 }])).toBe(false);
+  });
+
+  it('accepts zone ids made of letters, digits, dot, dash and underscore', () => {
+    expect(isLocalAddress('fe80::1%wlan0.1_a-b', lan)).toBe(true);
+    expect(isLocalAddress(`fe80::1%${'a'.repeat(64)}`, lan)).toBe(true);
+  });
+
+  it('ignores on-link prefixes shorter than /8 (v4) or /16 (v6)', () => {
+    expect(isLocalAddress('8.8.8.8', [{ address: '8.1.1.1', bits: 7 }])).toBe(false);
+    expect(isLocalAddress('8.8.8.8', [{ address: '8.1.1.1', bits: 8 }])).toBe(true);
+    expect(isLocalAddress('2001:db8::1', [{ address: '2001::', bits: 15 }])).toBe(false);
+    expect(isLocalAddress('2001:db8::1', [{ address: '2001::', bits: 16 }])).toBe(true);
+    expect(isSubnetBroadcast('9.255.255.255', [{ address: '8.1.1.1', bits: 7 }])).toBe(false);
   });
 
   it('does not match a v4 prefix against a v6 address or vice versa', () => {
