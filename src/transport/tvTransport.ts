@@ -2,7 +2,14 @@ import { Platform } from 'react-native';
 import dgram from 'react-native-udp';
 import { DeviceError } from '@/core';
 import type { TvSocket, TvTransport } from '@/webos/transport';
-import { assertLocal, isAllowedMulticast, isSubnetBroadcast, type Prefix } from './localOnly';
+import { parseSocketUrl } from '@/webos/url';
+import {
+  assertLocal,
+  isAllowedMulticast,
+  isLocalAddress,
+  isSubnetBroadcast,
+  type Prefix,
+} from './localOnly';
 import { getOnLinkPrefixes, subnetBroadcast, subnetHosts } from './netInfo';
 
 const SSDP_ADDRESS = '239.255.255.250';
@@ -25,11 +32,6 @@ interface Datagram {
   ): void;
   setBroadcast(flag: boolean): void;
   close(): void;
-}
-
-function hostOf(url: string): string {
-  const m = /^wss?:\/\/(\[[^\]]+\]|[^/:]+)/.exec(url);
-  return m?.[1]?.replace(/^\[|\]$/g, '') ?? '';
 }
 
 function text(msg: unknown): string {
@@ -120,7 +122,9 @@ export function createRnTvTransport(
 
   return {
     async open(url: string, timeoutMs: number): Promise<TvSocket> {
-      assertLocal(hostOf(url), await prefixes());
+      const parsed = parseSocketUrl(url);
+      if (!parsed) throw new DeviceError('notLocal', 'Not a plain ws:// or wss:// address');
+      assertLocal(parsed.host, await prefixes());
       return new Promise<TvSocket>((resolve, reject) => {
         let settled = false;
         let ws: WebSocket;
@@ -157,8 +161,12 @@ export function createRnTvTransport(
       // iOS needs the multicast entitlement for SSDP; it uses the subnet probe only.
       if (Platform.OS === 'ios') return;
       if (!isAllowedMulticast(SSDP_ADDRESS)) throw new DeviceError('notLocal');
+      const local = await prefixes();
       await withSocket<void>((sock, done, fail) => {
-        sock.on('message', (msg, rinfo) => onReply(text(msg), rinfo.address));
+        sock.on('message', (msg, rinfo) => {
+          // Only the home network answers us.
+          if (isLocalAddress(rinfo.address, local)) onReply(text(msg), rinfo.address);
+        });
         sock.send(message, 0, message.length, SSDP_PORT, SSDP_ADDRESS, (e) => {
           if (e) fail(notSent(e));
         });
@@ -167,7 +175,7 @@ export function createRnTvTransport(
       });
     },
 
-    async probe(ports, perHostMs, onOpen): Promise<void> {
+    async probe(ports, perHostMs, onOpen, isCancelled): Promise<void> {
       const local = await prefixes();
       const hosts = [...new Set(local.flatMap(subnetHosts))];
       const tryPort = (host: string, port: number): Promise<void> =>
@@ -199,7 +207,7 @@ export function createRnTvTransport(
         });
       let next = 0;
       const worker = async (): Promise<void> => {
-        while (next < hosts.length) {
+        while (next < hosts.length && !isCancelled?.()) {
           const host = hosts[next++];
           if (host) await Promise.all(ports.map((p) => tryPort(host, p)));
         }

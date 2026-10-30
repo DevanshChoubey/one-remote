@@ -1,5 +1,5 @@
 import { DeviceError } from '@/core';
-import { SsapClient } from '@/webos/client';
+import { SsapClient, SsapReplyError } from '@/webos/client';
 import { URI } from '@/webos/ssap';
 import { createFakeLan } from '@/webos/testing/fakeLan';
 import { createFakeTv } from '@/webos/testing/fakeTv';
@@ -116,7 +116,8 @@ describe('SsapClient', () => {
     client.onClose(closed);
     const p = client.request(URI.volume);
     client.close();
-    await expect(p).rejects.toMatchObject({ code: 'notSent' });
+    // the frame was written, so the TV may have acted on it
+    await expect(p).rejects.toMatchObject({ code: 'timeout' });
     await expect(client.request(URI.volume)).rejects.toMatchObject({ code: 'notSent' });
     expect(closed).not.toHaveBeenCalled();
   });
@@ -156,5 +157,35 @@ describe('SsapClient timeouts', () => {
     client.register(undefined, jest.fn(), 60000).catch((e: unknown) => (err = e));
     await jest.advanceTimersByTimeAsync(60000);
     expect((err as DeviceError).code).toBe('timeout');
+  });
+});
+
+describe('SsapClient: written requests and pointer host', () => {
+  it('a request whose frame was written rejects timeout when the TV drops before replying', async () => {
+    const { client, tv } = await setup();
+    await client.register('k', jest.fn(), 1000);
+    const p = client.request(URI.turnOff);
+    expect(tv.requests.map((r) => r.uri)).toContain(URI.turnOff);
+    tv.drop();
+    await expect(p).rejects.toMatchObject({ code: 'timeout' });
+  });
+
+  it('a TV error reply is notSent and marks the link alive', async () => {
+    const tv = createFakeTv({ host: HOST, mac: MAC, knownKeys: ['k'], failUris: [URI.volume] });
+    const lan = createFakeLan({ tvs: [tv] });
+    const client = await SsapClient.connect(lan, { host: HOST, secure: false }, 1500);
+    await client.register('k', jest.fn(), 1000);
+    const err = await client.request(URI.volume).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(SsapReplyError);
+    expect((err as SsapReplyError).code).toBe('notSent');
+  });
+
+  it('refuses a pointer socket that is not on the TV', async () => {
+    const tv = createFakeTv({ host: HOST, mac: MAC, knownKeys: ['k'], socketHost: '192.168.1.99' });
+    const lan = createFakeLan({ tvs: [tv] });
+    const client = await SsapClient.connect(lan, { host: HOST, secure: false }, 1500);
+    await client.register('k', jest.fn(), 1000);
+    await expect(client.button('UP')).rejects.toMatchObject({ code: 'notSent' });
+    expect(lan.opened.some((u) => u.includes('192.168.1.99'))).toBe(false);
   });
 });

@@ -1,9 +1,20 @@
 import { DeviceError, type Unsubscribe } from '@/core';
 import { manifest } from './manifest';
+import { parseSocketUrl } from './url';
 import { buttonFrame, decodeSsap, encodeSsap, URI, type SsapIn, type SsapOut } from './ssap';
 import type { TvSocket, TvTransport } from './transport';
 
 const REQUEST_MS = 1500;
+
+/** The TV answered a request with an SSAP `error`: it refused, so nothing was done, and the link
+ *  is alive. Code `notSent`. */
+export class SsapReplyError extends DeviceError {
+  constructor(readonly tvError: string) {
+    super('notSent', tvError);
+    this.name = 'SsapReplyError';
+    Object.setPrototypeOf(this, SsapReplyError.prototype);
+  }
+}
 
 interface Handler {
   onMessage(m: SsapIn): void;
@@ -22,6 +33,7 @@ export class SsapClient {
   private constructor(
     private readonly t: TvTransport,
     private readonly sock: TvSocket,
+    private readonly host: string,
   ) {
     sock.onMessage((text) => {
       const m = decodeSsap(text);
@@ -40,7 +52,7 @@ export class SsapClient {
     timeoutMs: number,
   ): Promise<SsapClient> {
     const url = link.secure ? `wss://${link.host}:3001` : `ws://${link.host}:3000`;
-    return new SsapClient(t, await t.open(url, timeoutMs));
+    return new SsapClient(t, await t.open(url, timeoutMs), link.host);
   }
 
   /** Resolves the client key. `onPrompt` fires once when the TV shows its prompt. Rejects
@@ -102,6 +114,7 @@ export class SsapClient {
     return new Promise((resolve, reject) => {
       if (this.closed) return reject(new DeviceError('notSent', 'closed'));
       const id = `${this.prefix}_${this.n++}`;
+      let written = false;
       const done = (): void => {
         clearTimeout(timer);
         this.handlers.delete(id);
@@ -117,19 +130,22 @@ export class SsapClient {
             resolve(m.payload);
           } else if (m.type === 'error') {
             done();
-            reject(new DeviceError('notSent', m.error));
+            reject(new SsapReplyError(m.error));
           }
         },
+        // Once the frame left, a close may or may not have been after the TV acted on it.
         fail: (e) => {
           done();
-          reject(e);
+          reject(written ? new DeviceError('timeout', `${uri} (connection closed)`) : e);
         },
       });
       const frame: SsapOut =
         payload === undefined
           ? { type: 'request', id, uri }
           : { type: 'request', id, uri, payload };
+      written = true; // a close during the write itself still counts: it may have left
       this.write(frame, (e) => {
+        written = false;
         done();
         reject(e);
       });
@@ -215,6 +231,10 @@ export class SsapClient {
     const p = this.request(URI.pointer, undefined, timeoutMs)
       .then((r) => {
         if (typeof r.socketPath !== 'string') throw new DeviceError('notSent', 'no pointer socket');
+        // The TV must not point us at another machine.
+        if (parseSocketUrl(r.socketPath)?.host !== this.host) {
+          throw new DeviceError('notSent', 'pointer socket is not on the TV');
+        }
         return this.t.open(r.socketPath, timeoutMs);
       })
       .then((sock) => {

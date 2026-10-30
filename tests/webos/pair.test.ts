@@ -91,6 +91,26 @@ describe('pairTv', () => {
     expect(lan.opened[0]).toBe(`wss://${HOST}:3001`);
   });
 
+  it('tries wss 3001 when ws 3000 is refused', async () => {
+    const tv = createFakeTv({ host: HOST, mac: MAC, secure: true });
+    const lan = createFakeLan({ tvs: [tv] });
+    const paired = await pairTv(lan, memorySecrets(), found, jest.fn());
+    expect(paired.link.secure).toBe(true);
+    expect(lan.opened).toEqual([`ws://${HOST}:3000`, `wss://${HOST}:3001`]);
+  });
+
+  it('fails with a PairError when the key cannot be kept', async () => {
+    const tv = createFakeTv({ host: HOST, mac: MAC });
+    const secrets: TvSecrets = {
+      get: () => Promise.resolve(null),
+      set: () => Promise.reject(new Error('keystore')),
+    };
+    const err = await pairTv(createFakeLan({ tvs: [tv] }), secrets, found, jest.fn()).catch(
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(PairError);
+  });
+
   it('omits the mac when the TV does not report one', async () => {
     const tv = createFakeTv({ host: HOST, mac: 'nope' });
     const paired = await pairTv(createFakeLan({ tvs: [tv] }), memorySecrets(), found, jest.fn());

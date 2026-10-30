@@ -19,13 +19,19 @@ export async function pairTv(
   onPrompt: () => void,
   opts: { clientKeyRef?: string; promptMs?: number } = {},
 ): Promise<PairedTv> {
-  let client: SsapClient;
-  try {
-    client = await SsapClient.connect(t, tv, CONNECT_MS);
-  } catch (e) {
-    if (e instanceof DeviceError && e.code === 'notLocal') throw e;
-    throw new PairError('unreachable');
+  let client: SsapClient | undefined;
+  let secure = tv.secure;
+  // SSDP cannot say which port a TV uses: when ws:3000 is refused, try wss:3001.
+  for (const tryWss of tv.secure ? [true] : [false, true]) {
+    try {
+      client = await SsapClient.connect(t, { host: tv.host, secure: tryWss }, CONNECT_MS);
+      secure = tryWss;
+      break;
+    } catch (e) {
+      if (e instanceof DeviceError && e.code === 'notLocal') throw e;
+    }
   }
+  if (!client) throw new PairError('unreachable');
   try {
     let key: string;
     try {
@@ -36,8 +42,13 @@ export async function pairTv(
       throw new PairError('unreachable');
     }
     const ref = opts.clientKeyRef ?? newRef();
-    await secrets.set(ref, key);
-    if (tv.usn) await secrets.set(`${ref}:usn`, tv.usn);
+    try {
+      await secrets.set(ref, key);
+      if (tv.usn) await secrets.set(`${ref}:usn`, tv.usn);
+    } catch {
+      // The key could not be kept: pairing did not complete.
+      throw new PairError('unreachable');
+    }
     let mac: string | undefined;
     try {
       mac = parseMac(await client.request(URI.netInfo));
@@ -49,7 +60,7 @@ export async function pairTv(
         kind: 'webos',
         host: tv.host,
         ...(mac ? { mac } : {}),
-        secure: tv.secure,
+        secure,
         clientKeyRef: ref,
       },
       suggestedName: tv.name.replace(/^\[LG\]\s*/, '').trim() || 'LG TV',

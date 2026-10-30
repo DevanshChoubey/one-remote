@@ -49,7 +49,8 @@ export function parseSsdpReply(text: string, fromHost: string): FoundTv | null {
   };
 }
 
-/** SSDP and the subnet probe together, de-duplicated by host. Both are best-effort: a transport
+/** SSDP and the subnet probe together, de-duplicated by host (a host is reported again only when
+ *  the probe shows it is secure-only: callers replace by host). Both are best-effort: a transport
  *  error ends that search quietly. `onDone` fires once both have ended (not after unsubscribe). */
 export function discoverTvs(
   t: TvTransport,
@@ -60,13 +61,13 @@ export function discoverTvs(
   const probeMs = opts.probeMs ?? 1500;
   let stopped = false;
   let pending = 2;
-  const seen = new Set<string>();
+  const seen = new Map<string, FoundTv>();
   const plain = new Set<string>();
   const tlsOnly = new Set<string>();
 
   const emit = (tv: FoundTv): void => {
     if (stopped || seen.has(tv.host)) return;
-    seen.add(tv.host);
+    seen.set(tv.host, tv);
     onFound(tv);
   };
   const settle = (): void => {
@@ -86,19 +87,33 @@ export function discoverTvs(
 
   Promise.resolve()
     .then(() =>
-      t.probe([3000, 3001], probeMs, (host, port) => {
-        if (port === 3000) {
-          plain.add(host);
-          emit({ host, name: 'LG TV', secure: false });
-        } else if (port === 3001) {
-          tlsOnly.add(host);
-        }
-      }),
+      t.probe(
+        [3000, 3001],
+        probeMs,
+        (host, port) => {
+          if (port === 3000) {
+            plain.add(host);
+            emit({ host, name: 'LG TV', secure: false });
+          } else if (port === 3001) {
+            tlsOnly.add(host);
+          }
+        },
+        () => stopped,
+      ),
     )
     .catch(() => undefined)
     .then(() => {
       for (const host of tlsOnly) {
-        if (!plain.has(host)) emit({ host, name: 'LG TV', secure: true });
+        if (plain.has(host) || stopped) continue;
+        const prev = seen.get(host);
+        if (!prev) {
+          emit({ host, name: 'LG TV', secure: true });
+        } else if (!prev.secure) {
+          // SSDP cannot tell; the probe saw only the TLS port. Report the host again, secure.
+          const upgraded = { ...prev, secure: true };
+          seen.set(host, upgraded);
+          onFound(upgraded);
+        }
       }
       settle();
     });

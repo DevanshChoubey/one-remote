@@ -20,8 +20,17 @@ export async function rediscover(
   t: TvTransport,
   secrets: Pick<TvSecrets, 'get'>,
   link: Extract<Link, { kind: 'webos' }>,
-  opts: { maxCandidates?: number } = {},
+  opts: {
+    maxCandidates?: number;
+    /** Budget to open and register, as in the driver's own connect (1500). */
+    connectMs?: number;
+    /** Hosts that asked us to pair recently: never register against them again yet. */
+    isHeldOff?: (host: string) => boolean;
+    /** A host answered our register with a prompt. */
+    onPrompted?: (host: string) => void;
+  } = {},
 ): Promise<string | null> {
+  const connectMs = opts.connectMs ?? CHECK_MS;
   const max = opts.maxCandidates ?? 3;
   if (!link.mac) return null;
   const wantMac = link.mac.toLowerCase();
@@ -34,20 +43,19 @@ export async function rediscover(
   const isSameTv = async (tv: FoundTv): Promise<boolean> => {
     let client: SsapClient | undefined;
     try {
-      client = await SsapClient.connect(
-        t,
-        { host: tv.host, secure: tv.secure || link.secure },
-        CHECK_MS,
-      );
+      const started = Date.now();
+      // The same port and budget the driver will use to connect: found must mean connectable.
+      client = await SsapClient.connect(t, { host: tv.host, secure: link.secure }, connectMs);
       const open = client;
       let prompted = false;
       await open.register(
         key,
         () => {
           prompted = true;
+          opts.onPrompted?.(tv.host);
           open.close();
         },
-        CHECK_MS,
+        Math.max(1, connectMs - (Date.now() - started)),
       );
       if (prompted) return false;
       return parseMac(await open.request(URI.netInfo, undefined, CHECK_MS)) === wantMac;
@@ -65,6 +73,7 @@ export async function rediscover(
     let discoveryDone = false;
     let graceOver = !storedUsn;
     let finished = false;
+    const queued = new Set<string>();
     let stop: Unsubscribe | undefined;
 
     const finish = (host: string | null): void => {
@@ -90,6 +99,7 @@ export async function rediscover(
         const preferred = storedUsn ? queue.findIndex((c) => c.usn === storedUsn) : -1;
         if (preferred < 0 && !graceOver) break;
         const [tv] = queue.splice(Math.max(0, preferred), 1);
+        if (tv && opts.isHeldOff?.(tv.host)) continue;
         tried += 1;
         if (tv && (await isSameTv(tv))) {
           finish(tv.host);
@@ -103,6 +113,9 @@ export async function rediscover(
     stop = discoverTvs(
       t,
       (tv) => {
+        // A host can be reported twice (secure upgrade); try it once.
+        if (queued.has(tv.host)) return;
+        queued.add(tv.host);
         queue.push(tv);
         void pump();
       },

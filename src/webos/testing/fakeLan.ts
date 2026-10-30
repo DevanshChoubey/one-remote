@@ -53,7 +53,8 @@ export function createFakeLan(opts: { tvs: FakeTv[]; wifi?: boolean; hang?: stri
       }
       return new Promise((resolve) => setTimeout(resolve, windowMs));
     },
-    probe(ports, perHostMs, onOpen): Promise<void> {
+    probe(ports, perHostMs, onOpen, isCancelled): Promise<void> {
+      if (isCancelled?.()) return Promise.resolve();
       for (const tv of lan.wifi ? opts.tvs : []) {
         if (!tv.isUp() || hang.includes(tv.host)) continue;
         const port = tv.port();

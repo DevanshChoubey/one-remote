@@ -9,7 +9,7 @@ import {
   type TvState,
   type Unsubscribe,
 } from '@/core';
-import { SsapClient } from './client';
+import { SsapClient, SsapReplyError } from './client';
 import { rediscover } from './rediscover';
 import { isPoweredOn, KEY_BUTTON, parseVolume, URI } from './ssap';
 import type { TvSecrets, TvTransport } from './transport';
@@ -33,7 +33,7 @@ export interface WebosDriverOpts {
 
 const OFF_AFTER_MS = 3000;
 const POWER_FALLBACK_MS = 1500;
-const REDISCOVER_WHEN_OFF_MS = 30000;
+const REDISCOVER_EVERY_MS = 30000;
 const PROMPT_COOLDOWN_MS = 60000;
 
 interface Session {
@@ -64,8 +64,10 @@ interface Entry {
   rediscovering: boolean;
   lastRediscoverAt: number | undefined;
   offEmitted: boolean;
+  offTimer: ReturnType<typeof setTimeout> | undefined;
+  /** The TV (or something at its address) asked us to pair since the last failed connect. */
+  sawPrompt: boolean;
   noKey: boolean;
-  promptedAt: Map<string, number>;
   nextPlayPause: 'PAUSE' | 'PLAY';
 }
 
@@ -83,6 +85,14 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
   const backoff = o.reconnectMs ?? [250, 500, 1000, 2000, 5000];
   const idleCloseMs = o.idleCloseMs ?? 10000;
   const entries = new Map<string, Entry>();
+  /** Hosts that answered our register with a prompt, and when. Shared with rediscovery. */
+  const promptedAt = new Map<string, number>();
+  const isHeldOff = (host: string): boolean => {
+    const at = promptedAt.get(host);
+    return at !== undefined && Date.now() - at < PROMPT_COOLDOWN_MS;
+  };
+  /** One rediscovery (and so one subnet probe) at a time, across all TVs. */
+  let probing = false;
 
   // ---- entries ---------------------------------------------------------------------------------
 
@@ -107,8 +117,9 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
         rediscovering: false,
         lastRediscoverAt: undefined,
         offEmitted: false,
+        offTimer: undefined,
+        sawPrompt: false,
         noKey: false,
-        promptedAt: new Map(),
         nextPlayPause: 'PAUSE',
       };
       entries.set(device.id, e);
@@ -157,8 +168,8 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
     e.noKey = !key;
     if (!key) throw new DeviceError('notPaired', 'The TV is not paired');
     const host = e.host;
-    const prompted = e.promptedAt.get(host);
-    if (prompted !== undefined && Date.now() - prompted < PROMPT_COOLDOWN_MS) {
+    if (isHeldOff(host)) {
+      e.sawPrompt = true;
       throw new DeviceError('notPaired', 'The TV asked to pair again');
     }
     const started = Date.now();
@@ -183,7 +194,8 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
       if (asked) {
         // Our key is not known here: a revoked pairing, or another TV at this address. Do not
         // keep making a prompt appear on a TV screen.
-        e.promptedAt.set(host, Date.now());
+        promptedAt.set(host, Date.now());
+        e.sawPrompt = true;
         throw new DeviceError('notPaired', 'The TV asked to pair again');
       }
       throw asDeviceError(err);
@@ -213,6 +225,9 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
     e.client = client;
     e.attempt = 0;
     e.offEmitted = false;
+    e.lastRediscoverAt = undefined;
+    e.sawPrompt = false;
+    clearOffTimer(e);
     client.onClose(() => onClientClosed(e, client, backoff[0] ?? 250));
     if (e.observers.size > 0) startSession(e, client);
     else scheduleIdle(e);
@@ -226,6 +241,11 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
       e.attempt = 1;
       scheduleAttempt(e, retryInMs);
     }
+  }
+
+  function clearOffTimer(e: Entry): void {
+    if (e.offTimer) clearTimeout(e.offTimer);
+    e.offTimer = undefined;
   }
 
   function cancelAttempt(e: Entry): void {
@@ -259,6 +279,7 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
 
   async function runAttempt(e: Entry): Promise<void> {
     if (e.observers.size === 0 || e.client || e.rediscovering) return;
+    e.sawPrompt = false;
     try {
       await connectOnce(e);
     } catch (err) {
@@ -276,36 +297,72 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
       return;
     }
     const now = Date.now();
-    if (
-      e.offEmitted &&
-      e.lastRediscoverAt !== undefined &&
-      now - e.lastRediscoverAt < REDISCOVER_WHEN_OFF_MS
-    ) {
+    const throttled =
+      e.lastRediscoverAt !== undefined && now - e.lastRediscoverAt < REDISCOVER_EVERY_MS;
+    if (throttled || probing) {
+      scheduleBackoff(e);
+      return;
+    }
+    if (!e.link.mac) {
+      // Without a MAC the TV cannot be told from another one, so it cannot be searched for. Say
+      // "off" only after the usual wait, not at the first refused connect.
+      if (!e.offTimer) {
+        e.offTimer = setTimeout(() => {
+          e.offTimer = undefined;
+          emitOff(e);
+        }, OFF_AFTER_MS);
+      }
       scheduleBackoff(e);
       return;
     }
     e.rediscovering = true;
+    probing = true;
     e.lastRediscoverAt = now;
-    const offTimer = setTimeout(() => emitOff(e), OFF_AFTER_MS);
+    const offTimer = setTimeout(() => {
+      if (!e.sawPrompt) emitOff(e);
+    }, OFF_AFTER_MS);
     let host: string | null = null;
     try {
-      host = await rediscover(t, o.secrets, { ...e.link, host: e.host });
+      host = await rediscover(
+        t,
+        o.secrets,
+        { ...e.link, host: e.host },
+        {
+          connectMs,
+          isHeldOff,
+          onPrompted: (h) => {
+            promptedAt.set(h, Date.now());
+            e.sawPrompt = true;
+          },
+        },
+      );
     } catch {
       host = null;
     }
     clearTimeout(offTimer);
+    probing = false;
     e.rediscovering = false;
+    const moved = host !== null && host !== e.host;
+    if (moved && host) {
+      // Save the new address even if nobody is watching any more.
+      e.host = host;
+      try {
+        await o.onHostChanged(e.deviceId, host);
+      } catch {
+        // The new host still works for this run; it is saved on the next change.
+      }
+    }
     if (e.observers.size === 0) return;
     if (host) {
-      if (host !== e.host) {
-        e.host = host;
-        try {
-          await o.onHostChanged(e.deviceId, host);
-        } catch {
-          // The new host still works for this run; it is saved on the next change.
-        }
-      }
-      scheduleAttempt(e, 0);
+      // A changed host is worth trying at once; the same host that just failed is not.
+      if (moved) scheduleAttempt(e, 0);
+      else scheduleBackoff(e);
+      return;
+    }
+    if (e.sawPrompt) {
+      // Something at this address wants pairing. Stay quiet (not "off") and do not make the
+      // prompt come back more than once a minute.
+      scheduleAttempt(e, PROMPT_COOLDOWN_MS);
       return;
     }
     emitOff(e);
@@ -378,8 +435,13 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
             if (on !== undefined) update(e, s, { power: on });
             beat();
           },
-          () => {
+          (err: unknown) => {
             if (s.stopped) return;
+            // Any reply, even an error, proves the link is alive.
+            if (err instanceof SsapReplyError) {
+              beat();
+              return;
+            }
             // No answer: the connection is dead. Reconnect at once, without telling observers.
             client.close();
             onClientClosed(e, client, 0);
@@ -518,6 +580,7 @@ export function createWebosDriver(o: WebosDriverOpts): LinkDriver & { kind: 'web
         e.observers.delete(cb);
         if (e.observers.size > 0) return;
         cancelAttempt(e);
+        clearOffTimer(e);
         stopSession(e, true);
         scheduleIdle(e);
       };

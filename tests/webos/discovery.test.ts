@@ -172,6 +172,45 @@ describe('discoverTvs', () => {
   });
 });
 
+describe('discoverTvs: secure upgrade and cancel', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it('reports an SSDP host again as secure when the probe saw only 3001', async () => {
+    const tv = createFakeTv({
+      host: '192.168.1.23',
+      mac: 'aa:bb:cc:00:11:22',
+      secure: true,
+      usn: 'uuid:1',
+    });
+    const lan = createFakeLan({ tvs: [tv] });
+    const found: FoundTv[] = [];
+    discoverTvs(lan, (t) => found.push(t));
+    await jest.advanceTimersByTimeAsync(3000);
+    expect(found).toEqual([
+      { host: '192.168.1.23', name: 'webOS TV OLED55C4', secure: false, usn: 'uuid:1' },
+      { host: '192.168.1.23', name: 'webOS TV OLED55C4', secure: true, usn: 'uuid:1' },
+    ]);
+  });
+
+  it('tells the probe to stop after unsubscribe', async () => {
+    const lan = createFakeLan({ tvs: [] });
+    let flag: (() => boolean) | undefined;
+    const t = {
+      ...lan,
+      probe: (_p: number[], _ms: number, _o: unknown, c?: () => boolean) => {
+        flag = c;
+        return Promise.resolve();
+      },
+    };
+    const stop = discoverTvs(t, () => undefined);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(flag?.()).toBe(false);
+    stop();
+    expect(flag?.()).toBe(true);
+  });
+});
+
 describe('probeHost', () => {
   it('finds a plain TV', async () => {
     const tv = createFakeTv({ host: '192.168.1.23', mac: 'aa:bb:cc:00:11:22' });

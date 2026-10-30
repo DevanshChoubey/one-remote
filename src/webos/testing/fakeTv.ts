@@ -39,6 +39,12 @@ export interface FakeTvOpts {
   name?: string;
   prompt?: 'allow' | 'deny' | 'never';
   knownKeys?: string[];
+  /** Answer these URIs with an SSAP error. */
+  failUris?: string[];
+  /** Put this host in the pointer socketPath instead of the TV's own. */
+  socketHost?: string;
+  /** Drop every connection as soon as this URI is requested, without replying. */
+  dropOn?: string;
 }
 
 interface Conn {
@@ -110,7 +116,7 @@ export function createFakeTv(opts: FakeTvOpts): FakeTv {
       case URI.pointer:
         return {
           returnValue: true,
-          socketPath: `${secure ? 'wss' : 'ws'}://${host}:${secure ? 3001 : 3000}/resources/fake/netinput.pointer.sock`,
+          socketPath: `${secure ? 'wss' : 'ws'}://${opts.socketHost ?? host}:${secure ? 3001 : 3000}/resources/fake/netinput.pointer.sock`,
         };
       case URI.turnOff:
       case URI.insertText:
@@ -186,11 +192,15 @@ export function createFakeTv(opts: FakeTvOpts): FakeTv {
       return;
     }
     requests.push(m.payload === undefined ? { uri: m.uri } : { uri: m.uri, payload: m.payload });
+    if (opts.dropOn === m.uri) {
+      dropAll();
+      return;
+    }
     if (!c.registered) {
       reply(c, { type: 'error', id: m.id, error: '401 insufficient permissions', payload: {} });
       return;
     }
-    const payload = payloadFor(m.uri);
+    const payload = opts.failUris?.includes(m.uri) ? null : payloadFor(m.uri);
     if (!payload) {
       reply(c, { type: 'error', id: m.id, error: '404 no such service or method', payload: {} });
       return;

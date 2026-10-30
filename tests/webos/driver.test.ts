@@ -452,7 +452,8 @@ describe('webos driver: review focus', () => {
     expect(r.onHostChanged).not.toHaveBeenCalled();
     expect(other.buttons).toEqual([]);
     expect(other.frames.filter((f) => f.type === 'register').length).toBeLessThanOrEqual(2);
-    expect(reports).toContainEqual({ kind: 'tv', state: { power: false } });
+    // Something at that address wants pairing: that is not "the TV is off".
+    expect(reports).not.toContainEqual({ kind: 'tv', state: { power: false } });
     stop();
   });
 
@@ -560,5 +561,132 @@ describe('rediscover', () => {
     const p = rediscover(lan, secrets(), link);
     await advance(20000);
     await expect(p).resolves.toBeNull();
+  });
+});
+
+describe('webos driver: fix round 1', () => {
+  it.each([['power' as const], ['input' as const]])(
+    'tv.key %s written then dropped before the reply is a timeout, never notSent',
+    async (key) => {
+      const uri = key === 'power' ? URI.turnOff : URI.launch;
+      const r = rig({ tvs: [tvAt({ dropOn: uri })] });
+      await expect(r.key(key)).rejects.toMatchObject({ code: 'timeout' });
+      expect(r.tv.requests.map((q) => q.uri)).toContain(uri);
+    },
+  );
+
+  it('a TV error reply to a press is notSent (it refused)', async () => {
+    const r = rig({ tvs: [tvAt({ failUris: [URI.turnOff] })] });
+    await expect(r.key('power')).rejects.toMatchObject({ code: 'notSent' });
+  });
+
+  it('heartbeat: an error reply to getPowerState proves the link is alive', async () => {
+    const r = rig({ tvs: [tvAt({ failUris: [URI.power] })] });
+    const { reports, stop } = r.observe();
+    await advance(30000);
+    expect(mainSockets(r.lan)).toHaveLength(1);
+    expect(reports[0]).toMatchObject({ state: { power: true } });
+    stop();
+  });
+
+  it('a revoked key: at most one register a minute, and not reported as off', async () => {
+    const tv = tvAt({ knownKeys: [], prompt: 'never' });
+    const r = rig({ tvs: [tv] });
+    const { reports, stop } = r.observe();
+    await advance(120000);
+    const registers = tv.frames.filter((f) => f.type === 'register').length;
+    expect(registers).toBeGreaterThanOrEqual(1);
+    expect(registers).toBeLessThanOrEqual(3);
+    expect(reports).not.toContainEqual({ kind: 'tv', state: { power: false } });
+    stop();
+  });
+
+  it('a TV that stays off is searched for at most every 30 s, one probe at a time', async () => {
+    const r = rig({ tvs: [] });
+    const real = r.lan.probe.bind(r.lan);
+    const probe = jest.spyOn(r.lan, 'probe');
+    let inFlight = 0;
+    let max = 0;
+    probe.mockImplementation((...a) => {
+      inFlight++;
+      max = Math.max(max, inFlight);
+      return real(...a).finally(() => inFlight--);
+    });
+    const dev2 = { ...r.dev, id: 'tv2' };
+    const a = r.driver.observe?.(r.dev, r.link, () => undefined);
+    const b = r.driver.observe?.(dev2, r.link, () => undefined);
+    await advance(90000);
+    expect(max).toBe(1);
+    expect(probe.mock.calls.length).toBeLessThanOrEqual(6);
+    a?.();
+    b?.();
+  });
+
+  it('without a MAC it says off only after the usual wait', async () => {
+    const link = webos();
+    delete link.mac;
+    const r = rig({ tvs: [], links: [link] });
+    const reports: Reported[] = [];
+    const stop = r.driver.observe?.(r.dev, link, (x) => reports.push(x));
+    await advance(2999);
+    expect(reports).toEqual([]);
+    await advance(1);
+    expect(reports).toEqual([{ kind: 'tv', state: { power: false } }]);
+    stop?.();
+  });
+
+  it('saves a host found by rediscovery even if the last observer just left', async () => {
+    const r = rig();
+    const { stop } = r.observe();
+    await advance(0);
+    const orig = r.lan.ssdpSearch.bind(r.lan);
+    jest.spyOn(r.lan, 'ssdpSearch').mockImplementation((...a) => {
+      stop();
+      return orig(...a);
+    });
+    r.tv.moveTo('192.168.1.40');
+    await advance(5000);
+    expect(r.onHostChanged).toHaveBeenCalledWith('tv1', '192.168.1.40');
+  });
+});
+
+describe('rediscover: hold-off and ports', () => {
+  it('skips held-off hosts without registering, and reports prompts', async () => {
+    const stranger = createFakeTv({
+      host: '192.168.1.41',
+      mac: '00:11:22:33:44:55',
+      prompt: 'never',
+    });
+    const real = createFakeTv({
+      host: '192.168.1.40',
+      mac: MAC,
+      usn: 'uuid:changed',
+      knownKeys: ['k'],
+    });
+    const lan = createFakeLan({ tvs: [stranger, real] });
+    const prompted: string[] = [];
+    const p = rediscover(lan, secrets(), webos(), {
+      maxCandidates: 1,
+      isHeldOff: (h) => h === '192.168.1.41',
+      onPrompted: (h) => prompted.push(h),
+    });
+    await advance(3000);
+    await expect(p).resolves.toBe('192.168.1.40');
+    expect(stranger.frames).toEqual([]);
+
+    const lan2 = createFakeLan({ tvs: [stranger] });
+    const p2 = rediscover(lan2, secrets(), webos(), { onPrompted: (h) => prompted.push(h) });
+    await advance(3000);
+    await expect(p2).resolves.toBeNull();
+    expect(prompted).toEqual(['192.168.1.41']);
+  });
+
+  it('checks candidates on the port the driver will use (link.secure)', async () => {
+    const tv = createFakeTv({ host: '192.168.1.40', mac: MAC, secure: true, knownKeys: ['k'] });
+    const lan = createFakeLan({ tvs: [tv] });
+    const p = rediscover(lan, secrets(), webos({ secure: true }));
+    await advance(3000);
+    await expect(p).resolves.toBe('192.168.1.40');
+    expect(lan.opened.every((u) => u.startsWith('wss://'))).toBe(true);
   });
 });

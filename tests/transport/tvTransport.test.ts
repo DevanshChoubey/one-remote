@@ -171,6 +171,20 @@ describe('open', () => {
   });
 });
 
+describe('open: URL tricks', () => {
+  it.each([
+    'ws://192.168.1.5:1@8.8.8.8:3000/',
+    'ws://192.168.1.5@8.8.8.8:3000',
+    'ws://8.8.8.8\\@192.168.1.5:3000',
+    'ws://192.168.1.5:3000/ x',
+    'ws://example.com:3000',
+  ])('rejects %s as notLocal without constructing a WebSocket', async (url) => {
+    const t = createRnTvTransport({ prefixes: lan });
+    await expect(t.open(url, 1500)).rejects.toMatchObject({ code: 'notLocal' });
+    expect(FakeWs.instances).toHaveLength(0);
+  });
+});
+
 describe('ssdpSearch', () => {
   it('sends the search to the SSDP group and relays replies until the window ends', async () => {
     jest.useFakeTimers();
@@ -196,6 +210,22 @@ describe('ssdpSearch', () => {
       ['', '192.168.1.25'],
     ]);
     expect(sock?.closed).toBe(true);
+  });
+
+  it('drops replies from addresses that are not on the home network', async () => {
+    jest.useFakeTimers();
+    jest.replaceProperty(Platform, 'OS', 'android');
+    const replies: string[] = [];
+    const done = createRnTvTransport({ prefixes: lan }).ssdpSearch('M', 100, (_t, from) =>
+      replies.push(from),
+    );
+    await jest.advanceTimersByTimeAsync(0);
+    const sock = FakeUdp.last;
+    sock?.handlers.get('message')?.('x', { address: '8.8.8.8' });
+    sock?.handlers.get('message')?.('x', { address: '192.168.1.23' });
+    await jest.advanceTimersByTimeAsync(100);
+    await done;
+    expect(replies).toEqual(['192.168.1.23']);
   });
 
   it('is skipped on iOS', async () => {
@@ -267,6 +297,21 @@ describe('probe', () => {
     expect(done).toHaveBeenCalledTimes(1);
     expect(opened).not.toHaveBeenCalled();
     expect(FakeWs.instances).toHaveLength(253);
+  });
+
+  it('stops sweeping once cancelled', async () => {
+    jest.useFakeTimers();
+    let cancelled = false;
+    const done = jest.fn();
+    createRnTvTransport({ prefixes: lan })
+      .probe([3000], 1500, jest.fn(), () => cancelled)
+      .then(done);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(FakeWs.instances).toHaveLength(32);
+    cancelled = true;
+    await jest.advanceTimersByTimeAsync(1500);
+    expect(FakeWs.instances).toHaveLength(32);
+    expect(done).toHaveBeenCalledTimes(1);
   });
 
   it('does nothing off Wi-Fi, and survives a constructor throw', async () => {
