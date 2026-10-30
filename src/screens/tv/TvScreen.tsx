@@ -234,7 +234,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   })();
 
   return (
-    <Screen title={device?.name ?? t('common.appName')} onBack={() => router.back()} scroll>
+    <Screen title={device?.name ?? t('common.appName')} onBack={() => router.back()}>
       <Column gap={4} testID="tv-screen">
         <Row align="center" justify="between">
           <Box flex={1}>
@@ -249,7 +249,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
             accessibilityLabel={t('tv.power')}
           >
             <Box px={3}>
-              <Txt variant="heading">⏻</Txt>
+              <Txt variant="heading">{t('tv.power')}</Txt>
             </Box>
           </Touchable>
           <DeviceSettingsButton deviceId={deviceId} />
