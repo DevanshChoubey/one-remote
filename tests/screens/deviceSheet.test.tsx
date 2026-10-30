@@ -101,6 +101,16 @@ describe('DeviceSheet', () => {
     expect(await s.secrets.get('k')).toBeNull();
   });
 
+  it('removes through services.removeDevice, so lane drivers can forget their links', async () => {
+    const s = await seeded();
+    const removeDevice = jest.spyOn(s, 'removeDevice');
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
+    await fireEvent.press(await screen.findByLabelText(t('device.remove')));
+    await fireEvent.press(screen.getByLabelText(t('device.confirmRemove')));
+    await waitFor(async () => expect((await s.store.devices()).map((d) => d.id)).toEqual(['d2']));
+    expect(removeDevice).toHaveBeenCalledWith('d1');
+  });
+
   it('removes the device even when deleting the secret fails', async () => {
     const s = await seeded();
     const err = jest.spyOn(console, 'error').mockImplementation(() => undefined);

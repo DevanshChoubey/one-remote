@@ -15,6 +15,10 @@ export interface LinkDriver {
    *  a driver should refuse to start once it is aborted, and stop between keys of a multi-key
    *  sequence (throwing 'partiallySent' if some went out). Drivers may ignore it. */
   send(device: Device, link: Link, cmd: Command, signal?: AbortSignal): Promise<void>;
+  /** Optional cleanup when the device is removed: delete this link's secrets, leave the fabric,
+   *  drop per-node data. Best effort and idempotent, so a later retry is safe. A failure is logged
+   *  and never blocks the removal. */
+  forget?(device: Device, link: Link): Promise<void>;
   /** Optional live state (webOS, Matter). */
   observe?(device: Device, link: Link, cb: (r: Reported) => void): Unsubscribe;
 }

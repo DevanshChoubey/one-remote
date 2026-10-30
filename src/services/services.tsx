@@ -15,6 +15,8 @@ export interface Services {
   secrets: SecretStore;
   prefs: PreferenceStore;
   drivers: LinkDriver[];
+  /** Removes a device and lets each link's driver forget it. Use this, not `store.removeDevice`. */
+  removeDevice(id: string): Promise<void>;
 }
 
 const ServicesContext = createContext<Services | null>(null);

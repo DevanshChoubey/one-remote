@@ -28,7 +28,7 @@ export interface DeviceSheetProps {
 }
 
 export function DeviceSheet(props: DeviceSheetProps): ReactElement {
-  const { store, secrets } = useServices();
+  const { store, removeDevice } = useServices();
   const router = useRouter();
   const data = useHomeData();
   const device = data.devices.find((d) => d.id === props.deviceId);
@@ -49,7 +49,7 @@ export function DeviceSheet(props: DeviceSheetProps): ReactElement {
       actions={props.linkActions ?? LINK_ACTIONS}
       deviceActions={props.deviceActions ?? DEVICE_ACTIONS}
       store={store}
-      secrets={secrets}
+      removeDevice={removeDevice}
       onBack={() => router.back()}
       onRemoved={() => router.dismissAll()}
     />
@@ -63,7 +63,7 @@ interface SheetProps {
   actions: readonly LinkActionRenderer[];
   deviceActions: readonly DeviceActionRenderer[];
   store: ReturnType<typeof useServices>['store'];
-  secrets: ReturnType<typeof useServices>['secrets'];
+  removeDevice: ReturnType<typeof useServices>['removeDevice'];
   onBack: () => void;
   onRemoved: () => void;
 }
@@ -75,7 +75,7 @@ function Sheet({
   actions,
   deviceActions,
   store,
-  secrets,
+  removeDevice,
   onBack,
   onRemoved,
 }: SheetProps): ReactElement {
@@ -108,21 +108,8 @@ function Sheet({
       }),
     );
   };
-  // The pairing keys go with the device. Best effort: a failure is logged and never blocks removal.
-  const remove = async (): Promise<void> => {
-    await store.removeDevice(device.id);
-    await Promise.all(
-      device.links.flatMap((l) =>
-        l.kind === 'webos'
-          ? [
-              secrets
-                .delete(l.clientKeyRef)
-                .catch((e: unknown) => console.error('Could not delete a device secret', e)),
-            ]
-          : [],
-      ),
-    );
-  };
+  // Each link's driver forgets its data (pairing keys, fabric); that cleanup never blocks removal.
+  const remove = (): Promise<void> => removeDevice(device.id);
   const trimmed = name.trim();
 
   return (
