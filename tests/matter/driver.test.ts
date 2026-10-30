@@ -405,4 +405,95 @@ describe('matter driver', () => {
       driver.send(device, { kind: 'ir', remoteId: 'x' }, set(cool24)),
     ).rejects.toMatchObject({ code: 'noLink' });
   });
+
+  describe('abort signal', () => {
+    it('writes nothing when aborted before the first write', async () => {
+      const controller = createFakeController();
+      const driver = createMatterDriver({ controller, enabled: true });
+      const ac = new AbortController();
+      ac.abort();
+      await expect(driver.send(device, link, set(cool24), ac.signal)).rejects.toMatchObject({
+        code: 'timeout',
+      });
+      expect(controller.writes).toEqual([]);
+    });
+
+    it('stops between writes and keeps the ones already sent', async () => {
+      const controller = createFakeController();
+      const ac = new AbortController();
+      const write = controller.write;
+      controller.write = async (id, w): Promise<void> => {
+        await write(id, w);
+        if (controller.writes.length === 2) ac.abort();
+      };
+      const driver = createMatterDriver({ controller, enabled: true });
+      await expect(driver.send(device, link, set(cool24), ac.signal)).rejects.toMatchObject({
+        code: 'timeout',
+      });
+      expect(controller.writes).toEqual([{ onOff: true }, { systemMode: 3 }]);
+    });
+
+    it('sends normally with a live signal', async () => {
+      const controller = createFakeController();
+      const driver = createMatterDriver({ controller, enabled: true });
+      await driver.send(device, link, set(cool24), new AbortController().signal);
+      expect(controller.writes).toHaveLength(4);
+    });
+  });
+
+  describe('forget', () => {
+    it('removes the fabric', async () => {
+      const controller = createFakeController();
+      const driver = createMatterDriver({ controller, enabled: true });
+      await driver.forget?.(device, link);
+      expect(controller.removed).toEqual(['1']);
+    });
+
+    it('is idempotent and tolerates an AC that already forgot us', async () => {
+      const controller = createFakeController();
+      const driver = createMatterDriver({ controller, enabled: true });
+      await driver.forget?.(device, link);
+      await expect(driver.forget?.(device, link)).resolves.toBeUndefined();
+      expect(controller.removed).toEqual(['1']);
+    });
+
+    it('resolves when the AC is unreachable', async () => {
+      const controller = createFakeController();
+      controller.unreachable(true);
+      const driver = createMatterDriver({ controller, enabled: true });
+      await expect(driver.forget?.(device, link)).resolves.toBeUndefined();
+      expect(controller.removed).toEqual([]);
+    });
+
+    it('resolves when removeFabric throws synchronously', async () => {
+      const controller = createFakeController();
+      controller.removeFabric = (): Promise<void> => {
+        throw new Error('boom');
+      };
+      const driver = createMatterDriver({ controller, enabled: true });
+      await expect(driver.forget?.(device, link)).resolves.toBeUndefined();
+    });
+
+    it('gives up after 5000 ms when the AC never answers', async () => {
+      const controller = createFakeController();
+      controller.hangRemove(true);
+      const driver = createMatterDriver({ controller, enabled: true });
+      let done = false;
+      void driver.forget?.(device, link).then(() => {
+        done = true;
+      });
+      await jest.advanceTimersByTimeAsync(4999);
+      expect(done).toBe(false);
+      await jest.advanceTimersByTimeAsync(1);
+      expect(done).toBe(true);
+      expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('ignores a non-matter link', async () => {
+      const controller = createFakeController();
+      const driver = createMatterDriver({ controller, enabled: true });
+      await driver.forget?.(device, { kind: 'ir', remoteId: 'x' });
+      expect(controller.removed).toEqual([]);
+    });
+  });
 });

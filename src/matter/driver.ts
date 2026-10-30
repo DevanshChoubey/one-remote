@@ -16,6 +16,9 @@ import type { Prefix } from '@/transport/localOnly';
 import { SYSTEM_MODE, capabilitiesFrom, fromAttrs, toWrites } from './clusters';
 import type { MatterAcInfo, MatterController } from './controller';
 
+/** Longest forget waits for the AC; an AC that is off must not hang device removal. */
+const FORGET_TIMEOUT_MS = 5000;
+
 const DEFAULT_RESUBSCRIBE_MS = [1000, 2000, 5000, 10000, 30000];
 
 const DEFAULT_CAPABILITIES: Capabilities = {
@@ -120,9 +123,11 @@ export function createMatterDriver(o: MatterDriverOptions): LinkDriver & { kind:
       return caps ?? DEFAULT_CAPABILITIES;
     },
 
-    send: async (device: Device, link: Link, cmd: Command): Promise<void> => {
+    send: async (device: Device, link: Link, cmd: Command, signal?: AbortSignal): Promise<void> => {
       if (!isMatterLink(link)) throw new DeviceError('noLink');
       if (device.kind !== 'ac' || cmd.kind !== 'ac.set') throw new DeviceError('unsupported');
+      // The hub gave up already: send nothing. A write already sent is never undone.
+      if (signal?.aborted) throw new DeviceError('timeout');
       const id = link.nodeId;
       const n = node(id);
       await ensureLocal(id, n);
@@ -139,6 +144,8 @@ export function createMatterDriver(o: MatterDriverOptions): LinkDriver & { kind:
       for (let i = 0; i < writes.length; i++) {
         const w = writes[i];
         if (!w) continue;
+        // Checked before each write; i > 0 means earlier writes may have gone out.
+        if (signal?.aborted) throw new DeviceError('timeout');
         try {
           await controller.write(id, w);
         } catch (e) {
@@ -169,6 +176,24 @@ export function createMatterDriver(o: MatterDriverOptions): LinkDriver & { kind:
         }
       }
       n.last = applied;
+    },
+
+    forget: async (_device: Device, link: Link): Promise<void> => {
+      if (!isMatterLink(link)) return;
+      const id = link.nodeId;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const bound = new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, FORGET_TIMEOUT_MS);
+      });
+      try {
+        // Best effort: an AC that is off, already forgot us or errors must not block removal.
+        await Promise.race([controller.removeFabric(id).catch(() => undefined), bound]);
+      } catch {
+        // removeFabric threw synchronously; same outcome.
+      } finally {
+        if (timer) clearTimeout(timer);
+        nodes.delete(id);
+      }
     },
 
     observe: (_device: Device, link: Link, cb: (r: Reported) => void): Unsubscribe => {

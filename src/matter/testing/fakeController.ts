@@ -21,6 +21,10 @@ export type FakeController = MatterController & {
   setAttrs(a: Partial<MatterAcAttrs>): void;
   lose(): void;
   unreachable(on: boolean): void;
+  /** Node ids passed to removeFabric that actually removed the fabric. */
+  removed: string[];
+  /** While on, removeFabric never settles (an AC that does not answer). */
+  hangRemove(on: boolean): void;
 };
 
 const STEPS: CommissionStep[] = ['found', 'network', 'responds'];
@@ -49,6 +53,8 @@ export function createFakeController(opts: FakeControllerOptions = {}): FakeCont
   let down = false;
   const subs = new Set<{ onAttrs: (a: MatterAcAttrs) => void; onLost: () => void }>();
   const writes: MatterWrite[] = [];
+  const removed: string[] = [];
+  let hang = false;
 
   const guard = (): void => {
     if (down) throw new MatterError('unreachable');
@@ -56,6 +62,7 @@ export function createFakeController(opts: FakeControllerOptions = {}): FakeCont
 
   return {
     writes,
+    removed,
     available: (): boolean => opts.available ?? true,
     commission: async (_payload, onStep): Promise<{ nodeId: string }> => {
       for (const step of STEPS) {
@@ -87,6 +94,16 @@ export function createFakeController(opts: FakeControllerOptions = {}): FakeCont
       return (): void => {
         subs.delete(sub);
       };
+    },
+    removeFabric: async (nodeId): Promise<void> => {
+      if (hang) return new Promise<void>(() => undefined);
+      guard();
+      // An AC that already forgot this app has no fabric to remove.
+      if (removed.includes(nodeId)) throw new MatterError('rejected');
+      removed.push(nodeId);
+    },
+    hangRemove: (on): void => {
+      hang = on;
     },
     peerAddress: async (): Promise<string | null> => opts.peer ?? '192.168.1.50',
     onLinkPrefixes: async (): Promise<Prefix[]> =>

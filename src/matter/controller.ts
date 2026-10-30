@@ -36,6 +36,9 @@ export interface MatterController {
   /** Rejects MatterError. */
   write(nodeId: string, w: MatterWrite): Promise<void>;
   subscribe(nodeId: string, onAttrs: (a: MatterAcAttrs) => void, onLost: () => void): Unsubscribe;
+  /** Removes this app's fabric from the node (Operational Credentials RemoveFabric). Rejects
+   *  MatterError, e.g. 'unreachable' when the AC is off or 'notFound' when it already forgot us. */
+  removeFabric(nodeId: string): Promise<void>;
   peerAddress(nodeId: string): Promise<string | null>;
   onLinkPrefixes(): Promise<Prefix[]>;
 }
