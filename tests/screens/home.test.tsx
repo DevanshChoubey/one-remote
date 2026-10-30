@@ -1,3 +1,4 @@
+import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { defaultAcState, defaultFanState } from '@/core';
 import type { Command, Device, LinkDriver, Room } from '@/core';
@@ -118,7 +119,12 @@ describe('HomeScreen', () => {
     await renderHome(s);
     await fireEvent(await screen.findByLabelText('Name l1'), 'longPress');
     expect(mockPush).toHaveBeenCalledWith('/device-sheet/l1');
-    await fireEvent(screen.getByLabelText(`Name i1, ${t('home.needsIr')}`), 'longPress');
+    const card = screen.getByLabelText(`Name i1, ${t('home.needsIr')}`);
+    expect(StyleSheet.flatten(card.props.style).opacity).toBe(0.5);
+    expect(card.props.accessibilityHint).toBe(t('home.longPressHint'));
+    await fireEvent.press(card);
+    expect(mockPush).not.toHaveBeenCalledWith('/device/i1');
+    await fireEvent(card, 'longPress');
     expect(mockPush).toHaveBeenCalledWith('/device-sheet/i1');
   });
 

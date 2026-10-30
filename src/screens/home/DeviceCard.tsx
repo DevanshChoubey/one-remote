@@ -24,6 +24,8 @@ export function DeviceCard(props: DeviceCardProps): ReactElement {
             // A card that cannot be used still opens its settings on a long press (to remove it).
             onPress={disabled ? () => undefined : () => props.onOpen(device.id)}
             onLongPress={() => props.onSettings(device.id)}
+            dimmed={disabled}
+            accessibilityHint={t('home.longPressHint')}
             accessibilityLabel={summary ? `${device.name}, ${summary}` : device.name}
           >
             <Column gap={1}>

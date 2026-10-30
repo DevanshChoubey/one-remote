@@ -10,6 +10,7 @@ export default {
   noIrBanner:
     "This phone has no IR blaster. Devices that only take IR can't be controlled from it.",
   settings: 'Settings',
+  longPressHint: 'Press and hold for device settings',
   add: 'Add a device',
   power: 'Power {name}',
   summaryOff: 'Off',
