@@ -4,8 +4,10 @@ import { t } from '@/i18n';
 import { FanScreen } from '@/screens/appliance/FanScreen';
 import { fanView } from '@/screens/appliance/fanModel';
 import type { DeviceView } from '@/services';
+import { createIrDriver } from '@/ir/driver';
+import { createFakeEmitter } from '@/ir/testing/fakeEmitter';
 import { renderWith } from '../helpers';
-import { fanDevice, servicesWith, silentDriver } from './applianceHelpers';
+import { fanDevice, heldDriver, servicesWith, silentDriver } from './applianceHelpers';
 
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: jest.fn() }) }));
 jest.mock('expo-haptics', () => ({ selectionAsync: jest.fn(() => Promise.resolve()) }));
@@ -125,6 +127,50 @@ describe('FanScreen', () => {
     expect(await screen.findByText('Needs a phone with IR')).toBeTruthy();
     const bar = screen.getByLabelText(t('fan.speed', { n: 3 }));
     expect(bar.props.accessibilityState.disabled).toBe(true);
+  });
+});
+
+describe('FanScreen quick taps and restarts', () => {
+  it('builds each press on the latest intended state', async () => {
+    const held = heldDriver({});
+    const s = await servicesWith([held.driver], [fanDevice()]);
+    await s.prefs.set({ lastSent: { d1: { kind: 'fan', state: on } } });
+    await renderWith(s, <FanScreen deviceId="d1" />);
+    await screen.findByLabelText(t('fan.speed', { n: 2 }));
+    await fireEvent.press(screen.getByLabelText(t('fan.speed', { n: 3 })));
+    await fireEvent.press(screen.getByLabelText(t('fan.boost')));
+    await held.release();
+    expect(screen.getByLabelText(t('fan.speed', { n: 3 })).props.accessibilityState.selected).toBe(
+      true,
+    );
+    await held.release();
+    expect(held.sent.map((c) => (c.kind === 'fan.set' ? c.state : null))).toEqual([
+      { ...on, speed: 3 },
+      { ...on, speed: 3, boost: true },
+    ]);
+  });
+
+  it('tells the IR driver what the fan was doing, so power off sends the off key', async () => {
+    const emitter = createFakeEmitter();
+    const s = await servicesWith(
+      [createIrDriver({ emitter, gapMs: 0 })],
+      [fanDevice({ links: [{ kind: 'ir', remoteId: 'atomberg-fan/1170' }] })],
+    );
+    await s.prefs.set({ lastSent: { d1: { kind: 'fan', state: { ...on, speed: 4 } } } });
+    await renderWith(s, <FanScreen deviceId="d1" />);
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText(t('fan.speed', { n: 4 })).props.accessibilityState.selected,
+      ).toBe(true),
+    );
+    await fireEvent.press(screen.getByLabelText(t('fan.power')));
+    await waitFor(() => expect(emitter.sent).toHaveLength(1));
+    await waitFor(async () =>
+      expect((await s.prefs.get()).lastSent.d1).toMatchObject({
+        kind: 'fan',
+        state: { power: false },
+      }),
+    );
   });
 });
 

@@ -24,7 +24,7 @@ jest.mock('expo-router', () => ({
     push: jest.fn(),
     back: jest.fn(),
     dismissAll: mockDismissAll,
-    dismissTo: jest.fn(),
+    dismiss: jest.fn(),
   }),
 }));
 jest.mock('expo-haptics', () => ({ selectionAsync: jest.fn() }));
@@ -195,6 +195,28 @@ describe('Add fan', () => {
     await renderWith(s, <AddApplianceFlow kind="fan" />);
     await fireEvent.press(await screen.findByLabelText('Atomberg'));
     expect(await screen.findByText(t('addAppliance.noIrTitle'))).toBeTruthy();
+  });
+});
+
+describe('IrTestStep timing', () => {
+  it('disables Yes and No while a Test is sending, and ignores a double Yes', async () => {
+    const { s, sendTest } = await setup({ hasIr: true });
+    let finish: () => void = () => undefined;
+    sendTest.mockImplementationOnce(() => new Promise<void>((resolve) => (finish = resolve)));
+    await renderWith(s, <AddApplianceFlow kind="ac" />);
+    await fireEvent.press(await screen.findByLabelText('Panasonic'));
+    await press(t('addAppliance.test'));
+    expect(screen.getByLabelText(t('addAppliance.no')).props.accessibilityState.disabled).toBe(
+      true,
+    );
+    await fireEvent.press(screen.getByLabelText(t('addAppliance.no')));
+    expect(screen.getByText('Panasonic · try 1 of 5')).toBeTruthy();
+    await act(async () => finish());
+    await waitFor(() =>
+      expect(screen.getByLabelText(t('addAppliance.yes')).props.accessibilityState.disabled).toBe(
+        false,
+      ),
+    );
   });
 });
 

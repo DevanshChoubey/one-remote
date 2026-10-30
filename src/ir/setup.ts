@@ -1,5 +1,5 @@
 import { DeviceError, defaultAcState } from '@/core';
-import type { BrandInfo, IrCandidate, IrSetup, TestPress } from '@/core';
+import type { BrandInfo, FanState, IrCandidate, IrSetup, TestPress } from '@/core';
 import { testPlan, type Catalogue, type Remote } from './catalogue';
 import { defaultCatalogue } from './codes';
 import type { IrEmitter, IrSignal } from './emitter';
@@ -27,7 +27,11 @@ function signalFor(r: Remote, press: TestPress): IrSignal {
   return missing();
 }
 
-export function createIrSetup(o: { emitter: IrEmitter; catalogue?: Catalogue }): IrSetup {
+export function createIrSetup(o: {
+  emitter: IrEmitter;
+  catalogue?: Catalogue;
+  seedFan?: (deviceId: string, state: FanState) => void;
+}): IrSetup {
   const cat = o.catalogue ?? defaultCatalogue;
   const find = (id: string): Remote => {
     const r = cat.remote(id);
@@ -44,6 +48,7 @@ export function createIrSetup(o: { emitter: IrEmitter; catalogue?: Catalogue }):
     sendTest: async (remoteId, press) => {
       await o.emitter.transmit(signalFor(find(remoteId), press));
     },
+    seedFan: (deviceId, state) => o.seedFan?.(deviceId, state),
     brandOf: (remoteId) => {
       const r = cat.remote(remoteId);
       return r ? allBrands().find((b) => b.id === r.brandId) : undefined;

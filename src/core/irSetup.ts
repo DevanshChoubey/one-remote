@@ -1,3 +1,5 @@
+import type { FanState } from './model';
+
 export type TestPress = 'acOnCool24' | 'acUp25' | 'fanSpeed3' | 'fanLight' | 'fanSpeed1';
 
 export interface BrandInfo {
@@ -20,4 +22,6 @@ export interface IrSetup {
   testPlan(remoteId: string): { first: TestPress; confirm: TestPress };
   sendTest(remoteId: string, press: TestPress): Promise<void>;
   brandOf(remoteId: string): BrandInfo | undefined;
+  /** Tells the IR driver what a fan was last doing (restored after an app restart). */
+  seedFan(deviceId: string, state: FanState): void;
 }

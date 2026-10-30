@@ -1,12 +1,16 @@
-import type { Unsubscribe } from '@/core';
+import type { AcState, FanState, Unsubscribe } from '@/core';
 import { notifyAll, subscribeTo } from './memoryStore';
 import type { AsyncStorageLike } from './types';
+
+/** The last state sent to an appliance that cannot report its own (IR), kept across restarts. */
+export type LastSent = { kind: 'ac'; state: AcState } | { kind: 'fan'; state: FanState };
 
 export interface Preferences {
   theme: 'system' | 'light' | 'dark';
   volumeKeys: boolean;
   haptics: boolean;
   tvPad: Record<string, 'touchpad' | 'dpad'>;
+  lastSent: Record<string, LastSent>;
 }
 
 export const defaultPreferences: Preferences = {
@@ -14,6 +18,7 @@ export const defaultPreferences: Preferences = {
   volumeKeys: true,
   haptics: true,
   tvPad: {},
+  lastSent: {},
 };
 
 export interface PreferenceStore {
@@ -41,6 +46,15 @@ function sanitize(v: unknown): Partial<Preferences> {
     }
     out.tvPad = pad;
   }
+  if (isRecord(v.lastSent)) {
+    const sent: Preferences['lastSent'] = {};
+    for (const [k, e] of Object.entries(v.lastSent)) {
+      if (isRecord(e) && (e.kind === 'ac' || e.kind === 'fan') && isRecord(e.state)) {
+        if (typeof e.state.power === 'boolean') sent[k] = e as unknown as LastSent;
+      }
+    }
+    out.lastSent = sent;
+  }
   return out;
 }
 
@@ -48,6 +62,7 @@ const merge = (base: Preferences, patch: Partial<Preferences>): Preferences => (
   ...base,
   ...patch,
   tvPad: { ...(patch.tvPad ?? base.tvPad) },
+  lastSent: { ...(patch.lastSent ?? base.lastSent) },
 });
 
 export function createMemoryPreferenceStore(): PreferenceStore {

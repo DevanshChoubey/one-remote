@@ -1,10 +1,9 @@
 export default {
   brandTitle: 'Which brand?',
-  otherBrands: 'Other brands',
-  otherBrandsNote: 'Not yet supported',
   otherBrandsRow: 'Other brands · Not yet supported',
   brandMissing: 'Brand missing? Tell us (opens email, nothing sent automatically)',
   brandMatter: 'Matter',
+  progress: 'Candidate {n} of {total}',
   testTitle: 'Test the remote',
   tryOf: '{brand} · try {n} of {total}',
   pointAc: 'Point at the AC, press Test',

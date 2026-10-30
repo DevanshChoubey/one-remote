@@ -27,6 +27,7 @@ describe('statusLine', () => {
   it('says connected when the first link worked', () => {
     const v = view({ status: { via: 'matter', fellBack: false } });
     expect(statusLine(v).key).toBe('ac.status.connected');
+    expect(statusLine(v).kind).toBe('connected');
     expect(text(v)).toBe("● Connected · how it's connected");
   });
 

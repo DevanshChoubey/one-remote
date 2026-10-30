@@ -1,4 +1,4 @@
-import type { Capabilities, Device, LinkDriver } from '@/core';
+import type { Capabilities, Command, Device, LinkDriver } from '@/core';
 import { createFakeDriver } from '@/device/testing/fakeDriver';
 import type { FakeDriver } from '@/device/testing/fakeDriver';
 import type { Services } from '@/services';
@@ -35,3 +35,34 @@ export const acDevice = (over: Partial<Device> = {}): Device =>
 
 export const fanDevice = (over: Partial<Device> = {}): Device =>
   device('d1', 'r1', 0, { kind: 'fan', name: 'Study fan', ...over });
+
+/** A driver whose sends stay pending until `release()` lets the oldest one through. */
+export function heldDriver(capabilities: Capabilities = {}): {
+  driver: LinkDriver;
+  sent: Command[];
+  release(): Promise<void>;
+} {
+  const waiting: (() => void)[] = [];
+  const sent: Command[] = [];
+  const driver: LinkDriver = {
+    kind: 'ir',
+    available: () => true,
+    supports: () => true,
+    capabilities: () => capabilities,
+    send: (_d, _l, cmd) =>
+      new Promise<void>((resolve) => {
+        waiting.push(() => {
+          sent.push(cmd);
+          resolve();
+        });
+      }),
+  };
+  return {
+    driver,
+    sent,
+    release: async () => {
+      waiting.shift()?.();
+      await flush();
+    },
+  };
+}

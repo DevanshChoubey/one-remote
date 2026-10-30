@@ -15,13 +15,13 @@ import { device, renderWith, room } from '../helpers';
 import { flush } from './applianceHelpers';
 
 const mockPush = jest.fn();
-const mockDismissTo = jest.fn();
+const mockDismiss = jest.fn();
 jest.mock('expo-router', () => ({
   useRouter: () => ({
     push: mockPush,
     back: jest.fn(),
     dismissAll: jest.fn(),
-    dismissTo: mockDismissTo,
+    dismiss: mockDismiss,
   }),
 }));
 jest.mock('expo-haptics', () => ({ selectionAsync: jest.fn() }));
@@ -58,7 +58,7 @@ async function testAndConfirm(): Promise<void> {
 
 beforeEach(() => {
   mockPush.mockClear();
-  mockDismissTo.mockClear();
+  mockDismiss.mockClear();
 });
 
 describe('IrBackupAction', () => {
@@ -125,7 +125,7 @@ describe('IR backup flow (replaceIrOn)', () => {
         { kind: 'ir', remoteId: 'panasonic-ac/nke' },
       ]),
     );
-    expect(mockDismissTo).toHaveBeenCalledWith('/device/d1');
+    expect(mockDismiss).toHaveBeenCalledWith(2);
   });
 
   it('replaces the existing ir link, starting at the known brand', async () => {
@@ -141,6 +141,19 @@ describe('IR backup flow (replaceIrOn)', () => {
         { kind: 'ir', remoteId: 'panasonic-ac/nke' },
       ]),
     );
+  });
+});
+
+describe('IR backup save failure', () => {
+  it('shows the message inside the screen and does not leave', async () => {
+    const s = await setup(true, ac([{ kind: 'ir', remoteId: 'panasonic-ac/dke' }]));
+    jest.spyOn(s.store, 'upsertDevice').mockRejectedValue(new Error('disk'));
+    await renderWith(s, <AddApplianceFlow kind="ac" replaceIrOn="d1" />);
+    await screen.findByText('Panasonic · try 1 of 5');
+    await testAndConfirm();
+    await testAndConfirm();
+    expect(await screen.findByText(t('addAppliance.saveFailed'))).toBeTruthy();
+    expect(mockDismiss).not.toHaveBeenCalled();
   });
 });
 

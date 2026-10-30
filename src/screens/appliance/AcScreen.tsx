@@ -9,6 +9,8 @@ import { Box, Chip, Column, Row, Screen, Touchable, Txt } from '@/ui';
 import { DeviceSettingsButton } from '../device/DeviceSettingsButton';
 import { useHomeData } from '../shared/useHomeData';
 import { acView, nextAc } from './acModel';
+import { useLastSent } from './useLastSent';
+import { usePendingState } from './usePendingState';
 import { pressFeedback } from './pressFeedback';
 import { sendErrorKey } from './sendErrors';
 import { statusLine } from './statusLine';
@@ -34,26 +36,32 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
   const router = useRouter();
   const { hub, prefs } = useServices();
   const { rooms } = useHomeData();
-  const shown = acView(view);
+  const hubShown = acView(view);
+  const irFirst = view.device.links[0]?.kind === 'ir';
+  const { stored, save } = useLastSent(view.device.id, irFirst);
+  // After a restart the hub knows nothing yet: fall back to what was last sent.
+  const shown =
+    hubShown.source === 'none' && stored?.kind === 'ac'
+      ? { ...hubShown, state: stored.state, source: 'lastSent' as const }
+      : hubShown;
   const { caps } = shown;
-  // The guess is valid only until the hub's view changes (a report, or the state it remembers).
-  const [guess, setOptimistic] = useState<{ state: AcState; basedOn: unknown } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const hubState = view.state;
-  const state = guess && guess.basedOn === hubState ? guess.state : shown.state;
+  const deviceId = view.device.id;
+  const { state, press: pressWith } = usePendingState<AcState>(
+    shown.state,
+    (next) =>
+      hub.send(deviceId, { kind: 'ac.set', state: next }).then((r) => {
+        if (r.via === 'ir') save({ kind: 'ac', state: next });
+      }),
+    (e) => setError(sendErrorKey(e, 'ac')),
+  );
   const power = state.power;
   const live = view.usable && power;
-  const deviceId = view.device.id;
 
   const press = (change: Partial<AcState>): void => {
-    const next = nextAc(state, change, caps);
-    setOptimistic({ state: next, basedOn: hubState });
     setError(null);
     pressFeedback(prefs);
-    hub.send(deviceId, { kind: 'ac.set', state: next }).catch((e: unknown) => {
-      setOptimistic(null);
-      setError(sendErrorKey(e, 'ac'));
-    });
+    pressWith((base) => nextAc(base, change, caps));
   };
 
   const modes = ALL_MODES.filter((m) => caps.acModes?.includes(m) ?? true);
@@ -105,12 +113,19 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
               <Txt variant="title">−</Txt>
             </Box>
           </Touchable>
-          <Column align="center">
-            <Txt variant="title" color={power ? 'ink' : 'ink2'}>
-              {`${state.setpoint}°`}
-            </Txt>
-            <Txt color="ink2">{t(`ac.modeName.${state.mode}`)}</Txt>
-          </Column>
+          <Box
+            accessibilityLabel={t('ac.setpoint', {
+              temp: state.setpoint,
+              mode: t(`ac.modeName.${state.mode}`),
+            })}
+          >
+            <Column align="center">
+              <Txt variant="title" color={power ? 'ink' : 'ink2'} live>
+                {`${state.setpoint}°`}
+              </Txt>
+              <Txt color="ink2">{t(`ac.modeName.${state.mode}`)}</Txt>
+            </Column>
+          </Box>
           <Touchable
             onPress={() => press({ setpoint: state.setpoint + 1 })}
             disabled={!canUp}
@@ -173,7 +188,7 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
           </Txt>
         ) : null}
 
-        {status.key.endsWith('.connected') ? (
+        {status.kind === 'connected' ? (
           <Touchable
             onPress={() => router.push(`/device-sheet/${deviceId}`)}
             accessibilityLabel={statusText}

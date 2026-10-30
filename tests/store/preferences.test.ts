@@ -77,4 +77,18 @@ describe('asyncStorage preference store', () => {
     expect(await t.get()).toEqual({ ...defaultPreferences, tvPad: { b: 'dpad' } });
     warn.mockRestore();
   });
+
+  it('keeps valid last-sent states, drops bad ones, and defaults when absent', async () => {
+    const good = { kind: 'ac', state: { power: true, mode: 'cool' } };
+    const s = createAsyncStoragePreferenceStore(
+      memStorage({
+        'one-remote/prefs/v1': JSON.stringify({ lastSent: { a: good, b: { kind: 'tv' }, c: 5 } }),
+      }),
+    );
+    expect((await s.get()).lastSent).toEqual({ a: good });
+    const old = createAsyncStoragePreferenceStore(
+      memStorage({ 'one-remote/prefs/v1': JSON.stringify({ theme: 'dark' }) }),
+    );
+    expect((await old.get()).lastSent).toEqual({});
+  });
 });

@@ -9,6 +9,8 @@ import { Box, Chip, Column, Row, Screen, Touchable, Txt } from '@/ui';
 import { DeviceSettingsButton } from '../device/DeviceSettingsButton';
 import { useHomeData } from '../shared/useHomeData';
 import { fanView } from './fanModel';
+import { useLastSent } from './useLastSent';
+import { usePendingState } from './usePendingState';
 import { pressFeedback } from './pressFeedback';
 import { sendErrorKey } from './sendErrors';
 import { statusLine } from './statusLine';
@@ -35,26 +37,27 @@ function FanRemote({ view }: { view: DeviceView }): ReactElement {
   const router = useRouter();
   const { hub, prefs } = useServices();
   const { rooms } = useHomeData();
-  const shown = fanView(view);
+  const irFirst = view.device.links[0]?.kind === 'ir';
+  const { stored, save } = useLastSent(view.device.id, irFirst);
+  const shown = fanView(view, stored?.kind === 'fan' ? stored.state : undefined);
   const { caps } = shown;
-  const hubState = view.state;
-  // The guess is valid only until the hub's view changes.
-  const [guess, setGuess] = useState<{ state: FanState; basedOn: unknown } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const state = guess && guess.basedOn === hubState ? guess.state : shown.state;
   const usable = view.usable;
-  const live = usable && state.power;
   const deviceId = view.device.id;
+  const { state, press: pressWith } = usePendingState<FanState>(
+    shown.state,
+    (next) =>
+      hub.send(deviceId, { kind: 'fan.set', state: next }).then((r) => {
+        if (r.via === 'ir') save({ kind: 'fan', state: next });
+      }),
+    (e) => setError(sendErrorKey(e, 'fan')),
+  );
+  const live = usable && state.power;
 
   const press = (change: Partial<FanState>): void => {
-    const next: FanState = { ...state, ...change };
-    setGuess({ state: next, basedOn: hubState });
     setError(null);
     pressFeedback(prefs);
-    hub.send(deviceId, { kind: 'fan.set', state: next }).catch((e: unknown) => {
-      setGuess(null);
-      setError(sendErrorKey(e, 'fan'));
-    });
+    pressWith((base) => ({ ...base, ...change }));
   };
 
   const room = rooms.find((r) => r.id === view.device.roomId)?.name;
@@ -172,7 +175,7 @@ function FanRemote({ view }: { view: DeviceView }): ReactElement {
           </Txt>
         ) : null}
 
-        {status.key.endsWith('.connected') ? (
+        {status.kind === 'connected' ? (
           <Touchable
             onPress={() => router.push(`/device-sheet/${deviceId}`)}
             accessibilityLabel={statusText}

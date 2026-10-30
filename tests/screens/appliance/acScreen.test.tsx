@@ -4,7 +4,7 @@ import type { AcState, Capabilities } from '@/core';
 import { t } from '@/i18n';
 import { AcScreen } from '@/screens/appliance/AcScreen';
 import { renderWith } from '../helpers';
-import { acDevice, servicesWith, silentDriver } from './applianceHelpers';
+import { acDevice, heldDriver, servicesWith, silentDriver } from './applianceHelpers';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, back: jest.fn() }) }));
@@ -143,6 +143,55 @@ describe('AcScreen', () => {
     await renderWith(s, <AcScreen deviceId="d1" />);
     await fireEvent.press(await screen.findByLabelText(t('ac.status.connected')));
     expect(mockPush).toHaveBeenCalledWith('/device-sheet/d1');
+  });
+});
+
+describe('AcScreen quick taps and restarts', () => {
+  it('adds up quick taps and keeps the dial on the intended state while sends are queued', async () => {
+    const held = heldDriver(FULL);
+    const s = await servicesWith([held.driver], [acDevice()]);
+    await s.prefs.set({ lastSent: { d1: { kind: 'ac', state: on } } });
+    await renderWith(s, <AcScreen deviceId="d1" />);
+    await screen.findByText('24°');
+    const plus = screen.getByLabelText(t('ac.raise'));
+    await fireEvent.press(plus);
+    await fireEvent.press(plus);
+    await fireEvent.press(plus);
+    expect(await screen.findByText('27°')).toBeTruthy();
+    await held.release(); // first of the three sends completes
+    expect(screen.getByText('27°')).toBeTruthy();
+    await held.release();
+    await held.release();
+    expect(held.sent.flatMap((c) => (c.kind === 'ac.set' ? [c.state.setpoint] : []))).toEqual([
+      25, 26, 27,
+    ]);
+  });
+
+  it('goes back to the last confirmed state when a send fails', async () => {
+    const { driver, fake } = silentDriver('ir', { capabilities: FULL });
+    const s = await servicesWith([driver], [acDevice()]);
+    await s.hub.send('d1', { kind: 'ac.set', state: on });
+    await renderWith(s, <AcScreen deviceId="d1" />);
+    fake.failNext('notSent');
+    await fireEvent.press(await screen.findByLabelText(t('ac.raise')));
+    expect(await screen.findByText("Couldn't send. Try again")).toBeTruthy();
+    expect(screen.getByText('24°')).toBeTruthy();
+  });
+
+  it('restores the last state sent after a restart, and remembers new ones', async () => {
+    const { driver, fake } = silentDriver('ir', { capabilities: FULL });
+    const s = await servicesWith([driver], [acDevice()]);
+    await s.prefs.set({ lastSent: { d1: { kind: 'ac', state: { ...on, setpoint: 21 } } } });
+    await renderWith(s, <AcScreen deviceId="d1" />);
+    expect(await screen.findByText('21°')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText(t('ac.raise')));
+    await waitFor(async () =>
+      expect((await s.prefs.get()).lastSent.d1).toEqual({
+        kind: 'ac',
+        state: { ...on, setpoint: 22 },
+      }),
+    );
+    expect(fake.sent).toHaveLength(1);
   });
 });
 

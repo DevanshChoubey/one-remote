@@ -98,6 +98,7 @@ function Flow(props: FlowProps): ReactElement {
   const saveIr = (remoteId: string): void => {
     if (!device) return;
     const link: Link = { kind: 'ir', remoteId };
+    setFailed(false);
     store
       .devices()
       .then((all) => {
@@ -108,7 +109,8 @@ function Flow(props: FlowProps): ReactElement {
         return store.upsertDevice({ ...current, links });
       })
       .then(
-        () => router.dismissTo(`/device/${device.id}`),
+        // Pops the IR test and the device sheet, back to wherever the sheet was opened from.
+        () => router.dismiss(2),
         () => setFailed(true),
       );
   };
@@ -144,6 +146,7 @@ function Flow(props: FlowProps): ReactElement {
             brandName={brandOf(brandId)?.name ?? brandId}
             candidates={ir.candidates(brandId)}
             onBack={back}
+            {...(failed ? { error: t('addAppliance.saveFailed') } : {})}
             {...(backup && matterLink ? { onSkip: () => go(named([matterLink], brandId)) } : {})}
             onResult={(result) => {
               if (result === 'none') return go({ name: 'noCodes', brandId, backup });
@@ -152,7 +155,6 @@ function Flow(props: FlowProps): ReactElement {
               return go(named(backup && matterLink ? [matterLink, ir1] : [ir1], brandId));
             }}
           />
-          {failed ? <Txt live>{t('addAppliance.saveFailed')}</Txt> : null}
         </>
       );
     }

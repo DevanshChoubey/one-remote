@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Device, LinkDriver } from '@/core';
+import type { Device, FanState, LinkDriver } from '@/core';
 import { DeviceHub } from '@/device/hub';
 import { createIrDriver } from '@/ir/driver';
 import type { IrEmitter } from '@/ir/emitter';
@@ -68,6 +68,14 @@ function removeDeviceWith(
   };
 }
 
+/** The IR driver's `seedFan`, when `d` has one (tests may pass plain fakes). */
+function seedOf(d: LinkDriver): ((id: string, s: FanState) => void) | undefined {
+  const seed = (d as { seedFan?: unknown }).seedFan;
+  return typeof seed === 'function'
+    ? (seed.bind(d) as (id: string, s: FanState) => void)
+    : undefined;
+}
+
 /** The real drivers, one per line, each just under its lane's slot comment. */
 function laneDrivers(irEmitter: IrEmitter): LinkDriver[] {
   return [
@@ -104,7 +112,14 @@ export function createServices(deps: Partial<Services> = {}): Services {
     removeDevice,
     // tv lane
     // ir lane
-    ir: deps.ir ?? createIrSetup({ emitter: irEmitter }),
+    ir:
+      deps.ir ??
+      createIrSetup({
+        emitter: irEmitter,
+        seedFan: (id, state) => {
+          for (const d of drivers) if (d.kind === 'ir' && 'seedFan' in d) seedOf(d)?.(id, state);
+        },
+      }),
     // matter lane
   };
 }

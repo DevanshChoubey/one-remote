@@ -2,7 +2,7 @@ export default {
   power: 'Power',
   lower: 'Lower the temperature',
   raise: 'Raise the temperature',
-  setpoint: '{temp} degrees',
+  setpoint: '{temp} degrees, {mode}',
   subtitleTemp: '{room} · {temp}° in the room',
   subtitleTempOnly: '{temp}° in the room',
   'mode.cool': '❄ Cool',
