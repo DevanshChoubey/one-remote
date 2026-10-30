@@ -40,7 +40,8 @@
           "imageWidth": 76
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "./plugins/withVolumeKeys.js"
     ],
     "experiments": {
       "typedRoutes": true

@@ -7,7 +7,7 @@ import type { Command, TvKey } from '@/core';
 import { DeviceError } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import type { DeviceView, Preferences } from '@/services';
+import type { DeviceView } from '@/services';
 import { Box, Chip, Column, Row, Screen, Touchable, Txt } from '@/ui';
 import { DeviceSettingsButton } from '../device/DeviceSettingsButton';
 import { useKnownDevice } from '../device/useKnownDevice';
@@ -19,6 +19,8 @@ import { TouchPad } from './TouchPad';
 import { TvOffPanel } from './TvOffPanel';
 import { tvMode } from './tvMode';
 import { UnreachablePanel } from './UnreachablePanel';
+import { usePreferences } from './usePreferences';
+import { useVolumeKeys } from './useVolumeKeys';
 import { VolumeRocker } from './VolumeRocker';
 
 type Pad = 'touchpad' | 'dpad';
@@ -47,30 +49,6 @@ function useAppActive(): boolean {
   return active;
 }
 
-/** The preferences, kept live. `null` until the first read. */
-function usePreferences(): Preferences | null {
-  const { prefs } = useServices();
-  const [value, setValue] = useState<Preferences | null>(null);
-  useEffect(() => {
-    let alive = true;
-    const load = (): void => {
-      prefs.get().then(
-        (p) => {
-          if (alive) setValue(p);
-        },
-        (e: unknown) => console.error('Could not read preferences', e),
-      );
-    };
-    load();
-    const stop = prefs.subscribe(load);
-    return () => {
-      alive = false;
-      stop();
-    };
-  }, [prefs]);
-  return value;
-}
-
 export function TvScreen(props: { deviceId: string }): ReactElement {
   const { deviceId } = props;
   const services = useServices();
@@ -96,6 +74,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   const [keyboard, setKeyboard] = useState(false);
   const [pickedPad, setPickedPad] = useState<Pad | null>(null);
   const watching = focused && active;
+  useVolumeKeys(deviceId, watching);
 
   // Live state: only while this screen is in front and the app is in the foreground.
   useEffect(() => {
