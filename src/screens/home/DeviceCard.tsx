@@ -7,6 +7,7 @@ import type { HomeCard } from './useHome';
 export interface DeviceCardProps {
   card: HomeCard;
   onOpen: (id: string) => void;
+  onSettings: (id: string) => void;
   onTogglePower: (id: string) => void;
 }
 
@@ -20,9 +21,12 @@ export function DeviceCard(props: DeviceCardProps): ReactElement {
       <Row align="center" justify="between" gap={3}>
         <Box flex={1}>
           <Touchable
-            onPress={() => props.onOpen(device.id)}
+            // A card that cannot be used still opens its settings on a long press (to remove it).
+            onPress={disabled ? () => undefined : () => props.onOpen(device.id)}
+            onLongPress={() => props.onSettings(device.id)}
+            dimmed={disabled}
+            accessibilityHint={t('home.longPressHint')}
             accessibilityLabel={summary ? `${device.name}, ${summary}` : device.name}
-            disabled={disabled}
           >
             <Column gap={1}>
               <Txt variant="bodyBold">{device.name}</Txt>

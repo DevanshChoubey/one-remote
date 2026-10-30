@@ -1,24 +1,26 @@
 import { useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
+import type { DeviceKind } from '@/core';
 import { t } from '@/i18n';
-import { useServices } from '@/services';
-import { Screen, Txt } from '@/ui';
+import { Column, Screen, Txt } from '@/ui';
+import { DeviceSettingsButton } from './DeviceSettingsButton';
+import { useKnownDevice } from './useKnownDevice';
 
-/** Stands in for the per-kind remotes until the lane plans replace it. */
-export function PlaceholderRemote(props: { id: string }): ReactElement {
-  const { hub } = useServices();
+/**
+ * Stands in for a per-kind remote until a lane replaces its branch in `app/device/[id].tsx`.
+ * Without `kind` it is the "device not found" screen.
+ */
+export function PlaceholderRemote(props: { id: string; kind?: DeviceKind }): ReactElement {
   const router = useRouter();
-  let name: string | undefined;
-  try {
-    name = hub.view(props.id).device.name;
-  } catch {
-    name = undefined;
-  }
+  const name = useKnownDevice(props.id)?.name;
   return (
     <Screen title={name ?? t('common.appName')} onBack={() => router.back()}>
-      <Txt color="ink2">
-        {name === undefined ? t('home.notFound') : t('home.placeholderBody', { name })}
-      </Txt>
+      <Column gap={4} {...(props.kind ? { testID: `remote-placeholder-${props.kind}` } : {})}>
+        <Txt color="ink2">
+          {name === undefined ? t('home.notFound') : t('home.placeholderBody', { name })}
+        </Txt>
+        {name === undefined ? null : <DeviceSettingsButton deviceId={props.id} />}
+      </Column>
     </Screen>
   );
 }

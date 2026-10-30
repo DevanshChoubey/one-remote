@@ -134,6 +134,57 @@ describe('DeviceHub', () => {
     expect(ir.sent).toHaveLength(0);
   });
 
+  it('aborts the signal it gave a send when the timeout fires', async () => {
+    const signals: (AbortSignal | undefined)[] = [];
+    const slow: LinkDriver = {
+      ...createFakeDriver('webos'),
+      send: (_d, _l, _c, signal) => {
+        signals.push(signal);
+        return new Promise<void>(() => undefined);
+      },
+    };
+    const hub = new DeviceHub({ drivers: [slow] });
+    hub.setDevices([tv]);
+    const p = hub.send('tv1', okKey).catch((e: unknown) => e);
+    await jest.advanceTimersByTimeAsync(1999);
+    expect(signals).toHaveLength(1);
+    expect(signals[0]?.aborted).toBe(false);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(codeOf(await p)).toBe('timeout');
+    expect(signals[0]?.aborted).toBe(true);
+    expect(codeOf(signals[0]?.reason)).toBe('timeout');
+  });
+
+  it('treats a driver that throws synchronously like a rejected send', async () => {
+    const thrower: LinkDriver = {
+      ...createFakeDriver('webos'),
+      send: () => {
+        throw new DeviceError('notSent');
+      },
+    };
+    const ir = createFakeDriver('ir');
+    const hub = new DeviceHub({ drivers: [thrower, ir] });
+    hub.setDevices([tv]);
+    await expect(hub.send('tv1', okKey)).resolves.toEqual({ via: 'ir', fellBack: true });
+    expect(ir.sent).toHaveLength(1);
+  });
+
+  it('does not abort a send that settles in time', async () => {
+    const signals: (AbortSignal | undefined)[] = [];
+    const quick: LinkDriver = {
+      ...createFakeDriver('webos'),
+      send: (_d, _l, _c, signal) => {
+        signals.push(signal);
+        return Promise.resolve();
+      },
+    };
+    const hub = new DeviceHub({ drivers: [quick] });
+    hub.setDevices([tv]);
+    await hub.send('tv1', okKey);
+    await jest.advanceTimersByTimeAsync(5000);
+    expect(signals[0]?.aborted).toBe(false);
+  });
+
   it('backs off a failed link, then retries it', async () => {
     const { hub, matter, ir, clock } = setup();
     matter.failNext('notSent');
@@ -188,9 +239,9 @@ describe('DeviceHub', () => {
 
   it('rethrows other codes without falling back', async () => {
     const { hub, webos, ir } = setup();
-    webos.failNext('notPaired');
+    webos.failNext('unsupported');
     const err = await hub.send('tv1', { kind: 'tv.powerOn' }).catch((e: unknown) => e);
-    expect(codeOf(err)).toBe('notPaired');
+    expect(codeOf(err)).toBe('unsupported');
     expect(ir.sent).toHaveLength(0);
   });
 
@@ -442,6 +493,20 @@ describe('DeviceHub', () => {
     webos.failNext('notLocal');
     await expect(hub.send('tv1', okKey)).resolves.toEqual({ via: 'ir', fellBack: true });
     expect(ir.sent).toHaveLength(1);
+  });
+
+  it('treats notPaired like notSent: nothing went out, so a key press falls back', async () => {
+    const { hub, webos, ir } = setup();
+    webos.failNext('notPaired');
+    await expect(hub.send('tv1', okKey)).resolves.toEqual({ via: 'ir', fellBack: true });
+    expect(ir.sent).toHaveLength(1);
+  });
+
+  it('never resends a tv.key after a timeout', async () => {
+    const { hub, webos, ir } = setup();
+    webos.failNext('timeout');
+    await expect(hub.send('tv1', okKey)).rejects.toMatchObject({ code: 'timeout' });
+    expect(ir.sent).toHaveLength(0);
   });
 
   it('tells onDevicesChanged listeners after setDevices, until they unsubscribe', () => {

@@ -127,6 +127,88 @@ describe('ir driver', () => {
       });
     });
 
+    describe('abort signal', () => {
+      const code = (p: Promise<unknown>): Promise<unknown> =>
+        p.then(
+          () => 'resolved',
+          (e: unknown) => (e as DeviceError).code,
+        );
+
+      it('already aborted: rejects timeout and sends nothing', async () => {
+        const { emitter, driver, d, l } = setup();
+        const c = new AbortController();
+        c.abort();
+        await expect(code(driver.send(d, l, fan({ speed: 4 }), c.signal))).resolves.toBe('timeout');
+        expect(emitter.sent).toEqual([]);
+      });
+
+      it('aborted before a single AC send transmits nothing', async () => {
+        const emitter = createFakeEmitter();
+        const driver = createIrDriver({ emitter });
+        const [d, l] = dev('ac', 'panasonic-ac/dke');
+        const c = new AbortController();
+        c.abort();
+        await expect(code(driver.send(d, l, ac(), c.signal))).resolves.toBe('timeout');
+        expect(emitter.sent).toEqual([]);
+      });
+
+      it('aborted between keys stops, records the reached state, rejects partiallySent', async () => {
+        const { emitter, driver, d, l } = setup();
+        driver.seedFan(d.id, known());
+        const c = new AbortController();
+        const real = emitter.transmit.bind(emitter);
+        jest.spyOn(emitter, 'transmit').mockImplementation(async (s) => {
+          await real(s);
+          c.abort();
+        });
+        const p = driver.send(d, l, fan({ speed: 4, boost: true, light: true }), c.signal);
+        await expect(code(p)).resolves.toBe('partiallySent');
+        expect(emitter.sent).toEqual([sigOf('speed4')]);
+        // memory has speed 4: asking for speed 4 again sends nothing
+        await driver.send(d, l, fan({ speed: 4 }));
+        expect(emitter.sent).toEqual([sigOf('speed4')]);
+      });
+
+      it('a press queued behind a long fan sequence that aborts never transmits', async () => {
+        jest.useFakeTimers();
+        try {
+          const { emitter, driver, d, l } = setup(200);
+          driver.seedFan(d.id, known());
+          const hubAbort = new AbortController();
+          const long = driver.send(
+            d,
+            l,
+            fan({ speed: 5, boost: true, sleep: true, light: true }),
+            hubAbort.signal,
+          );
+          const queuedAbort = new AbortController();
+          const [d2, l2] = dev('fan', 'test/full');
+          const queued = driver.send(d2, l2, fan({ speed: 2 }), queuedAbort.signal);
+          const longCode = code(long);
+          const queuedCode = code(queued);
+          await jest.advanceTimersByTimeAsync(0);
+          // the hub gives up on both while the long sequence is still going
+          hubAbort.abort();
+          queuedAbort.abort();
+          await jest.runAllTimersAsync();
+          await expect(longCode).resolves.toBe('partiallySent');
+          await expect(queuedCode).resolves.toBe('timeout');
+          expect(emitter.sent).toEqual([sigOf('speed5')]);
+        } finally {
+          jest.useRealTimers();
+        }
+      });
+
+      it('a later send without an abort still goes out after an aborted one', async () => {
+        const { emitter, driver, d, l } = setup();
+        const c = new AbortController();
+        c.abort();
+        await code(driver.send(d, l, fan({ speed: 4 }), c.signal));
+        await driver.send(d, l, fan({ speed: 2 }));
+        expect(emitter.sent).toEqual([sigOf('speed2')]);
+      });
+    });
+
     it('a failure after some keys went out is partiallySent and memory reflects them', async () => {
       const { emitter, driver, d, l } = setup();
       driver.seedFan(d.id, known());

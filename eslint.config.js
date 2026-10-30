@@ -13,6 +13,16 @@ const rnVisualRestriction = {
   ],
 };
 
+// Dev-only spike screens (app/dev/*-spike.tsx; each redirects to / unless __DEV__) drive services
+// and drivers directly, so they may import service modules and React Native visuals. Each lane adds
+// its spike file on its own line, just under its own slot comment. (ESLint rejects an empty `files`,
+// so the override below is added only once a file is listed.)
+const DEV_SPIKE_FILES = [
+  // tv lane
+  // ir lane
+  // matter lane
+];
+
 const SERVICE_MODULES = ['device', 'store', 'transport', 'ir', 'webos', 'matter'];
 // `services` is the composition root (useServices); it is layered like a domain module but is not pure.
 const DOMAIN_FOLDERS = [
@@ -34,10 +44,53 @@ function bannedGlobals(names) {
   return names.map((name) => ({ name, message: NETWORK_MESSAGE }));
 }
 
+// The same globals reached through a global object, e.g. `globalThis.fetch` or `window['fetch']`.
+const GLOBAL_OBJECTS = ['globalThis', 'window', 'global', 'self'];
+
+function bannedProperties(names) {
+  return GLOBAL_OBJECTS.flatMap((object) =>
+    names.map((property) => ({ object, property, message: NETWORK_MESSAGE })),
+  );
+}
+
 const socketImports = {
   group: ['dgram', 'node:dgram', 'react-native-udp', 'react-native-udp/**'],
   message: 'Raw sockets (dgram, react-native-udp) are allowed only in src/transport.',
 };
+
+// expo/fetch ships a working fetch with the SDK, so it is banned in every folder, src/transport too.
+const fetchImports = {
+  group: ['expo/fetch', 'expo/fetch/**'],
+  message: NETWORK_MESSAGE,
+};
+
+// no-restricted-imports does not see require() or import(). esquery regexes cannot hold a `/`,
+// so `.` stands in for it.
+const SOCKET_MODULE = '/^(node:)?dgram$|^react-native-udp($|.)/';
+const FETCH_MODULE = '/^expo.fetch($|.)/';
+
+function bannedLoads(moduleRegex, message) {
+  return [
+    {
+      selector: `CallExpression[callee.name='require'][arguments.0.value=${moduleRegex}]`,
+      message,
+    },
+    { selector: `ImportExpression[source.value=${moduleRegex}]`, message },
+  ];
+}
+
+const fetchLoads = bannedLoads(FETCH_MODULE, NETWORK_MESSAGE);
+const socketLoads = bannedLoads(SOCKET_MODULE, socketImports.message);
+
+// A template-literal module name would slip past the literal checks above, so none is allowed.
+const TEMPLATE_LOAD_MESSAGE = 'Load modules by a plain string, so the network bans can see them.';
+const templateLoads = [
+  {
+    selector: "CallExpression[callee.name='require'][arguments.0.type='TemplateLiteral']",
+    message: TEMPLATE_LOAD_MESSAGE,
+  },
+  { selector: "ImportExpression[source.type='TemplateLiteral']", message: TEMPLATE_LOAD_MESSAGE },
+];
 
 const domainLayering = {
   group: ['@/screens', '@/screens/**', '@/ui', '@/ui/**', '**/app/**'],
@@ -81,11 +134,25 @@ module.exports = [
           allowHigherOrderFunctions: true,
         },
       ],
-      'no-restricted-imports': ['error', { ...rnVisualRestriction, patterns: [socketImports] }],
+    },
+  },
+  // The network bans cover every script Metro can bundle, not only TypeScript.
+  {
+    files: ['**/*.{js,jsx,mjs,cjs,ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { ...rnVisualRestriction, patterns: [socketImports, fetchImports] },
+      ],
       'no-restricted-globals': [
         'error',
         ...bannedGlobals(['fetch', 'XMLHttpRequest', 'WebSocket']),
       ],
+      'no-restricted-properties': [
+        'error',
+        ...bannedProperties(['fetch', 'XMLHttpRequest', 'WebSocket']),
+      ],
+      'no-restricted-syntax': ['error', ...socketLoads, ...fetchLoads, ...templateLoads],
     },
   },
   // Sockets belong to src/transport only.
@@ -93,6 +160,8 @@ module.exports = [
     files: ['src/transport/**'],
     rules: {
       'no-restricted-globals': ['error', ...bannedGlobals(['fetch', 'XMLHttpRequest'])],
+      'no-restricted-properties': ['error', ...bannedProperties(['fetch', 'XMLHttpRequest'])],
+      'no-restricted-syntax': ['error', ...fetchLoads, ...templateLoads],
     },
   },
   // Layering. Domain modules never import app/, screens or ui.
@@ -103,7 +172,7 @@ module.exports = [
         'error',
         {
           ...rnVisualRestriction,
-          patterns: [domainLayering, socketImports],
+          patterns: [domainLayering, socketImports, fetchImports],
         },
       ],
     },
@@ -112,7 +181,10 @@ module.exports = [
   {
     files: ['src/transport/**'],
     rules: {
-      'no-restricted-imports': ['error', { ...rnVisualRestriction, patterns: [domainLayering] }],
+      'no-restricted-imports': [
+        'error',
+        { ...rnVisualRestriction, patterns: [domainLayering, fetchImports] },
+      ],
     },
   },
   // Core, device, ir, webos and matter stay pure TypeScript so they run in plain Jest and Node.
@@ -127,6 +199,7 @@ module.exports = [
           patterns: [
             domainLayering,
             socketImports,
+            fetchImports,
             {
               group: [
                 'react-native',
@@ -161,6 +234,7 @@ module.exports = [
             },
             ...serviceImports,
             socketImports,
+            fetchImports,
           ],
         },
       ],
@@ -179,6 +253,7 @@ module.exports = [
             },
             ...serviceImports,
             socketImports,
+            fetchImports,
           ],
         },
       ],
@@ -196,6 +271,7 @@ module.exports = [
             { group: ['**/app/**'], message: 'Screens must not import from app/.' },
             ...serviceImports,
             socketImports,
+            fetchImports,
           ],
         },
       ],
@@ -207,16 +283,27 @@ module.exports = [
     rules: {
       'no-restricted-imports': [
         'error',
-        { ...rnVisualRestriction, patterns: [...serviceImports, socketImports] },
+        { ...rnVisualRestriction, patterns: [...serviceImports, socketImports, fetchImports] },
       ],
       'import/no-default-export': 'off',
     },
   },
-  // Tests may use any import.
+  // Dev-only spike screens: see DEV_SPIKE_FILES. The network bans still apply there.
+  ...(DEV_SPIKE_FILES.length > 0
+    ? [
+        {
+          files: DEV_SPIKE_FILES,
+          rules: {
+            'no-restricted-imports': ['error', { patterns: [socketImports, fetchImports] }],
+          },
+        },
+      ]
+    : []),
+  // Tests may use any import, except a working fetch.
   {
     files: ['tests/**'],
     rules: {
-      'no-restricted-imports': 'off',
+      'no-restricted-imports': ['error', { patterns: [fetchImports] }],
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/explicit-function-return-type': 'off',
     },

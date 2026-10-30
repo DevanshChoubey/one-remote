@@ -85,6 +85,12 @@ const wait = (ms: number): Promise<void> =>
  * then reports a timeout while the keys keep going out; it never resends non-idempotent
  * commands, and the driver's memory still follows the keys that really went out.
  *
+ * The hub aborts `signal` when its timeout fires. It is checked when a send leaves the queue and
+ * before every key (also after each gap), so a press that waited behind a long fan sequence is
+ * never transmitted late. Aborted before the first key: reject `timeout`, nothing sent. Aborted
+ * after some keys: stop, keep the reached state, reject `partiallySent`. The hub has already
+ * reported timeout by then, so a late `partiallySent` is swallowed by the hub (it reports timeout).
+ *
  * If some keys went out and a later one failed, the error is `partiallySent` (terminal: the hub
  * must not fall back and resend). `notSent` is used only when nothing transmitted.
  */
@@ -113,7 +119,14 @@ export function createIrDriver(o: {
     throw new DeviceError('unsupported');
   };
 
-  const sendNow = async (device: Device, link: Link, cmd: Command): Promise<void> => {
+  const sendNow = async (
+    device: Device,
+    link: Link,
+    cmd: Command,
+    signal?: AbortSignal,
+  ): Promise<void> => {
+    // The hub already gave up (and reported timeout) while this send waited in the queue.
+    if (signal?.aborted) throw new DeviceError('timeout');
     if (!o.emitter.hasEmitter()) throw new DeviceError('noIrEmitter');
     const r = remoteOf(link);
     if (!r) return unsupported();
@@ -133,9 +146,10 @@ export function createIrDriver(o: {
       for (const [i, key] of todo.entries()) {
         try {
           if (i > 0) await wait(gapMs);
+          if (signal?.aborted) throw new DeviceError(i === 0 ? 'timeout' : 'partiallySent');
           await transmit(signals[i] as IrSignal);
         } catch (e) {
-          if (i === 0) throw e;
+          if (i === 0 || (e instanceof DeviceError && e.code === 'partiallySent')) throw e;
           throw new DeviceError('partiallySent');
         }
         mem = applyKey(mem, key);
@@ -183,8 +197,8 @@ export function createIrDriver(o: {
     seedFan(deviceId: string, state: FanState): void {
       lastFan.set(deviceId, state);
     },
-    send(device: Device, link: Link, cmd: Command): Promise<void> {
-      const run = chain.then(() => sendNow(device, link, cmd));
+    send(device: Device, link: Link, cmd: Command, signal?: AbortSignal): Promise<void> {
+      const run = chain.then(() => sendNow(device, link, cmd, signal));
       chain = run.catch(() => undefined);
       return run;
     },

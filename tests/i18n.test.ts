@@ -1,10 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { interpolate, t } from '@/i18n';
+import add from '@/i18n/en/add';
 import common from '@/i18n/en/common';
+import device from '@/i18n/en/device';
 import home from '@/i18n/en/home';
+import settings from '@/i18n/en/settings';
 
-const NAMESPACES: Record<string, Record<string, string>> = { common, home };
+const NAMESPACES: Record<string, Record<string, string>> = { common, home, add, device, settings };
 
 const ROOT = path.resolve(__dirname, '..');
 

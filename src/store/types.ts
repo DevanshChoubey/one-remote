@@ -1,6 +1,8 @@
 import type { Device, Room, Unsubscribe } from '@/core';
 
-export type StoreErrorCode = 'roomNotEmpty' | 'notFound';
+/** `corrupt`: the stored home cannot be read. Reads reject and writes are refused, so it is never
+ *  overwritten; nothing is lost while the data is looked at or repaired. */
+export type StoreErrorCode = 'roomNotEmpty' | 'notFound' | 'corrupt';
 
 export class StoreError extends Error {
   readonly code: StoreErrorCode;
@@ -16,6 +18,7 @@ export class StoreError extends Error {
 export interface HomeStore {
   devices(): Promise<Device[]>;
   rooms(): Promise<Room[]>;
+  /** Throws StoreError('notFound') if `d.roomId` is not a stored room. */
   upsertDevice(d: Device): Promise<void>;
   removeDevice(id: string): Promise<void>;
   upsertRoom(r: Room): Promise<void>;
@@ -23,6 +26,8 @@ export interface HomeStore {
   removeRoom(id: string): Promise<void>;
   /** Reorders within the device's room; `order` is renumbered 0..n. */
   moveDevice(id: string, toIndex: number): Promise<void>;
+  /** Reorders rooms; `order` is renumbered 0..n. Throws StoreError('notFound') for an unknown id. */
+  moveRoom(id: string, toIndex: number): Promise<void>;
   subscribe(cb: () => void): Unsubscribe;
 }
 

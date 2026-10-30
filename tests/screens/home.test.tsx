@@ -1,3 +1,4 @@
+import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { defaultAcState, defaultFanState } from '@/core';
 import type { Command, Device, LinkDriver, Room } from '@/core';
@@ -5,6 +6,7 @@ import { t } from '@/i18n';
 import { HomeScreen } from '@/screens/home/HomeScreen';
 import { createServices, ServicesProvider } from '@/services';
 import type { Services } from '@/services';
+import { StoreError } from '@/store/types';
 import { ThemeProvider } from '@/theme';
 import { DeviceHub } from '@/device/hub';
 import { createFakeDriver } from '@/device/testing/fakeDriver';
@@ -110,6 +112,21 @@ describe('HomeScreen', () => {
     await renderHome(s);
     await fireEvent.press(await screen.findByLabelText('Name l1'));
     expect(mockPush).toHaveBeenCalledWith('/device/l1');
+  });
+
+  it('opens the device sheet on a long press, even for a device that needs IR', async () => {
+    const s = setup({ irAvailable: false });
+    await seed(s, [dev('l1', 'tv', 'liv', 0, [matter]), dev('i1', 'ac', 'bed', 0, [ir])]);
+    await renderHome(s);
+    await fireEvent(await screen.findByLabelText('Name l1'), 'longPress');
+    expect(mockPush).toHaveBeenCalledWith('/device-sheet/l1');
+    const card = screen.getByLabelText(`Name i1, ${t('home.needsIr')}`);
+    expect(StyleSheet.flatten(card.props.style).opacity).toBe(0.5);
+    expect(card.props.accessibilityHint).toBe(t('home.longPressHint'));
+    await fireEvent.press(card);
+    expect(mockPush).not.toHaveBeenCalledWith('/device/i1');
+    await fireEvent(card, 'longPress');
+    expect(mockPush).toHaveBeenCalledWith('/device-sheet/i1');
   });
 
   it('flips power from the last known state with the AC toggle', async () => {
@@ -328,6 +345,41 @@ describe('HomeScreen', () => {
     await renderHome({ ...s, store: broken });
     expect(await screen.findByText(t('home.welcomeTitle'))).toBeTruthy();
     expect(err).toHaveBeenCalled();
+    err.mockRestore();
+  });
+});
+
+describe('HomeScreen with corrupt home data', () => {
+  it('shows an error, not the welcome, and offers no add button', async () => {
+    const err = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const s = setup();
+    const corrupt = (): Promise<never> => Promise.reject(new StoreError('corrupt'));
+    await renderHome({ ...s, store: { ...s.store, rooms: corrupt, devices: corrupt } });
+    expect(await screen.findByText(t('home.corruptTitle'))).toBeTruthy();
+    expect(screen.getByText(t('home.corruptBody'))).toBeTruthy();
+    expect(screen.queryByText(t('home.welcomeTitle'))).toBeNull();
+    expect(screen.queryByLabelText(t('home.addFirst'))).toBeNull();
+    expect(screen.queryByLabelText(t('home.add'))).toBeNull();
+    err.mockRestore();
+  });
+
+  it('recovers once the data reads again', async () => {
+    const err = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const s = setup();
+    let broken = true;
+    const rooms = s.store.rooms.bind(s.store);
+    const store = {
+      ...s.store,
+      rooms: () => (broken ? Promise.reject(new StoreError('corrupt')) : rooms()),
+    };
+    await renderHome({ ...s, store });
+    expect(await screen.findByText(t('home.corruptTitle'))).toBeTruthy();
+    broken = false;
+    await act(async () => {
+      await s.store.upsertRoom({ id: 'x', name: 'X', order: 0 });
+    });
+    expect(await screen.findByText(t('home.welcomeTitle'))).toBeTruthy();
+    expect(screen.queryByText(t('home.corruptTitle'))).toBeNull();
     err.mockRestore();
   });
 });

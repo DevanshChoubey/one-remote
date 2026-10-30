@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { defaultAcState, defaultFanState } from '@/core';
 import type { AcState, Device, FanState, Room } from '@/core';
-import { useServices } from '@/services';
+import { StoreError, useServices } from '@/services';
 import type { DeviceView, ViewState } from '@/services';
 
 export interface HomeCard {
@@ -19,6 +19,8 @@ export interface HomeSection {
 
 export interface HomeModel {
   loaded: boolean;
+  /** The stored home is damaged: Home shows an error, not the welcome, and the store refuses writes. */
+  corrupt: boolean;
   sections: HomeSection[];
   /** Cards on screen. */
   deviceCount: number;
@@ -40,6 +42,7 @@ export function useHome(): HomeModel {
   const { hub, store } = useServices();
   const [rooms, setRooms] = useState<Room[] | null>(null);
   const [storeCount, setStoreCount] = useState<number | null>(null);
+  const [corrupt, setCorrupt] = useState(false);
   const [, bump] = useReducer((n: number) => n + 1, 0);
   // So a quick second tap flips from the last command, not from a state that has not caught up.
   const told = useRef(new Map<string, Told>());
@@ -60,12 +63,14 @@ export function useHome(): HomeModel {
         ([r, d]) => {
           if (!alive || mine < applied) return;
           applied = mine;
+          setCorrupt(false);
           setRooms(r);
           setStoreCount(d.length);
         },
         (e: unknown) => {
           console.error('Could not load the home', e);
           if (!alive) return;
+          setCorrupt(e instanceof StoreError && e.code === 'corrupt');
           // Show what the hub has rather than staying blank.
           setRooms((prev) => prev ?? []);
           setStoreCount(hub.devicesKnown().length);
@@ -186,6 +191,7 @@ export function useHome(): HomeModel {
   return {
     // Not loaded until the hub has caught up with the store, so Home never flashes the welcome.
     loaded: rooms !== null && storeCount === devices.length,
+    corrupt,
     sections,
     deviceCount: sections.reduce((n, s) => n + s.cards.length, 0),
     showNoIrBanner: sections.some((s) => s.cards.some((c) => c.needsIr)),

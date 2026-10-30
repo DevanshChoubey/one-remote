@@ -9,10 +9,12 @@ export function HomeScreen(): ReactElement {
   const router = useRouter();
   const home = useHome();
   const empty = home.loaded && home.deviceCount === 0;
+  // Damaged data is never shown as an empty home: that would invite adding devices over it.
+  const bare = empty || home.corrupt;
 
   const header = (
     <Row align="center" justify="between">
-      {empty ? (
+      {bare ? (
         <Box />
       ) : (
         <Column>
@@ -25,7 +27,7 @@ export function HomeScreen(): ReactElement {
         </Column>
       )}
       <Row gap={1} align="center">
-        {empty ? null : (
+        {bare ? null : (
           <Touchable onPress={() => router.push('/add')} accessibilityLabel={t('home.add')}>
             <Box px={3}>
               <Txt variant="heading">+</Txt>
@@ -44,7 +46,9 @@ export function HomeScreen(): ReactElement {
   return (
     <Screen scroll>
       {header}
-      {empty ? (
+      {home.corrupt ? (
+        <EmptyState title={t('home.corruptTitle')} body={t('home.corruptBody')} />
+      ) : empty ? (
         <EmptyState
           title={t('home.welcomeTitle')}
           body={t('home.welcomeBody')}
@@ -65,6 +69,7 @@ export function HomeScreen(): ReactElement {
                   key={card.view.device.id}
                   card={card}
                   onOpen={(id) => router.push(`/device/${id}`)}
+                  onSettings={(id) => router.push(`/device-sheet/${id}`)}
                   onTogglePower={home.togglePower}
                 />
               ))}

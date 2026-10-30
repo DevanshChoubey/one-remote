@@ -1,6 +1,6 @@
 import type { Device, Room } from '@/core';
 import { homeOps, notifyAll, subscribeTo } from './memoryStore';
-import type { AsyncStorageLike, HomeSnapshot, HomeStore } from './types';
+import { StoreError, type AsyncStorageLike, type HomeSnapshot, type HomeStore } from './types';
 
 const KEY = 'one-remote/home/v1';
 
@@ -22,29 +22,42 @@ const isDevice = (v: unknown): v is Device =>
   typeof v.order === 'number' &&
   Array.isArray(v.links);
 
+function corrupt(): StoreError {
+  return new StoreError('corrupt', 'Stored home data is corrupt');
+}
+
 export function createAsyncStorageStore(storage: AsyncStorageLike): HomeStore {
   const subs = new Set<() => void>();
   let tail: Promise<unknown> = Promise.resolve();
   let warned = false;
 
+  /**
+   * Rejects with StoreError('corrupt') rather than reading damaged data as empty: an empty read would
+   * let the next write overwrite every device. Writes read first, so they are refused too.
+   */
   const read = async (): Promise<HomeSnapshot> => {
     const raw = await storage.getItem(KEY);
     if (raw === null) return { devices: [], rooms: [] };
+    let parsed: unknown;
     try {
-      const parsed: unknown = JSON.parse(raw);
-      if (!isRecord(parsed)) return { devices: [], rooms: [] };
-      return {
-        devices: Array.isArray(parsed.devices) ? parsed.devices.filter(isDevice) : [],
-        rooms: Array.isArray(parsed.rooms) ? parsed.rooms.filter(isRoom) : [],
-      };
+      parsed = JSON.parse(raw);
     } catch {
-      // Corrupt data: start over rather than lock the user out of the app.
-      if (!warned) {
-        warned = true;
-        console.warn('one-remote: stored home data is corrupt; starting empty');
-      }
-      return { devices: [], rooms: [] };
+      parsed = undefined;
     }
+    if (
+      isRecord(parsed) &&
+      Array.isArray(parsed.devices) &&
+      Array.isArray(parsed.rooms) &&
+      parsed.devices.every(isDevice) &&
+      parsed.rooms.every(isRoom)
+    ) {
+      return { devices: parsed.devices, rooms: parsed.rooms };
+    }
+    if (!warned) {
+      warned = true;
+      console.error('one-remote: stored home data is corrupt; reads and writes are refused');
+    }
+    throw corrupt();
   };
 
   /** Writes read-modify-write one key, so they run one at a time. */
@@ -69,6 +82,7 @@ export function createAsyncStorageStore(storage: AsyncStorageLike): HomeStore {
     upsertRoom: (r) => mutate((s) => homeOps.upsertRoom(s, r)),
     removeRoom: (id) => mutate((s) => homeOps.removeRoom(s, id)),
     moveDevice: (id, i) => mutate((s) => homeOps.moveDevice(s, id, i)),
+    moveRoom: (id, i) => mutate((s) => homeOps.moveRoom(s, id, i)),
     subscribe: (cb) => subscribeTo(subs, cb),
   };
 }
