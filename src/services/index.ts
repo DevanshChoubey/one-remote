@@ -5,3 +5,4 @@ export type { Services } from './services';
 export type { DeviceView, LinkStatus, ViewState } from '@/device/hub';
 export type { Preferences, PreferenceStore } from '@/store/preferences';
 export type { HomeStore } from '@/store/types';
+export { StoreError } from '@/store/types';

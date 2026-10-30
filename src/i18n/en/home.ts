@@ -25,4 +25,7 @@ export default {
   modeAuto: 'Auto',
   placeholderBody: 'The remote for {name} is coming soon.',
   notFound: 'This device is no longer here.',
+  corruptTitle: "Your saved devices can't be read",
+  corruptBody:
+    'The saved data looks damaged. It has been left untouched, and changes are paused so nothing is lost.',
 } as const;
