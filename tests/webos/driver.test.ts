@@ -4,7 +4,7 @@ import { rediscover } from '@/webos/rediscover';
 import { KEY_BUTTON, URI } from '@/webos/ssap';
 import { createFakeLan, type FakeLan } from '@/webos/testing/fakeLan';
 import { createFakeTv, type FakeTv } from '@/webos/testing/fakeTv';
-import type { TvSecrets } from '@/webos/transport';
+import type { TvSecretsWithDelete } from '@/webos/transport';
 import { magicPacket } from '@/webos/wol';
 
 const HOST = '192.168.1.23';
@@ -23,11 +23,15 @@ function device(links: Link[]): Device {
 
 function secrets(seed: Record<string, string> = { [REF]: 'k', [`${REF}:usn`]: 'uuid:1234' }) {
   const map = new Map(Object.entries(seed));
-  const s: TvSecrets & { map: Map<string, string> } = {
+  const s: TvSecretsWithDelete & { map: Map<string, string> } = {
     map,
     get: (ref) => Promise.resolve(map.get(ref) ?? null),
     set: (ref, v) => {
       map.set(ref, v);
+      return Promise.resolve();
+    },
+    delete: (ref) => {
+      map.delete(ref);
       return Promise.resolve();
     },
   };
@@ -58,7 +62,7 @@ function rig(
   opts: {
     tvs?: FakeTv[];
     wifi?: boolean;
-    secrets?: TvSecrets;
+    secrets?: TvSecretsWithDelete;
     driver?: Partial<WebosDriverOpts>;
     links?: Link[];
   } = {},
@@ -783,5 +787,79 @@ describe('rediscover: hold-off and ports', () => {
     await advance(3000);
     await expect(p).resolves.toBe('192.168.1.40');
     expect(lan.opened.every((u) => u.startsWith('wss://'))).toBe(true);
+  });
+});
+
+describe('webos driver: abort signal and forget', () => {
+  it('rejects notSent and writes nothing when already aborted', async () => {
+    const r = rig();
+    const ac = new AbortController();
+    ac.abort();
+    await expect(
+      r.driver.send(r.dev, r.link, { kind: 'tv.key', key: 'volumeUp' }, ac.signal),
+    ).rejects.toMatchObject({ code: 'notSent' });
+    await expect(
+      r.driver.send(r.dev, r.link, { kind: 'tv.powerOn' }, ac.signal),
+    ).rejects.toMatchObject({ code: 'notSent' });
+    await advance(100);
+    expect(r.lan.opened).toEqual([]);
+    expect(r.tv.frames).toEqual([]);
+  });
+
+  it('does not write when aborted while connecting', async () => {
+    const r = rig();
+    const ac = new AbortController();
+    const p = r.driver.send(r.dev, r.link, { kind: 'tv.key', key: 'volumeUp' }, ac.signal);
+    const result = p.catch((e: unknown) => e);
+    ac.abort();
+    await advance(100);
+    expect(await result).toMatchObject({ code: 'notSent' });
+    expect(r.tv.buttons).toEqual([]);
+  });
+
+  it('sends normally with a live signal, and a later abort changes nothing', async () => {
+    const r = rig();
+    const ac = new AbortController();
+    await r.driver.send(r.dev, r.link, { kind: 'tv.key', key: 'volumeUp' }, ac.signal);
+    ac.abort();
+    await advance(100);
+    expect(r.tv.buttons).toEqual([KEY_BUTTON.volumeUp]);
+  });
+
+  it('forget deletes the client key and the USN secret, and is idempotent', async () => {
+    const s = secrets({ [REF]: 'k', [`${REF}:usn`]: 'uuid:1234', 'webos:other': 'x' });
+    const r = rig({ secrets: s });
+    await r.driver.forget?.(r.dev, r.link);
+    expect([...s.map.keys()]).toEqual(['webos:other']);
+    await expect(r.driver.forget?.(r.dev, r.link)).resolves.toBeUndefined();
+    expect([...s.map.keys()]).toEqual(['webos:other']);
+  });
+
+  it('forget tolerates a key that foundation already deleted', async () => {
+    const s = secrets({ [`${REF}:usn`]: 'uuid:1234' });
+    const r = rig({ secrets: s });
+    await expect(r.driver.forget?.(r.dev, r.link)).resolves.toBeUndefined();
+    expect(s.map.size).toBe(0);
+  });
+
+  it('forget still deletes the USN when the key delete fails, then reports the failure', async () => {
+    const s = secrets();
+    const del = s.delete.bind(s);
+    s.delete = (ref) => (ref === REF ? Promise.reject(new Error('boom')) : del(ref));
+    const r = rig({ secrets: s });
+    await expect(r.driver.forget?.(r.dev, r.link)).rejects.toThrow('boom');
+    expect(s.map.has(`${REF}:usn`)).toBe(false);
+  });
+
+  it('forget closes the connection and ignores non-webos links', async () => {
+    const s = secrets();
+    const r = rig({ secrets: s });
+    await r.key('volumeUp');
+    await r.driver.forget?.(r.dev, { kind: 'ir', remoteId: 'x' });
+    expect(s.map.size).toBe(2);
+    const before = r.lan.opened.length;
+    await r.driver.forget?.(r.dev, r.link);
+    await advance(30000);
+    expect(r.lan.opened).toHaveLength(before);
   });
 });

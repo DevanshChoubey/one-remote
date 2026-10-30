@@ -34,3 +34,8 @@ export interface TvSecrets {
   get(ref: string): Promise<string | null>;
   set(ref: string, value: string): Promise<void>;
 }
+
+/** What the webOS driver needs to also forget a TV's secrets when it is removed. */
+export interface TvSecretsWithDelete extends TvSecrets {
+  delete(ref: string): Promise<void>;
+}

@@ -12,14 +12,14 @@ import {
 import { SsapClient, SsapReplyError } from './client';
 import { rediscover } from './rediscover';
 import { isPoweredOn, KEY_BUTTON, parseVolume, URI } from './ssap';
-import type { TvSecrets, TvTransport } from './transport';
+import type { TvSecretsWithDelete, TvTransport } from './transport';
 import { magicPacket } from './wol';
 
 type WebosLink = Extract<Link, { kind: 'webos' }>;
 
 export interface WebosDriverOpts {
   transport: TvTransport;
-  secrets: Pick<TvSecrets, 'get' | 'set'>;
+  secrets: TvSecretsWithDelete;
   /** Called once when the TV was found again at a new address (same MAC). */
   onHostChanged(deviceId: string, host: string): Promise<void>;
   /** Budget for a press to reach the TV, or be rejected `notSent` (1500). */
@@ -502,12 +502,19 @@ export function createWebosDriver(
     });
   }
 
+  /** Nothing is written once the hub has given up; a frame already written is never taken back. */
+  function refuseIfAborted(signal: AbortSignal | undefined): void {
+    if (signal?.aborted) throw new DeviceError('notSent', 'The send was cancelled');
+  }
+
   async function sendOverSsap(
     e: Entry,
     cmd: Extract<Command, { kind: 'tv.key' | 'tv.text' }>,
+    signal?: AbortSignal,
   ): Promise<void> {
     const started = Date.now();
     const client = await withinBudget(connectMs, connectOnce(e));
+    refuseIfAborted(signal);
     const left = connectMs - (Date.now() - started);
     if (left <= 0) throw new DeviceError('notSent', 'connect timed out');
     if (cmd.kind === 'tv.text') {
@@ -566,8 +573,9 @@ export function createWebosDriver(
       return false;
     },
 
-    async send(device: Device, link: Link, cmd: Command): Promise<void> {
+    async send(device: Device, link: Link, cmd: Command, signal?: AbortSignal): Promise<void> {
       if (link.kind !== 'webos') throw new DeviceError('unsupported');
+      refuseIfAborted(signal);
       if (cmd.kind === 'tv.powerOn') {
         if (!link.mac) throw new DeviceError('unsupported', 'No MAC address saved for this TV');
         try {
@@ -581,10 +589,34 @@ export function createWebosDriver(
       const e = entryFor(device, link);
       if (e.notPaired) throw new DeviceError('notPaired', 'The TV asked to pair again');
       try {
-        await sendOverSsap(e, cmd);
+        await sendOverSsap(e, cmd, signal);
       } finally {
         scheduleIdle(e);
       }
+    },
+
+    /** Deletes this TV's client key and USN secret and drops its connection. Idempotent: a secret
+     *  that is already gone is fine. Both deletes are tried; the first failure is rethrown. */
+    async forget(device: Device, link: Link): Promise<void> {
+      if (link.kind !== 'webos') return;
+      const e = entries.get(device.id);
+      if (e) {
+        cancelAttempt(e);
+        clearOffTimer(e);
+        if (e.idleTimer) clearTimeout(e.idleTimer);
+        e.idleTimer = undefined;
+        e.observers.clear();
+        stopSession(e, true);
+        const c = e.client;
+        e.client = undefined;
+        c?.close();
+        entries.delete(device.id);
+      }
+      const results = await Promise.allSettled(
+        [link.clientKeyRef, `${link.clientKeyRef}:usn`].map((ref) => o.secrets.delete(ref)),
+      );
+      const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+      if (failed) throw failed.reason;
     },
 
     observe(device: Device, link: Link, cb: (r: Reported) => void): Unsubscribe {
