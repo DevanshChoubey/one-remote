@@ -5,6 +5,7 @@ import common from './en/common';
 import device from './en/device';
 import fan from './en/fan';
 import home from './en/home';
+import irBackup from './en/irBackup';
 import settings from './en/settings';
 
 const namespaces: Record<string, Record<string, string>> = {
@@ -12,6 +13,7 @@ const namespaces: Record<string, Record<string, string>> = {
   ac,
   fan,
   addAppliance,
+  irBackup,
   home,
   add,
   device,

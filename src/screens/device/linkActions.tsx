@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import type { Device, Link } from '@/core';
+import { irBackupAction } from '../appliance/IrBackupAction';
 
 export interface LinkActionProps {
   device: Device;
@@ -33,6 +34,7 @@ export type DeviceActionRenderer = (props: DeviceActionProps) => ReactElement | 
  */
 export const DEVICE_ACTIONS: readonly DeviceActionRenderer[] = [
   // ir lane
+  irBackupAction,
   // tv lane
   // matter lane
 ];
