@@ -14,6 +14,10 @@ import { createMemorySecretStore } from '@/store/secrets';
 import { renderWith, room } from '../helpers';
 
 jest.mock('react-native-udp');
+const mockUseVolumeKeys = jest.fn();
+jest.mock('@/screens/tv/useVolumeKeys', () => ({
+  useVolumeKeys: (...a: unknown[]) => mockUseVolumeKeys(...a),
+}));
 jest.mock('@react-native-async-storage/async-storage', () =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
@@ -115,10 +119,15 @@ describe('TvScreen', () => {
     expect(screen.getByLabelText(t('tv.up'))).toBeTruthy();
 
     // A fresh screen for tv1 opens on the D-pad; tv2 on the touchpad.
+    await screen.unmount();
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
     await advance(0);
-    expect(screen.getAllByLabelText(t('tv.up')).length).toBeGreaterThan(0);
-    expect((await r.s.prefs.get()).tvPad).toEqual({ tv1: 'dpad' });
+    expect(screen.getByLabelText(t('tv.up'))).toBeTruthy();
+    await screen.unmount();
+    await renderWith(r.s, <TvScreen deviceId="tv2" />);
+    await advance(0);
+    expect(screen.queryByLabelText(t('tv.up'))).toBeNull();
+    expect(screen.getByText(t('tv.touchpadHint'))).toBeTruthy();
   });
 
   it('opens a TV with no saved choice on the touchpad', async () => {
@@ -193,10 +202,62 @@ describe('TvScreen', () => {
     const open = jest.spyOn(Linking, 'sendIntent').mockResolvedValue(undefined);
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
     expect(screen.getByText(t('tv.unreachableTitle'))).toBeTruthy();
+    r.findAgain.mockResolvedValueOnce('192.168.1.40');
     await fireEvent.press(screen.getByLabelText(t('tv.findAgain')));
     expect(r.findAgain).toHaveBeenCalledWith(expect.objectContaining({ id: 'tv1' }));
+    expect(await screen.findByText(t('tv.foundAt', { host: '192.168.1.40' }))).toBeTruthy();
+    const stored = (await r.s.store.devices()).find((d) => d.id === 'tv1');
+    expect(stored?.links[0]).toMatchObject({ host: '192.168.1.40' });
     await fireEvent.press(screen.getByLabelText(t('tv.wifiSettings')));
     expect(open).toHaveBeenCalledWith('android.settings.WIFI_SETTINGS');
+  });
+
+  it('says so when Find TV again finds nothing', async () => {
+    mockNetType = 'CELLULAR';
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await fireEvent.press(screen.getByLabelText(t('tv.findAgain')));
+    expect(await screen.findByText(t('tv.notFound'))).toBeTruthy();
+  });
+
+  it('keeps the phone volume keys only while the rocker is on screen', async () => {
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    expect(mockUseVolumeKeys).toHaveBeenLastCalledWith('tv1', true);
+    await act(async () => {
+      r.webos.emit('tv1', { kind: 'tv', state: { power: false } });
+    });
+    expect(mockUseVolumeKeys).toHaveBeenLastCalledWith('tv1', false);
+  });
+
+  it('the power button sends the power key while still connecting', async () => {
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await fireEvent.press(screen.getByLabelText(t('tv.power')));
+    await advance(0);
+    expect(r.sent()).toEqual([{ kind: 'tv.key', key: 'power' }]);
+  });
+
+  it('does not crash when saving the pad style fails', async () => {
+    const r = await rig();
+    jest.spyOn(r.s.prefs, 'set').mockRejectedValue(new Error('disk'));
+    const err = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await fireEvent.press(screen.getByLabelText(t('tv.dpad')));
+    await advance(0);
+    expect(err).toHaveBeenCalledWith('Could not save the pad style', expect.any(Error));
+  });
+
+  it('still sends typed text when the keyboard goes away before the debounce ends', async () => {
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await fireEvent.press(screen.getByLabelText(t('tv.keyboard')));
+    await fireEvent.changeText(screen.getByLabelText(t('tv.keyboardField')), 'ab');
+    await act(async () => {
+      r.webos.emit('tv1', { kind: 'tv', state: { power: false } });
+    });
+    await advance(0);
+    expect(r.sent()).toEqual([{ kind: 'tv.text', text: 'ab' }]);
   });
 
   it('opens the iOS settings app on iPhone', async () => {

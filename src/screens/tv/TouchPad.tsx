@@ -23,7 +23,7 @@ export function TouchPad(props: { onKey: (k: TvKey) => void }): ReactElement {
         .minDistance(0)
         .onBegin((e) => ctl.begin(e.x, e.y))
         .onUpdate((e) => ctl.update(e.x, e.y))
-        .onFinalize((e) => ctl.finish(e.x, e.y)),
+        .onFinalize((e, success) => (success ? ctl.finish(e.x, e.y) : ctl.cancel())),
     [ctl],
   );
 

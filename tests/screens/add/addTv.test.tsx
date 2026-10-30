@@ -209,4 +209,20 @@ describe('Add TV flow', () => {
     await fireEvent.press(screen.getByLabelText(t('addTv.openIt')));
     expect(mockReplace).toHaveBeenCalledWith('/device/old');
   });
+
+  it('deletes the key of a pairing that finishes after the step was left', async () => {
+    const r = await rig();
+    let finish: (p: PairedTv) => void = () => undefined;
+    r.setup.pair.mockImplementationOnce(() => new Promise<PairedTv>((res) => (finish = res)));
+    r.setup.pair.mockImplementationOnce(hang);
+    await r.s.secrets.set('key-new', 'secret');
+    await renderWith(r.s, <AddTvFlow />);
+    await toFind();
+    await r.found(lg);
+    await fireEvent.press(screen.getByLabelText('LG OLED C4, 192.168.1.23'));
+    await fireEvent.press(screen.getByLabelText(t('addTv.promptMissing')));
+    await act(async () => finish(paired()));
+    await waitFor(async () => expect(await r.s.secrets.get('key-new')).toBeNull());
+    expect(screen.queryByDisplayValue('LG OLED C4')).toBeNull();
+  });
 });

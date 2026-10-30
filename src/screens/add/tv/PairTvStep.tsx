@@ -24,7 +24,7 @@ function failureText(e: unknown): string {
 
 /** Starts pairing on entry; the user accepts the prompt on the TV. */
 export function PairTvStep(props: PairTvStepProps): ReactElement {
-  const { tv } = useServices();
+  const { tv, secrets } = useServices();
   const onPaired = useRef(props.onPaired);
   useEffect(() => {
     onPaired.current = props.onPaired;
@@ -38,7 +38,15 @@ export function PairTvStep(props: PairTvStepProps): ReactElement {
     let alive = true;
     tv.pair(found, () => undefined).then(
       (paired) => {
-        if (alive) onPaired.current(paired);
+        if (alive) {
+          onPaired.current(paired);
+          return;
+        }
+        // Pairing cannot be cancelled (pairTv takes no signal), so a late result is dropped and
+        // the key it stored is deleted.
+        secrets
+          .delete(paired.link.clientKeyRef)
+          .catch((e: unknown) => console.error('Could not drop an unused key', e));
       },
       (e: unknown) => {
         if (alive) setFailure(failureText(e));
@@ -47,7 +55,7 @@ export function PairTvStep(props: PairTvStepProps): ReactElement {
     return () => {
       alive = false;
     };
-  }, [tv, found, attempt]);
+  }, [tv, secrets, found, attempt]);
 
   useEffect(() => {
     if (failure !== null) return;

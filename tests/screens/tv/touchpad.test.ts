@@ -91,4 +91,16 @@ describe('pad controller', () => {
     c.finish(5, 5);
     expect(keys).toEqual(['ok']);
   });
+
+  it('sends nothing when the gesture is cancelled', () => {
+    let t = 0;
+    const keys: string[] = [];
+    const c = createPadController(() => t);
+    c.setHandler((k) => keys.push(k));
+    c.begin(5, 5);
+    t = 50;
+    c.cancel();
+    c.finish(5, 5);
+    expect(keys).toEqual([]);
+  });
 });

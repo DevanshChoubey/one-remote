@@ -16,7 +16,7 @@ object VolumeKeys {
   @Volatile
   var listener: ((String) -> Unit)? = null
 
-  /** True when the event was consumed. Only a key press (and its auto-repeats) is consumed. */
+  /** True when the event was consumed: a volume key, while enabled. */
   fun handle(event: KeyEvent): Boolean {
     if (!enabled) return false
     val direction = when (event.keyCode) {
@@ -24,8 +24,9 @@ object VolumeKeys {
       KeyEvent.KEYCODE_VOLUME_DOWN -> "down"
       else -> return false
     }
-    if (event.action != KeyEvent.ACTION_DOWN) return false
-    listener?.invoke(direction)
+    // The press is reported once per ACTION_DOWN (auto-repeats included). ACTION_UP is consumed
+    // too, so the system never sees half of a volume key press.
+    if (event.action == KeyEvent.ACTION_DOWN) listener?.invoke(direction)
     return true
   }
 }

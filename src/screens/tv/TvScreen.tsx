@@ -72,9 +72,10 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   const [view, setView] = useState<DeviceView | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [keyboard, setKeyboard] = useState(false);
+  const [finding, setFinding] = useState(false);
+  const [findNote, setFindNote] = useState<string | null>(null);
   const [pickedPad, setPickedPad] = useState<Pad | null>(null);
   const watching = focused && active;
-  useVolumeKeys(deviceId, watching);
 
   // Live state: only while this screen is in front and the app is in the foreground.
   useEffect(() => {
@@ -97,8 +98,13 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
 
   useEffect(() => {
     if (!watching) return;
+    // Refresh at once on resume, so the first frame never uses a stale clock.
+    const first = setTimeout(() => setNow(nowMs()), 0);
     const id = setInterval(() => setNow(nowMs()), 1000);
-    return () => clearInterval(id);
+    return () => {
+      clearTimeout(first);
+      clearInterval(id);
+    };
   }, [watching]);
 
   const onWifi = network.type === undefined || network.type === Network.NetworkStateType.WIFI;
@@ -109,6 +115,8 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     now,
   });
   const haptics = preferences?.haptics ?? true;
+  // The rocker is only on screen in these modes; elsewhere the phone keeps its own volume.
+  useVolumeKeys(deviceId, watching && (mode === 'ready' || mode === 'connecting'));
 
   const send = (cmd: Command): void => {
     hub.send(deviceId, cmd).then(
@@ -133,10 +141,10 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   const pad: Pad = pickedPad ?? preferences?.tvPad[deviceId] ?? 'touchpad';
   const choosePad = (next: Pad): void => {
     setPickedPad(next);
-    prefs.get().then(
-      (p) => prefs.set({ tvPad: { ...p.tvPad, [deviceId]: next } }),
-      (e: unknown) => console.error('Could not save the pad style', e),
-    );
+    prefs
+      .get()
+      .then((p) => prefs.set({ tvPad: { ...p.tvPad, [deviceId]: next } }))
+      .catch((e: unknown) => console.error('Could not save the pad style', e));
   };
 
   const wifiSettings = (): void => {
@@ -148,7 +156,20 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   };
   const findAgain = (): void => {
     if (!device) return;
-    tv.findAgain(device).catch((e: unknown) => console.error('Could not look for the TV', e));
+    setFinding(true);
+    setFindNote(null);
+    // The services save a new address; here the person just sees what happened.
+    tv.findAgain(device).then(
+      (host) => {
+        setFinding(false);
+        setFindNote(host === null ? t('tv.notFound') : t('tv.foundAt', { host }));
+      },
+      (e: unknown) => {
+        console.error('Could not look for the TV', e);
+        setFinding(false);
+        setFindNote(t('tv.notFound'));
+      },
+    );
   };
 
   const status =
@@ -162,7 +183,14 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
 
   const body = ((): ReactElement => {
     if (mode === 'unreachable') {
-      return <UnreachablePanel onWifiSettings={wifiSettings} onFindAgain={findAgain} />;
+      return (
+        <UnreachablePanel
+          onWifiSettings={wifiSettings}
+          onFindAgain={findAgain}
+          busy={finding}
+          note={findNote}
+        />
+      );
     }
     if (mode === 'off' || mode === 'waking' || mode === 'wakeFailed') {
       return <TvOffPanel mode={mode} onTurnOn={turnOn} />;
@@ -217,7 +245,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
             ) : null}
           </Box>
           <Touchable
-            onPress={() => (mode === 'ready' ? key('power') : turnOn())}
+            onPress={() => (mode === 'ready' || mode === 'connecting' ? key('power') : turnOn())}
             accessibilityLabel={t('tv.power')}
           >
             <Box px={3}>

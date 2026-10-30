@@ -29,12 +29,8 @@ export function KeyboardSheet(props: {
     if (pending.current) clearTimeout(pending.current.timer);
     pending.current = { text: next, timer: setTimeout(flush, DEBOUNCE_MS) };
   };
-  useEffect(
-    () => () => {
-      if (pending.current) clearTimeout(pending.current.timer);
-    },
-    [],
-  );
+  // Leaving the sheet (Done, or the TV going away) still sends what was typed last.
+  useEffect(() => flush, []);
 
   return (
     <Column gap={3} testID="tv-keyboard">

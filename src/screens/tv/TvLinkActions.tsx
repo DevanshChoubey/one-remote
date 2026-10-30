@@ -56,7 +56,6 @@ export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactEl
     run(async () => {
       const host = await tv.findAgain(device);
       if (host === null) return t('addTv.notFound');
-      if (host !== webos.host) await saveLink({ host });
       return t('addTv.foundAt', { host });
     });
 

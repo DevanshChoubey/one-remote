@@ -5,7 +5,7 @@ export default {
   dpad: 'D-pad',
   padMode: 'Pad style',
   touchpadHint: 'Swipe to move · Tap to select',
-  touchpadLabel: 'Touchpad. Swipe to move, tap to select. The D-pad does the same with buttons.',
+  touchpadLabel: 'Touchpad. Swipe to move, tap to select. For buttons instead, choose D-pad above.',
   up: 'Up',
   down: 'Down',
   left: 'Left',
@@ -39,4 +39,7 @@ export default {
   unreachableBody: "Not on the same Wi-Fi as the TV, or the TV's address changed. Looking again…",
   wifiSettings: 'Wi-Fi settings',
   findAgain: 'Find TV again',
+  finding: 'Looking…',
+  foundAt: 'Found the TV at {host}',
+  notFound: "Couldn't find the TV on this Wi-Fi",
 } as const;
