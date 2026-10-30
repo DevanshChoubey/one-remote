@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useKnownDevice } from '@/screens/device';
 import { PlaceholderRemote } from '@/screens/device/PlaceholderRemote';
+import { TvScreen } from '@/screens/tv/TvScreen';
 
 /** One branch per kind; each lane replaces its own branch's line with its remote screen. */
 export default function DeviceRoute(): React.JSX.Element {
@@ -8,7 +9,7 @@ export default function DeviceRoute(): React.JSX.Element {
   const kind = useKnownDevice(id)?.kind;
   switch (kind) {
     case 'tv':
-      return <PlaceholderRemote id={id} kind="tv" />;
+      return <TvScreen deviceId={id} />;
     case 'ac':
       return <PlaceholderRemote id={id} kind="ac" />;
     case 'fan':
