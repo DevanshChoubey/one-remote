@@ -4,6 +4,7 @@ import type { TvLinkKind } from '@/core';
 const WAKE_HINT: Partial<Record<TvLinkKind, string>> = {
   webos: 'tv.wakeFailed',
   androidtv: 'tv.wakeFailedAndroidTv',
+  samsung: 'tv.wakeFailedSamsung',
 };
 
 export function wakeHintKey(kind: TvLinkKind): string {

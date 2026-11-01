@@ -1,6 +1,8 @@
 import type { Device } from '@/core';
 import { createFakeDriver } from '@/device/testing/fakeDriver';
 import { createServices } from '@/services';
+import { createFakeSamsungLan } from '@/samsung/testing/fakeLan';
+import { createFakeSamsungTv } from '@/samsung/testing/fakeTv';
 import { createMemoryStore } from '@/store/memoryStore';
 import { createMemoryPreferenceStore } from '@/store/preferences';
 import { createMemorySecretStore } from '@/store/secrets';
@@ -64,13 +66,13 @@ describe('createServices', () => {
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
-  it('has only the lanes drivers by default (webos, androidtv so far)', () => {
+  it('has only the lanes drivers by default (webos, androidtv, samsung so far)', () => {
     const s = createServices({
       store: createMemoryStore(),
       secrets: createMemorySecretStore(),
       prefs: createMemoryPreferenceStore(),
     });
-    expect(s.drivers.map((x) => x.kind)).toEqual(['webos', 'androidtv']);
+    expect(s.drivers.map((x) => x.kind)).toEqual(['webos', 'androidtv', 'samsung']);
   });
 });
 
@@ -186,3 +188,64 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 jest.mock('react-native-udp', () => ({ __esModule: true, default: { createSocket: jest.fn() } }));
+
+describe('Samsung wiring', () => {
+  const HOST = '192.168.1.40';
+  const MAC = 'aa:bb:cc:dd:ee:ff';
+  const PROMPTS = { onAllow: () => undefined, askCode: () => Promise.resolve(null) };
+  const samsungDevice = (tokenRef: string): Device => ({
+    id: 's1',
+    kind: 'tv',
+    name: 'Samsung',
+    roomId: 'r',
+    order: 0,
+    links: [{ kind: 'samsung', host: HOST, mac: MAC, tokenRef, pinSha256: 'old' }],
+  });
+
+  async function rig() {
+    const tv = createFakeSamsungTv({ host: HOST, mac: MAC, prompt: 'allow' });
+    const store = createMemoryStore();
+    const secrets = createMemorySecretStore();
+    const services = createServices({
+      tvTransport: createFakeSamsungLan([tv]),
+      store,
+      secrets,
+      prefs: createMemoryPreferenceStore(),
+    });
+    await store.upsertRoom({ id: 'r', name: 'R', order: 0 });
+    await secrets.set('samsung:1', 'old-token');
+    await store.upsertDevice(samsungDevice('samsung:1'));
+    return { tv, store, secrets, services };
+  }
+
+  it('re-pairing releases the Samsung driver, not the webos one', async () => {
+    const { services } = await rig();
+    const samsung = services.drivers.find((d) => d.kind === 'samsung');
+    const webos = services.drivers.find((d) => d.kind === 'webos');
+    const clearSamsung = jest.spyOn(samsung as never, 'clearNotPaired');
+    const clearWebos = jest.spyOn(webos as never, 'clearNotPaired');
+    const reuse = {
+      kind: 'samsung' as const,
+      host: HOST,
+      mac: MAC,
+      tokenRef: 'samsung:1',
+      pinSha256: 'old',
+    };
+    await services.tv.pair(
+      { kind: 'samsung', host: HOST, name: 'Samsung TV', secure: true },
+      PROMPTS,
+      reuse,
+    );
+    expect(clearSamsung).toHaveBeenCalledWith(
+      's1',
+      expect.objectContaining({ kind: 'samsung', tokenRef: 'samsung:1' }),
+    );
+    expect(clearWebos).not.toHaveBeenCalled();
+  });
+
+  it('removing a Samsung device forgets its token', async () => {
+    const { secrets, services } = await rig();
+    await services.removeDevice('s1');
+    expect(await secrets.get('samsung:1')).toBeNull();
+  });
+});

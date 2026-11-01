@@ -142,3 +142,31 @@ Results:
 - 4. Volume: pass for +/-.
 - Still pending: wrong code, touchpad, keyboard (3), mute, input (5), power off and on (6), IP
   change (7), and remove device (8).
+
+## Samsung Tizen (lane/samsung): untested on hardware
+
+Date: 2026-11-01.
+
+No Samsung TV was available; the driver is proven against the fake TV only (spec §7, §9).
+
+Model / year / firmware: (fill in)
+
+Before the run, on the TV: Settings › General › Network › Expert Settings › Power on with mobile =
+on. Run it with any Samsung Tizen TV (2016 or later) and a phone on the same Wi-Fi.
+
+| #   | Item                                                                                                                                                                                                   | Result |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| 1   | Find: the TV appears in the Add TV search with the "Samsung" word, and by typing its address.                                                                                                          |        |
+| 2   | Pair: "Press Allow" shows (or not, if the TV allows all); after Allow the device is added with name, model and MAC from the info page. Remove and add again.                                           |        |
+| 3   | Keys: up, down, left, right, OK, Back, Home on the touchpad (four directions) and the D-pad.                                                                                                           |        |
+| 4   | Volume and mute: the buttons and the phone's volume keys.                                                                                                                                              |        |
+| 5   | Input: the button opens the TV's own source picker (`KEY_SOURCE`).                                                                                                                                     |        |
+| 6   | Keyboard: open a text field on the TV and type. Confirm whether `SendInputString` appends or replaces what is in the field, and whether non-ASCII works.                                               |        |
+| 7   | Play/Pause: in a player, tap three times. Confirm the `KEY_PAUSE` / `KEY_PLAY` alternation (change the pick in `src/samsung/keys.ts` if the TV has a better single key).                               |        |
+| 8   | Power off: `KEY_POWER` turns it off; Home shows it off within about 10 s.                                                                                                                              |        |
+| 9   | Power on: the Turn on button wakes it by Wi-Fi (WoL). Confirm it also works for a TV on a cable, and what MAC the info page gives for it (`wifiMac` only?). If not, record the hint's wording problem. |        |
+| 10  | Standby: with the TV in standby the app shows it off and opens no socket.                                                                                                                              |        |
+| 11  | IP change: change the TV's address (reboot the router or a static IP); the app finds it again by MAC with no prompt.                                                                                   |        |
+| 12  | Token revoked: delete the phone in the TV's device list; the app says "Pair the TV again" once and the TV shows no repeated prompts. Re-pair from the device sheet.                                    |        |
+| 13  | Wrong network: phone on mobile data shows the "Can't reach it" panel, no hang.                                                                                                                         |        |
+| 14  | Info page: confirm it is served on 8001 on this model (some firmware may need 8002). Record `GET http://<ip>:8001/api/v2/` output (without the MAC) so the parser can be adjusted.                     |        |
