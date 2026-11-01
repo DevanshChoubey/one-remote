@@ -49,6 +49,10 @@ export interface FakeAtvOpts {
   server?: RsaPublic;
   codeSuffix?: string;
   features?: number;
+  /** Left out of the pairing request ack, as a TV that sends no name does. */
+  omitServerName?: boolean;
+  vendor?: string;
+  model?: string;
 }
 
 interface Conn {
@@ -146,7 +150,14 @@ export function createFakeAtv(o: FakeAtvOpts): FakeAtv {
         c.code = codeFor(c.client);
         lastCode = c.code;
       }
-      send(c, outer(STATUS_OK, 11, new ProtoWriter().string(1, name)));
+      send(
+        c,
+        outer(
+          STATUS_OK,
+          11,
+          o.omitServerName ? new ProtoWriter() : new ProtoWriter().string(1, name),
+        ),
+      );
     } else if (f.has(20)) {
       const enc = new ProtoWriter().varint(1, 3).varint(2, 6);
       send(c, outer(STATUS_OK, 20, new ProtoWriter().message(1, enc).varint(3, 1)));
@@ -242,7 +253,7 @@ export function createFakeAtv(o: FakeAtvOpts): FakeAtv {
     opened[port]++;
     let ownClose = false;
     if (port === 6466) {
-      const info = new ProtoWriter().string(1, name).string(2, 'Fake');
+      const info = new ProtoWriter().string(1, o.model ?? name).string(2, o.vendor ?? 'Fake');
       send(
         c,
         new ProtoWriter()
