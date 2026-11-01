@@ -13,6 +13,17 @@ export interface AtvLive {
   app?: string;
 }
 
+/** Errors of a connect whose TLS completed and whose peer then hung up before the session `start`. */
+const hungUp = new WeakSet<object>();
+
+/** True for the rejection of `AtvRemote.connect` when TLS completed and the TV then closed the
+ *  stream before `start`. That is how an Android TV treats a client certificate it does not know
+ *  (the transport reports a handshake failure and a timeout alike as `notSent`, so this is the only
+ *  signal that tells "forgot this phone" from "slow or asleep"). */
+export function hungUpBeforeStart(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && hungUp.has(err);
+}
+
 const NO_FIELD = 'No text field is open on the TV';
 
 /** One remote session with an Android TV (port 6466). */
@@ -68,7 +79,9 @@ export class AtvRemote {
       };
       remote.endCb = () => {
         clearTimeout(timer);
-        reject(new DeviceError('notSent', 'The TV closed the connection'));
+        const err = new DeviceError('notSent', 'The TV closed the connection');
+        hungUp.add(err);
+        reject(err);
       };
       remote.attach();
     });

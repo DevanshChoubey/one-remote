@@ -252,7 +252,10 @@ export function createFakeAtv(o: FakeAtvOpts): FakeAtv {
     conns.add(c);
     opened[port]++;
     let ownClose = false;
-    if (port === 6466) {
+    if (port === 6466 && (!client || !trusted.has(client.modulusHex))) {
+      // Like a real TV: the TLS handshake completes, then it hangs up on a client it does not know.
+      void Promise.resolve().then(() => closeConn(c));
+    } else if (port === 6466) {
       const info = new ProtoWriter().string(1, o.model ?? name).string(2, o.vendor ?? 'Fake');
       send(
         c,
@@ -282,7 +285,9 @@ export function createFakeAtv(o: FakeAtvOpts): FakeAtv {
         backlog.splice(0).forEach(cb);
       },
       onClose: (cb) => {
-        if (!ownClose) c.closeCbs.push(cb);
+        if (ownClose) return;
+        if (c.closed) cb();
+        else c.closeCbs.push(cb);
       },
     };
   };
@@ -353,9 +358,6 @@ export function createFakeAtv(o: FakeAtvOpts): FakeAtv {
     isUp: () => up,
     connect: (port, client) => {
       if (!up) throw new DeviceError('notSent', `cannot connect to ${host}:${String(port)}`);
-      if (port === 6466 && (!client || !trusted.has(client.modulusHex))) {
-        throw new DeviceError('notSent', 'handshake failed');
-      }
       return makeStream(port, client);
     },
   };

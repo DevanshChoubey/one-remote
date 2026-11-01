@@ -2,7 +2,7 @@ import { createAndroidTvDriver } from '@/androidtv/driver';
 import { KEYCODE } from '@/androidtv/keys';
 import { createFakeAtv, type FakeAtv } from '@/androidtv/testing/fakeAtv';
 import { createFakeAtvLan } from '@/androidtv/testing/fakeAtvLan';
-import type { Device, Reported, TvKey, TvLink } from '@/core';
+import { DeviceError, type Device, type Reported, type TvKey, type TvLink } from '@/core';
 import { magicPacket } from '@/tv/wol';
 
 const HOST = '192.168.1.20';
@@ -306,12 +306,12 @@ describe('pin mismatch', () => {
     expect(lan.streams.some((s) => s.host === HOST && s.port === 6467)).toBe(false);
   });
 
-  it('latches not paired when the pinned TV is nowhere', async () => {
+  it('says not paired for the attempt when the pinned TV is nowhere, and finds it when it returns', async () => {
     const { tv, tvs, driver, device, link, hostChanged, id } = await setup();
     watch(driver, device, link);
     await tick(10);
     tv.moveTo('192.168.1.31');
-    tv.standby({ answers: false });
+    tvs.splice(tvs.indexOf(tv), 1);
     const other = createFakeAtv({ host: HOST, certSha256: 'someone-else' });
     other.trusted.add(id.modulusHex);
     tvs.push(other);
@@ -320,6 +320,27 @@ describe('pin mismatch', () => {
     await expect(driver.send(device, link, { kind: 'tv.key', key: 'ok' })).rejects.toMatchObject({
       code: 'notPaired',
     });
+    tvs.push(tv);
+    await tick(35000, 250);
+    expect(hostChanged).toHaveBeenCalledWith('tv1', '192.168.1.31');
+    expect(tv.connections(6466)).toBe(1);
+    expect(other.keys).toEqual([]);
+  });
+
+  it('searches at most once per 30 s while the TV is nowhere', async () => {
+    const { tv, tvs, lan, driver, device, link, id } = await setup();
+    watch(driver, device, link);
+    await tick(10);
+    tv.moveTo('192.168.1.31');
+    tvs.splice(tvs.indexOf(tv), 1);
+    const other = createFakeAtv({ host: HOST, certSha256: 'someone-else' });
+    other.trusted.add(id.modulusHex);
+    tvs.push(other);
+    await tick(1000, 100);
+    const browse = jest.spyOn(lan, 'mdnsBrowse');
+    await tick(100000, 500);
+    expect(browse.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(browse.mock.calls.length).toBeLessThanOrEqual(4);
   });
 });
 
@@ -341,6 +362,90 @@ describe('not paired', () => {
     tv.trusted.add(id.modulusHex);
     driver.clearNotPaired('tv1', link);
     await tick(100);
+    expect(tv.connections(6466)).toBe(1);
+  });
+});
+
+describe('not paired is only for a TV that hung up after TLS', () => {
+  /** 6466 answers nothing (until `slow.on` is false): the connect times out. */
+  function slowRemotePort(lan: Awaited<ReturnType<typeof setup>>['lan']) {
+    const slow = { on: true };
+    const real = lan.openStream.bind(lan);
+    lan.openStream = (host, port, ms, tls) => {
+      if (port === 6466 && slow.on) {
+        lan.streams.push({ host, port, tls });
+        return new Promise((_res, rej) =>
+          setTimeout(() => rej(new DeviceError('notSent', 'timed out')), ms),
+        );
+      }
+      return real(host, port, ms, tls);
+    };
+    return slow;
+  }
+
+  it('does not latch on a 6466 timeout with 6467 up, and connects once the box answers', async () => {
+    const { tv, lan, driver, device, link } = await setup();
+    const slow = slowRemotePort(lan);
+    const { reports } = watch(driver, device, link);
+    await tick(20000, 100);
+    expect(lan.streams.some((s) => s.port === 6467)).toBe(false);
+    expect(lan.streams.filter((s) => s.port === 6466).length).toBeGreaterThan(3);
+    slow.on = false;
+    await tick(6000, 100);
+    expect(tv.connections(6466)).toBe(1);
+    expect(reports[reports.length - 1]).toEqual({
+      kind: 'tv',
+      state: { power: true, volume: 20, muted: false },
+    });
+    await driver.send(device, link, { kind: 'tv.key', key: 'ok' });
+    expect(tv.keys).toHaveLength(1);
+  });
+
+  it('a press during the timeout is notSent, not notPaired', async () => {
+    const { lan, driver, device, link } = await setup();
+    slowRemotePort(lan);
+    const p = driver.send(device, link, { kind: 'tv.key', key: 'ok' });
+    const assertion = expect(p).rejects.toMatchObject({ code: 'notSent' });
+    await tick(2000, 100);
+    await assertion;
+  });
+
+  it('power on still falls back to Wake-on-LAN after a timeout, and nothing is latched', async () => {
+    const { tv, lan, driver, device } = await setup();
+    const withMac = linkFor(tv, { mac: 'aa:bb:cc:dd:ee:ff' });
+    const dev = deviceOf('tv1', withMac);
+    const slow = slowRemotePort(lan);
+    const p = driver.send(dev, withMac, { kind: 'tv.powerOn' });
+    await tick(2000, 100);
+    await p;
+    expect(lan.wolPackets).toEqual([magicPacket('aa:bb:cc:dd:ee:ff')]);
+    expect(lan.streams.some((s) => s.port === 6467)).toBe(false);
+    slow.on = false;
+    await driver.send(device, withMac, { kind: 'tv.key', key: 'ok' });
+    expect(tv.keys).toHaveLength(1);
+  });
+
+  it('the real unpaired case sends no 6467 probe', async () => {
+    const { tv, lan, driver, device, link } = await setup();
+    tv.trusted.clear();
+    await expect(driver.send(device, link, { kind: 'tv.key', key: 'ok' })).rejects.toMatchObject({
+      code: 'notPaired',
+    });
+    expect(lan.streams.some((s) => s.port === 6467)).toBe(false);
+  });
+});
+
+describe('send and observe', () => {
+  it('retries for an observer when a connect started by a send fails', async () => {
+    const { tv, tvs, driver, device, link } = await setup();
+    tvs.splice(tvs.indexOf(tv), 1);
+    const sent = driver.send(device, link, { kind: 'tv.key', key: 'ok' });
+    const assertion = expect(sent).rejects.toMatchObject({ code: 'notSent' });
+    watch(driver, device, link);
+    await tick(100);
+    await assertion;
+    tvs.push(tv);
+    await tick(10000, 100);
     expect(tv.connections(6466)).toBe(1);
   });
 });
@@ -367,6 +472,18 @@ describe('forget', () => {
     expect(tv.connections(6466)).toBe(0);
     await driver.forget!(device, link);
     expect(lan.deleted).toEqual(['androidtv:identity', 'androidtv:identity']);
+  });
+
+  it('closes a connect that finishes after forget, and arms no timer for it', async () => {
+    const { tv, driver, device, link } = await setup();
+    const sent = driver.send(device, link, { kind: 'tv.key', key: 'ok' });
+    const assertion = expect(sent).rejects.toMatchObject({ code: 'notSent' });
+    await driver.forget!(device, link);
+    await tick(100);
+    await assertion;
+    expect(tv.connections(6466)).toBe(0);
+    expect(tv.keys).toEqual([]);
+    expect(jest.getTimerCount()).toBe(0);
   });
 
   it('rethrows a failing deleteIdentity', async () => {

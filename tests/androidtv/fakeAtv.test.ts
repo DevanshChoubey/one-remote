@@ -71,14 +71,14 @@ test('a bad secret gives status 402 and a close', async () => {
   expect(tv.trusted.has(id.modulusHex)).toBe(false);
 });
 
-test('6466 without trust fails with handshake failed', async () => {
-  const { lan } = await setup();
-  await expect(
-    lan.openStream(HOST, 6466, 1000, { pairing: true, identity: 'c' }),
-  ).rejects.toMatchObject({
-    code: 'notSent',
-    message: expect.stringContaining('handshake failed'),
-  });
+test('6466 without trust completes TLS, then the TV hangs up', async () => {
+  const { tv, lan } = await setup();
+  const s = await lan.openStream(HOST, 6466, 1000, { pairing: true, identity: 'c' });
+  const onClose = jest.fn();
+  s.onClose(onClose);
+  await flush();
+  expect(onClose).toHaveBeenCalledTimes(1);
+  expect(tv.connections(6466)).toBe(0);
 });
 
 test('after pairing, 6466 configures and a ping is answered', async () => {

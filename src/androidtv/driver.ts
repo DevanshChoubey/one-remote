@@ -11,9 +11,9 @@ import {
   type Unsubscribe,
 } from '@/core';
 import { magicPacket } from '@/tv/wol';
-import { PAIR_PORT, type AtvTransport } from './constants';
+import type { AtvTransport } from './constants';
 import { KEYCODE } from './keys';
-import { AtvRemote, type AtvLive } from './remote';
+import { AtvRemote, hungUpBeforeStart, type AtvLive } from './remote';
 import { findAndroidTvByPin } from './rediscover';
 
 type AndroidTvLink = Extract<TvLink, { kind: 'androidtv' }>;
@@ -172,27 +172,19 @@ export function createAndroidTvDriver(o: AndroidTvDriverOpts): LinkDriver & {
         e.pinMismatch = true;
         throw de;
       }
-      if (de.code === 'notSent') {
-        // If the pairing port still answers TLS to this phone, the TV is up and has forgotten us.
-        const up = await t
-          .openStream(host, PAIR_PORT, connectMs, { pairing: true, identity: link.certRef })
-          .then(
-            (s) => {
-              s.close();
-              return true;
-            },
-            () => false,
-          );
-        if (up) {
-          e.notPaired = true;
-          throw new DeviceError('notPaired', 'The TV no longer trusts this phone');
-        }
+      if (hungUpBeforeStart(err)) {
+        // TLS completed and the TV hung up before the session started: it is up and has forgotten
+        // this phone. A timeout or a refusal says nothing of the kind (slow Wi-Fi, a box waking).
+        e.notPaired = true;
+        throw new DeviceError('notPaired', 'The TV no longer trusts this phone');
       }
       throw de;
     }
   }
 
-  function connectOnce(e: Entry): Promise<AtvRemote> {
+  /** `retryOnFail`: a connect started by a send. Nobody else waits for it, so when it fails and
+   *  the screen observes, it schedules the retry itself (an attempt's own caller does that). */
+  function connectOnce(e: Entry, retryOnFail = false): Promise<AtvRemote> {
     if (e.remote) return Promise.resolve(e.remote);
     if (!e.connecting) {
       e.connecting = doConnect(e).then(
@@ -203,6 +195,9 @@ export function createAndroidTvDriver(o: AndroidTvDriverOpts): LinkDriver & {
         },
         (err: unknown) => {
           e.connecting = undefined;
+          if (retryOnFail && entries.get(e.deviceId) === e && e.observers.size > 0) {
+            void onConnectFailed(e);
+          }
           throw err;
         },
       );
@@ -211,6 +206,11 @@ export function createAndroidTvDriver(o: AndroidTvDriverOpts): LinkDriver & {
   }
 
   function install(e: Entry, remote: AtvRemote): void {
+    if (entries.get(e.deviceId) !== e) {
+      // The TV was forgotten while this connect was in flight.
+      remote.close();
+      return;
+    }
     e.remote = remote;
     e.attempt = 0;
     e.lastRediscoverAt = undefined;
@@ -265,7 +265,8 @@ export function createAndroidTvDriver(o: AndroidTvDriverOpts): LinkDriver & {
   }
 
   async function runAttempt(e: Entry): Promise<void> {
-    if (e.observers.size === 0 || e.remote || e.rediscovering || e.notPaired) return;
+    if (e.observers.size === 0 || e.remote || e.rediscovering || e.notPaired || e.connecting)
+      return;
     try {
       await connectOnce(e);
     } catch {
@@ -327,9 +328,11 @@ export function createAndroidTvDriver(o: AndroidTvDriverOpts): LinkDriver & {
       return;
     }
     if (mismatch && result === 'none') {
-      // The pinned TV is nowhere on the network: it needs pairing again.
-      e.notPaired = true;
+      // The pinned TV is nowhere on the network. The presses say "pair again" (the connect met
+      // another certificate), but nothing is latched: look again slowly, the TV may come back,
+      // possibly at yet another address.
       clearOffTimer(e);
+      scheduleAttempt(e, REDISCOVER_EVERY_MS);
       return;
     }
     scheduleBackoff(e);
@@ -338,7 +341,7 @@ export function createAndroidTvDriver(o: AndroidTvDriverOpts): LinkDriver & {
   // ---- idle close --------------------------------------------------------------------------------
 
   function scheduleIdle(e: Entry): void {
-    if (e.observers.size > 0) return;
+    if (e.observers.size > 0 || entries.get(e.deviceId) !== e) return;
     if (e.idleTimer) clearTimeout(e.idleTimer);
     e.idleTimer = setTimeout(() => {
       e.idleTimer = undefined;
@@ -375,7 +378,7 @@ export function createAndroidTvDriver(o: AndroidTvDriverOpts): LinkDriver & {
   async function powerOn(e: Entry, link: AndroidTvLink, signal?: AbortSignal): Promise<void> {
     let remote: AtvRemote | undefined;
     try {
-      remote = await withinBudget(connectMs, connectOnce(e));
+      remote = await withinBudget(connectMs, connectOnce(e, true));
     } catch (err) {
       const de = asDeviceError(err);
       if (de.code !== 'notSent') throw de;
@@ -450,7 +453,7 @@ export function createAndroidTvDriver(o: AndroidTvDriverOpts): LinkDriver & {
           await powerOn(e, link, signal);
           return;
         }
-        const remote = await withinBudget(connectMs, connectOnce(e));
+        const remote = await withinBudget(connectMs, connectOnce(e, true));
         refuseIfAborted(signal);
         if (cmd.kind === 'tv.text') remote.text(cmd.text);
         else remote.key(KEYCODE[cmd.key]);
