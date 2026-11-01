@@ -181,8 +181,8 @@ describe('keys and text', () => {
     expect(r.tv.connections()).toBe(0);
   });
 
-  it('a quiet TV is notSent within connectMs and nothing is written', async () => {
-    const r = rig();
+  it('a quiet TV (no token sent) is notSent within connectMs and nothing is written', async () => {
+    const r = rig({ seed: { [REF]: '' } });
     r.tv.stayQuiet(true);
     const p = r.key('up').catch((e: unknown) => e);
     await advance(1500);
@@ -228,6 +228,26 @@ describe('token revoked', () => {
     await expect(r.key('up')).rejects.toMatchObject({ code: 'notPaired' });
     await expect(r.key('up')).rejects.toMatchObject({ code: 'notPaired' });
     expect(r.lan.opened.length).toBe(opened);
+  });
+
+  it('an unanswered prompt after a stored token is notPaired, and the socket is not reopened', async () => {
+    const r = rig();
+    r.tv.revokeToken();
+    r.tv.stayQuiet(true);
+    const first = r.key('up').catch((e: unknown) => e);
+    await advance(1500);
+    await expect(first).resolves.toMatchObject({ code: 'notPaired' });
+    const opened = r.lan.opened.length;
+    await expect(r.key('up')).rejects.toMatchObject({ code: 'notPaired' });
+    expect(r.lan.opened.length).toBe(opened);
+    expect(r.tv.connections()).toBe(0);
+  });
+
+  it('writes a rotated token back to secrets', async () => {
+    const r = rig({ tv: { token: 'newtok', prompt: 'allow' }, seed: { [REF]: 'old' } });
+    await r.key('up');
+    expect(r.secrets.map.get(REF)).toBe('newtok');
+    expect(r.tv.keys).toEqual(['KEY_UP']);
   });
 
   it('works again after clearNotPaired with a fresh token', async () => {

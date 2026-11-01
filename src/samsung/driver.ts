@@ -161,7 +161,8 @@ export function createSamsungDriver(o: SamsungDriverOpts): LinkDriver & {
       throw asDeviceError(err);
     }
     try {
-      const issued = await client.ready(Math.max(1, budgetMs - (Date.now() - started)));
+      // Give up a little before the press budget, so the reason is known when the press ends.
+      const issued = await client.ready(Math.max(1, budgetMs - (Date.now() - started) - 10));
       if (issued !== '' && issued !== token) {
         // The TV rotated its token: keep the new one.
         await o.secrets.set(link.tokenRef, issued).catch(() => undefined);
@@ -171,6 +172,12 @@ export function createSamsungDriver(o: SamsungDriverOpts): LinkDriver & {
       if (err instanceof DeviceError && err.code === 'notPaired') {
         e.notPaired = true;
         throw new DeviceError('notPaired', 'The TV asked to pair again');
+      }
+      if (err instanceof DeviceError && err.code === 'timeout' && token !== '') {
+        // A TV that knows the token answers at once. Silence after a stored token means it was
+        // revoked and the TV is showing a new Allow prompt: stay quiet instead of prompting again.
+        e.notPaired = true;
+        throw new DeviceError('notPaired', 'The TV did not accept the stored token');
       }
       throw asDeviceError(err);
     }
