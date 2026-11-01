@@ -175,6 +175,41 @@ describe('createCompositeTvSetup', () => {
   });
 });
 
+describe('composite hardening', () => {
+  it('keeps reporting other brands when one fromProbe throws', async () => {
+    const a = fakeBrand('webos', [3000]);
+    const b = fakeBrand('androidtv', [6466]);
+    a.fromProbe.mockImplementation(() => {
+      throw new Error('boom');
+    });
+    const transport = fakeProbe([
+      ['10.0.0.5', 3000],
+      ['10.0.0.5', 6466],
+      ['10.0.0.6', 3000],
+    ]);
+    const found: FoundTv[] = [];
+    createCompositeTvSetup({ brands: [a, b], transport }).discover((t) => found.push(t));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(found.map((f) => `${f.kind}@${f.host}`)).toEqual(['androidtv@10.0.0.5']);
+    expect(a.fromProbe).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops every brand even when one stop throws', () => {
+    const a = fakeBrand('webos', [3000]);
+    const b = fakeBrand('androidtv', [6466]);
+    const stopB = jest.fn();
+    a.discover = () => () => {
+      throw new Error('boom');
+    };
+    b.discover = () => stopB;
+    const stop = createCompositeTvSetup({ brands: [a, b], transport: fakeProbe([]) }).discover(
+      () => undefined,
+    );
+    expect(() => stop()).not.toThrow();
+    expect(stopB).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('composite with the real webOS brand', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());

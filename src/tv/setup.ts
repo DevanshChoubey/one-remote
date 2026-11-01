@@ -73,15 +73,25 @@ export function createCompositeTvSetup(o: {
               if (stopped) return;
               const own = new Set(brand.probePorts.filter((p) => hostPorts.has(p)));
               if (own.size === 0) continue;
-              const tv = brand.fromProbe(host, own);
-              if (tv) emit(tv);
+              try {
+                const tv = brand.fromProbe(host, own);
+                if (tv) emit(tv);
+              } catch {
+                // one brand misreading a host never hides the others
+              }
             }
           }
         });
 
       return () => {
         stopped = true;
-        for (const stop of stops) stop();
+        for (const stop of stops) {
+          try {
+            stop();
+          } catch {
+            // one brand failing to stop never keeps the others running
+          }
+        }
       };
     },
 
@@ -91,6 +101,7 @@ export function createCompositeTvSetup(o: {
           const tv = await brand.probeHost(host);
           if (tv) return tv;
         } catch (e) {
+          // Any error but notLocal means "not this brand" (as the old LG probeHost did).
           if (e instanceof DeviceError && e.code === 'notLocal') throw e;
         }
       }
