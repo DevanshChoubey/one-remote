@@ -11,6 +11,9 @@ import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 class OpenOptions : Record {
@@ -56,6 +59,14 @@ class LanSocketModule : Module() {
 
   /** One-shot requests block until the response is read, so they run off the module thread. */
   private val requestPool by lazy { Executors.newCachedThreadPool() }
+
+  /** A subnet sweep queues hundreds of probes; a fixed pool caps the threads and keeps [request] free. */
+  private val probePool by lazy {
+    ThreadPoolExecutor(PROBE_THREADS, PROBE_THREADS, 10, TimeUnit.SECONDS, LinkedBlockingQueue()) { r ->
+        Thread(r, "lan-probe").apply { isDaemon = true }
+      }
+      .apply { allowCoreThreadTimeOut(true) }
+  }
 
   override fun definition() = ModuleDefinition {
     Name("LanSocket")
@@ -133,6 +144,7 @@ class LanSocketModule : Module() {
       streams.keys.toList().forEach { streams.remove(it)?.close() }
       browses.keys.toList().forEach { browses.remove(it)?.stop() }
       requestPool.shutdownNow()
+      probePool.shutdownNow()
     }
   }
 
@@ -151,10 +163,10 @@ class LanSocketModule : Module() {
     browse.start()
   }
 
-  /** Blocks on the connect, so it runs off the module thread like [request]. */
+  /** Blocks on the connect, so it runs off the module thread, on [probePool]. */
   private fun probeTcp(host: String, port: Int, timeoutMs: Double, promise: Promise) {
     try {
-      requestPool.execute {
+      probePool.execute {
         try {
           promise.resolve(LanTcpProbe.probe(host, port, timeoutMs.toLong()))
         } catch (e: LanOpenError) {
@@ -316,3 +328,6 @@ class LanSocketModule : Module() {
     }
   }
 }
+
+/** Concurrent TCP probes; the JS sweep keeps 32 hosts in flight, so the rest wait in the queue. */
+private const val PROBE_THREADS = 16
