@@ -30,7 +30,7 @@ export default {
   errNotPaired: 'Pair the TV again from ⋯',
   offTitle: 'The TV is off',
   offBody: 'Tap power to turn it on.',
-  turnOn: '⏻ Turn on',
+  turnOn: 'Turn on',
   offHint: 'Uses IR on this phone, or Wi-Fi wake if the TV allows it',
   waking: 'Turning on…',
   wakeFailed:

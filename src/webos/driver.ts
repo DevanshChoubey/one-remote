@@ -76,6 +76,20 @@ interface Entry {
   nextPlayPause: 'PAUSE' | 'PLAY';
 }
 
+/** Apps the TV runs but does not list as launch points, so they have no title from the TV. */
+const SYSTEM_APP_TITLES: Record<string, string> = {
+  'com.webos.app.home': 'Home',
+  'com.webos.app.livetv': 'Live TV',
+  'com.webos.app.screensaver': 'Screen saver',
+  'com.webos.app.photovideo': 'Photos & videos',
+  'com.webos.app.music': 'Music',
+  'com.webos.app.browser': 'Web browser',
+  'com.webos.app.hdmi1': 'HDMI 1',
+  'com.webos.app.hdmi2': 'HDMI 2',
+  'com.webos.app.hdmi3': 'HDMI 3',
+  'com.webos.app.hdmi4': 'HDMI 4',
+};
+
 function asDeviceError(e: unknown): DeviceError {
   if (e instanceof DeviceError && (e.code === 'notPaired' || e.code === 'notLocal')) return e;
   return new DeviceError('notSent', e instanceof Error ? e.message : String(e));
@@ -437,7 +451,7 @@ export function createWebosDriver(
       s.timers.add(timer);
     };
     const appTitle = (): string | undefined =>
-      s.appId === undefined ? undefined : (s.titles.get(s.appId) ?? s.appId);
+      s.appId === undefined ? undefined : (s.titles.get(s.appId) ?? SYSTEM_APP_TITLES[s.appId]);
 
     s.unsubs.push(
       client.subscribe(URI.power, (p) => {
@@ -450,7 +464,13 @@ export function createWebosDriver(
       client.subscribe(URI.foreground, (p) => {
         if (typeof p.appId !== 'string') return;
         s.appId = p.appId;
-        update(e, s, { app: appTitle() });
+        const app = appTitle();
+        // An app with no known name is left out rather than shown as its raw id.
+        if (app === undefined && e.state?.app !== undefined) {
+          const { app: _previous, ...rest } = e.state;
+          e.state = rest;
+        }
+        update(e, s, { app });
       }),
     );
     client

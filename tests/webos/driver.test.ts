@@ -275,6 +275,21 @@ describe('webos driver: observe', () => {
     });
   });
 
+  it('names system apps that have no launch point, and leaves out unknown ids', async () => {
+    const r = rig();
+    const { reports } = r.observe();
+    await advance(0);
+    r.tv.setApp('com.webos.app.livetv');
+    await advance(0);
+    expect(reports[reports.length - 1]).toMatchObject({ state: { app: 'Live TV' } });
+    r.tv.setApp('com.webos.app.hdmi2');
+    await advance(0);
+    expect(reports[reports.length - 1]).toMatchObject({ state: { app: 'HDMI 2' } });
+    r.tv.setApp('com.example.unknown');
+    await advance(0);
+    expect(reports[reports.length - 1]?.state).not.toHaveProperty('app');
+  });
+
   it('reports only after the power state is known, and not twice for the same state', async () => {
     const r = rig();
     const { reports } = r.observe();
