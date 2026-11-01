@@ -27,6 +27,8 @@ export default {
   denied: 'The TV said no. Try again and choose Allow.',
   timedOut: "The TV didn't answer in time.",
   unreachable: "Couldn't reach the TV. Check that it is on and on the same Wi-Fi.",
+  unreachableAndroidTv:
+    "Couldn't reach the TV. Check that it is on, on the same Wi-Fi, and has Android TV Remote Service.",
   codeTitle: 'Type the code shown on the TV',
   codeWrong: "That code didn't match. Check the TV and try again.",
   codeNew: 'Show a new code',

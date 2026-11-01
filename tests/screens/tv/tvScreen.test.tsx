@@ -38,13 +38,22 @@ jest.mock('expo-router', () => {
   };
 });
 
-const tvDevice = (id: string): Device => ({
+const tvDevice = (id: string, brand: 'webos' | 'androidtv' = 'webos'): Device => ({
   id,
   kind: 'tv',
   name: `TV ${id}`,
   roomId: 'r1',
   order: id === 'tv1' ? 0 : 1,
-  links: [{ kind: 'webos', host: '192.168.1.23', secure: true, clientKeyRef: `k-${id}` }],
+  links: [
+    brand === 'webos'
+      ? { kind: 'webos', host: '192.168.1.23', secure: true, clientKeyRef: `k-${id}` }
+      : {
+          kind: 'androidtv',
+          host: '192.168.1.23',
+          certRef: 'androidtv:identity',
+          pinSha256: `pin-${id}`,
+        },
+  ],
 });
 
 interface Rig {
@@ -54,8 +63,11 @@ interface Rig {
   sent: () => unknown[];
 }
 
-async function rig(capabilities?: Capabilities): Promise<Rig> {
-  const webos = createFakeDriver('webos', capabilities ? { capabilities } : {});
+async function rig(
+  capabilities?: Capabilities,
+  brand: 'webos' | 'androidtv' = 'webos',
+): Promise<Rig> {
+  const webos = createFakeDriver(brand, capabilities ? { capabilities } : {});
   const findAgain = jest.fn(() => Promise.resolve<string | null>(null));
   const tv: TvSetup = {
     discover: () => () => undefined,
@@ -71,8 +83,8 @@ async function rig(capabilities?: Capabilities): Promise<Rig> {
     tv,
   });
   await s.store.upsertRoom(room('r1', 'Living room', 0));
-  await s.store.upsertDevice(tvDevice('tv1'));
-  await s.store.upsertDevice(tvDevice('tv2'));
+  await s.store.upsertDevice(tvDevice('tv1', brand));
+  await s.store.upsertDevice(tvDevice('tv2', brand));
   await act(async () => {
     await Promise.resolve();
   });
@@ -216,6 +228,19 @@ describe('TvScreen', () => {
     expect(screen.getByText(t('tv.waking'))).toBeTruthy();
     await advance(20000);
     expect(screen.getByText(/Turn on via Wi-Fi/)).toBeTruthy();
+  });
+
+  it('explains a failed wake of an Android TV with its own line, not the LG one', async () => {
+    const r = await rig(undefined, 'androidtv');
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await act(async () => {
+      r.webos.emit('tv1', { kind: 'tv', state: { power: false } });
+    });
+    await fireEvent.press(screen.getByLabelText(t('tv.turnOn')));
+    await advance(0);
+    await advance(20000);
+    expect(screen.getByText(t('tv.wakeFailedAndroidTv'))).toBeTruthy();
+    expect(screen.queryByText(/Turn on via Wi-Fi/)).toBeNull();
   });
 
   it('sends the Input key when the TV cannot list its inputs', async () => {

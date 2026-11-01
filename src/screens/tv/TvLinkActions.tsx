@@ -6,6 +6,7 @@ import { t } from '@/i18n';
 import { useServices } from '@/services';
 import { Button, Column, Input, Row, Txt } from '@/ui';
 import { useKnownDevice } from '../device/useKnownDevice';
+import { unreachableHintKey } from './wakeHint';
 
 /**
  * Connection actions for a TV's Wi-Fi link (any brand): its address, finding it again after the address
@@ -48,7 +49,7 @@ export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactEl
             ? t('addTv.denied')
             : e instanceof PairError && e.code === 'timeout'
               ? t('addTv.timedOut')
-              : t('addTv.unreachable'),
+              : t(unreachableHintKey(link.kind)),
         );
       },
     );

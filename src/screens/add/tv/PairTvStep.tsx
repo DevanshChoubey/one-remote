@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import type { FoundTv, PairedTv } from '@/core';
+import type { FoundTv, PairedTv, TvLinkKind } from '@/core';
 import { PairError } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
 import { Button, Column, Screen, Touchable, Txt } from '@/ui';
+import { unreachableHintKey } from '@/screens/tv/wakeHint';
 import { PairCodeStep } from './PairCodeStep';
 
 const PAIR_SECONDS = 60;
@@ -15,12 +16,12 @@ export interface PairTvStepProps {
   onBack: () => void;
 }
 
-function failureText(e: unknown): string {
+function failureText(e: unknown, kind: TvLinkKind): string {
   if (e instanceof PairError) {
     if (e.code === 'denied') return t('addTv.denied');
     if (e.code === 'timeout') return t('addTv.timedOut');
   }
-  return t('addTv.unreachable');
+  return t(unreachableHintKey(kind));
 }
 
 /** Starts pairing on entry; the user accepts the prompt on the TV. */
@@ -76,7 +77,7 @@ export function PairTvStep(props: PairTvStepProps): ReactElement {
       (e: unknown) => {
         // Back or a new code resolved the question with null: leave quietly.
         if (e instanceof PairError && e.code === 'cancelled') return;
-        if (alive) setFailure(failureText(e));
+        if (alive) setFailure(failureText(e, found.kind));
       },
     );
     return () => {
