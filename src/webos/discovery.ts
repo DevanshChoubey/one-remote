@@ -50,6 +50,31 @@ export function parseSsdpReply(text: string, fromHost: string): FoundTv | null {
   };
 }
 
+/** SSDP only: reports each webOS reply once per host. Best effort: a transport error ends the
+ *  search quietly. Stops reporting after unsubscribe. */
+export function ssdpDiscover(
+  t: TvTransport,
+  onFound: (tv: FoundTv) => void,
+  ms: number,
+): Unsubscribe {
+  let stopped = false;
+  const seen = new Set<string>();
+  Promise.resolve()
+    .then(() =>
+      t.ssdpSearch(SSDP_SEARCH, ms, (text, from) => {
+        if (stopped) return;
+        const tv = parseSsdpReply(text, from);
+        if (!tv || seen.has(tv.host)) return;
+        seen.add(tv.host);
+        onFound(tv);
+      }),
+    )
+    .catch(() => undefined);
+  return () => {
+    stopped = true;
+  };
+}
+
 /** SSDP and the subnet probe together, de-duplicated by host (a host is reported again only when
  *  the probe shows it is secure-only: callers replace by host). Both are best-effort: a transport
  *  error ends that search quietly. `onDone` fires once both have ended (not after unsubscribe). */

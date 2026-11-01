@@ -6,9 +6,10 @@ import { createAsyncStoragePreferenceStore } from '@/store/preferences';
 import { createSecureSecretStore } from '@/store/secrets';
 import { createRnTvTransport } from '@/transport/tvTransport';
 import { tvHostChanged } from '@/tv/hostChanged';
+import { createCompositeTvSetup } from '@/tv/setup';
 import { createWebosDriver } from '@/webos/driver';
 import { createFrameTap } from '@/webos/frameTap';
-import { createTvSetup } from '@/webos/setup';
+import { createWebosBrand } from '@/webos/setup';
 import type { TvTransport } from '@/tv/transport';
 import type { Services } from './services';
 
@@ -183,7 +184,16 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
     removeDevice,
     // tv lane
     tv: withTvFollowUp(
-      deps.tv ?? createTvSetup({ transport: tvTransport, secrets, frames: tvTap }),
+      deps.tv ??
+        createCompositeTvSetup({
+          brands: [
+            createWebosBrand({ transport: tvTransport, secrets }),
+            // androidtv brand
+            // samsung brand
+          ],
+          transport: tvTransport,
+          frames: tvTap,
+        }),
       store,
       drivers,
     ),

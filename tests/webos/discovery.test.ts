@@ -4,6 +4,7 @@ import { discoverTvs, parseSsdpReply, probeHost, SSDP_SEARCH } from '@/webos/dis
 import { createFakeLan } from '@/webos/testing/fakeLan';
 import { createFakeTv } from '@/webos/testing/fakeTv';
 import type { TvTransport } from '@/tv/transport';
+import { createWebosBrand } from '@/webos/setup';
 
 const C4_REPLY = [
   'HTTP/1.1 200 OK',
@@ -264,5 +265,19 @@ describe('probeHost', () => {
       open: () => Promise.reject(new DeviceError('notLocal')),
     };
     await expect(probeHost(t, '8.8.8.8')).rejects.toMatchObject({ code: 'notLocal' });
+  });
+});
+
+describe('webOS brand fromProbe', () => {
+  const brand = createWebosBrand({
+    transport: createFakeLan({ tvs: [] }),
+    secrets: { get: async () => null, set: async () => undefined, delete: async () => undefined },
+  });
+
+  it('reads 3000 as plain, 3001 alone as secure, both as plain', () => {
+    expect(brand.fromProbe('h', new Set([3000]))?.secure).toBe(false);
+    expect(brand.fromProbe('h', new Set([3001]))?.secure).toBe(true);
+    expect(brand.fromProbe('h', new Set([3000, 3001]))?.secure).toBe(false);
+    expect(brand.fromProbe('h', new Set())).toBeNull();
   });
 });
