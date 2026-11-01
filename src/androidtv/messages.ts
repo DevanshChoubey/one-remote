@@ -25,6 +25,9 @@ const REMOTE_PING_RESPONSE = 9;
 const REMOTE_KEY_INJECT = 10;
 const REMOTE_IME_KEY_INJECT = 20;
 const REMOTE_IME_BATCH_EDIT = 21;
+const REMOTE_VOICE_BEGIN = 30;
+const REMOTE_VOICE_PAYLOAD = 31;
+const REMOTE_VOICE_END = 32;
 const REMOTE_START = 40;
 const REMOTE_SET_VOLUME_LEVEL = 50;
 
@@ -34,6 +37,7 @@ const KNOWN_REMOTE = new Set([
   REMOTE_SET_ACTIVE,
   REMOTE_ERROR,
   REMOTE_PING_REQUEST,
+  REMOTE_VOICE_BEGIN,
   REMOTE_START,
   REMOTE_SET_VOLUME_LEVEL,
   REMOTE_IME_KEY_INJECT,
@@ -61,6 +65,7 @@ export type RemoteIn =
   | { kind: 'volume'; level: number; max: number; muted: boolean }
   | { kind: 'imeKeyInject'; appPackage?: string }
   | { kind: 'imeBatchEdit'; imeCounter: number; fieldCounter: number }
+  | { kind: 'voiceBegin'; sessionId: number; packageName?: string }
   | { kind: 'error' }
   | { kind: 'other' };
 
@@ -69,7 +74,10 @@ export type RemoteOut =
   | { kind: 'setActive'; active: number }
   | { kind: 'pong'; val1: number }
   | { kind: 'key'; code: number; direction: 3 }
-  | { kind: 'imeText'; imeCounter: number; fieldCounter: number; text: string };
+  | { kind: 'imeText'; imeCounter: number; fieldCounter: number; text: string }
+  | { kind: 'voiceBegin'; sessionId: number }
+  | { kind: 'voicePayload'; sessionId: number; samples: Uint8Array }
+  | { kind: 'voiceEnd'; sessionId: number };
 
 function outer(field: number, body: ProtoWriter): Uint8Array {
   return new ProtoWriter()
@@ -158,6 +166,18 @@ export function encodeRemote(m: RemoteOut): Uint8Array {
         )
         .finish();
     }
+    case 'voiceBegin':
+      return new ProtoWriter()
+        .message(REMOTE_VOICE_BEGIN, new ProtoWriter().varint(1, m.sessionId))
+        .finish();
+    case 'voicePayload':
+      return new ProtoWriter()
+        .message(REMOTE_VOICE_PAYLOAD, new ProtoWriter().varint(1, m.sessionId).bytes(2, m.samples))
+        .finish();
+    case 'voiceEnd':
+      return new ProtoWriter()
+        .message(REMOTE_VOICE_END, new ProtoWriter().varint(1, m.sessionId))
+        .finish();
   }
 }
 
@@ -209,6 +229,14 @@ export function decodeRemote(b: Uint8Array): RemoteIn {
           imeCounter: int32(body, 1) ?? 0,
           fieldCounter: int32(body, 2) ?? 0,
         };
+      case REMOTE_VOICE_BEGIN: {
+        if (!body) return { kind: 'other' };
+        const packageName = str(body, 2);
+        const sessionId = int32(body, 1) ?? 0;
+        return packageName === undefined
+          ? { kind: 'voiceBegin', sessionId }
+          : { kind: 'voiceBegin', sessionId, packageName };
+      }
       default:
         break;
     }

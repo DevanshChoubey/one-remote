@@ -29,6 +29,12 @@ export interface FakeAtv {
   readonly keys: { code: number; direction: number }[];
   readonly imeEdits: { imeCounter: number; fieldCounter: number; value: string }[];
   readonly pongs: number[];
+  /** What the client sent for voice: the echoed begins, the payloads and the ends. */
+  readonly voice: {
+    begins: number[];
+    payloads: { sessionId: number; samples: Uint8Array }[];
+    ends: number[];
+  };
   /** The feature masks of the client's `configure` messages, in order. */
   readonly configures: number[];
   /** Streams open right now on that port. */
@@ -49,6 +55,8 @@ export interface FakeAtvOpts {
   server?: RsaPublic;
   codeSuffix?: string;
   features?: number;
+  /** False: the TV never answers the search key with `remote_voice_begin`. */
+  voiceAnswers?: boolean;
   /** Left out of the pairing request ack, as a TV that sends no name does. */
   omitServerName?: boolean;
   vendor?: string;
@@ -67,6 +75,8 @@ interface Conn {
   code: string | null;
   /** 6466: the client sent its configure. */
   ready: boolean;
+  /** 6466: the features the client asked for. */
+  clientFeatures: number;
 }
 
 const hex2 = (b: number): string => b.toString(16).padStart(2, '0').toUpperCase();
@@ -81,7 +91,7 @@ export function createFakeAtv(o: FakeAtvOpts): FakeAtv {
     exponentHex: '10001',
   };
   const suffix = (o.codeSuffix ?? '3A7F').toUpperCase();
-  const features = o.features ?? 615;
+  const features = o.features ?? 623;
   const conns = new Set<Conn>();
   const opened = { 6466: 0, 6467: 0 };
   const trusted = new Set<string>();
@@ -89,6 +99,7 @@ export function createFakeAtv(o: FakeAtvOpts): FakeAtv {
   const imeEdits: { imeCounter: number; fieldCounter: number; value: string }[] = [];
   const pongs: number[] = [];
   const configures: number[] = [];
+  const voice: FakeAtv['voice'] = { begins: [], payloads: [], ends: [] };
   let up = true;
   let power = true;
   let volume = { level: 20, max: 100, muted: false };
@@ -188,7 +199,9 @@ export function createFakeAtv(o: FakeAtvOpts): FakeAtv {
     const f = readFields(msg);
     if (f.has(1)) {
       const body = sub(f, 1);
-      configures.push((body ? uint(body, 1) : undefined) ?? 0);
+      const asked = (body ? uint(body, 1) : undefined) ?? 0;
+      configures.push(asked);
+      c.clientFeatures = asked;
       c.ready = true;
       send(c, new ProtoWriter().message(2, new ProtoWriter().varint(1, 1)).finish());
       send(c, startMsg());
@@ -202,6 +215,30 @@ export function createFakeAtv(o: FakeAtvOpts): FakeAtv {
         code: (body ? int32(body, 1) : undefined) ?? 0,
         direction: body ? (int32(body, 2) ?? 0) : 0,
       });
+      // The search key opens a voice session, when both sides negotiated the voice bit.
+      if (keys[keys.length - 1]?.code === 84 && o.voiceAnswers !== false) {
+        if ((features & c.clientFeatures & 8) !== 0) {
+          send(
+            c,
+            new ProtoWriter()
+              .message(30, new ProtoWriter().varint(1, 7).string(2, 'com.google.android.katniss'))
+              .finish(),
+          );
+        }
+      }
+    } else if (f.has(30)) {
+      const body = sub(f, 30);
+      voice.begins.push((body ? int32(body, 1) : undefined) ?? 0);
+    } else if (f.has(31)) {
+      const body = sub(f, 31);
+      const samples = body?.get(2)?.[0];
+      voice.payloads.push({
+        sessionId: (body ? int32(body, 1) : undefined) ?? 0,
+        samples: samples instanceof Uint8Array ? samples : new Uint8Array(0),
+      });
+    } else if (f.has(32)) {
+      const body = sub(f, 32);
+      voice.ends.push((body ? int32(body, 1) : undefined) ?? 0);
     } else if (f.has(21)) {
       const body = sub(f, 21);
       const edit = body ? sub(body, 3) : undefined;
@@ -248,6 +285,7 @@ export function createFakeAtv(o: FakeAtvOpts): FakeAtv {
       muted: false,
       code: null,
       ready: false,
+      clientFeatures: 0,
     };
     conns.add(c);
     opened[port]++;
@@ -351,6 +389,7 @@ export function createFakeAtv(o: FakeAtvOpts): FakeAtv {
     },
     keys,
     imeEdits,
+    voice,
     pongs,
     configures,
     connections: (port) => [...conns].filter((c) => c.port === port).length,

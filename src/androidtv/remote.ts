@@ -1,7 +1,14 @@
 import { DeviceError, type Unsubscribe } from '@/core';
 import type { TvStream } from '@/tv/transport';
-import { FEATURES, REMOTE_PORT, type AtvTransport } from './constants';
-import { APP_TITLES } from './keys';
+import {
+  FEATURES,
+  FEATURE_VOICE,
+  REMOTE_PORT,
+  VOICE_CHUNK_MAX,
+  VOICE_CHUNK_MIN,
+  type AtvTransport,
+} from './constants';
+import { APP_TITLES, KEYCODE_SEARCH } from './keys';
 import { decodeRemote, encodeRemote, type RemoteIn } from './messages';
 import { FrameReader, frame } from './proto';
 
@@ -26,6 +33,13 @@ export function hungUpBeforeStart(err: unknown): boolean {
 
 const NO_FIELD = 'No text field is open on the TV';
 
+/** A `startVoice` waiting for the TV's `remote_voice_begin`. */
+interface VoiceWait {
+  resolve: (sessionId: number) => void;
+  reject: (e: DeviceError) => void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
 /** One remote session with an Android TV (port 6466). */
 export class AtvRemote {
   readonly certSha256: string;
@@ -38,6 +52,8 @@ export class AtvRemote {
   private ownClose = false;
   private features = FEATURES;
   private ime: { imeCounter: number; fieldCounter: number } | undefined;
+  private voiceWait: VoiceWait | undefined;
+  private voiceId: number | undefined;
   private silent: ReturnType<typeof setTimeout> | undefined;
   private liveCbs = new Set<(l: AtvLive) => void>();
   private closeCbs: (() => void)[] = [];
@@ -103,6 +119,62 @@ export class AtvRemote {
     this.write(encodeRemote({ kind: 'imeText', ...this.ime, text: value }));
   }
 
+  /** True when the TV accepted the voice feature in this session. */
+  get voiceSupported(): boolean {
+    return (this.features & FEATURE_VOICE) !== 0;
+  }
+
+  /** Starts a voice session: sends the search key, waits for the TV's `remote_voice_begin`, echoes
+   *  it and resolves with the session id. Rejects `notSent` on a timeout, when the TV has no voice,
+   *  when the stream closes meanwhile, and when a session is already open or starting. */
+  startVoice(timeoutMs = 2000): Promise<number> {
+    if (this.closed) return Promise.reject(new DeviceError('notSent', 'The connection is closed'));
+    if (!this.voiceSupported) {
+      return Promise.reject(new DeviceError('notSent', 'This TV does not take voice'));
+    }
+    if (this.voiceWait || this.voiceId !== undefined) {
+      return Promise.reject(new DeviceError('notSent', 'A voice session is already open'));
+    }
+    return new Promise<number>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.voiceWait = undefined;
+        reject(new DeviceError('notSent', 'The TV did not start a voice session'));
+      }, timeoutMs);
+      this.voiceWait = { resolve, reject, timer };
+      try {
+        this.key(KEYCODE_SEARCH);
+      } catch (e) {
+        clearTimeout(timer);
+        this.voiceWait = undefined;
+        reject(e instanceof DeviceError ? e : new DeviceError('notSent', 'The write failed'));
+      }
+    });
+  }
+
+  /** Sends PCM16 LE mono 8 kHz audio of session `sessionId`, in messages of at most 20480 bytes
+   *  (a short one is zero-padded to 8192). The samples are never logged. Throws `notSent` when
+   *  that session is not open. */
+  sendVoice(sessionId: number, pcm: Uint8Array): void {
+    if (this.closed) throw new DeviceError('notSent', 'The connection is closed');
+    if (this.voiceId !== sessionId) throw new DeviceError('notSent', 'The voice session is over');
+    for (let i = 0; i < pcm.length; i += VOICE_CHUNK_MAX) {
+      let samples = pcm.slice(i, i + VOICE_CHUNK_MAX);
+      if (samples.length < VOICE_CHUNK_MIN) {
+        const padded = new Uint8Array(VOICE_CHUNK_MIN);
+        padded.set(samples);
+        samples = padded;
+      }
+      this.write(encodeRemote({ kind: 'voicePayload', sessionId, samples }));
+    }
+  }
+
+  /** Ends the voice session. Idempotent; a session that is not open is ignored. */
+  endVoice(sessionId: number): void {
+    if (this.voiceId !== sessionId) return;
+    this.voiceId = undefined;
+    this.send({ kind: 'voiceEnd', sessionId });
+  }
+
   onLive(cb: (l: AtvLive) => void): Unsubscribe {
     this.liveCbs.add(cb);
     return () => {
@@ -157,6 +229,12 @@ export class AtvRemote {
     // A pending connect() must end whatever the reason; onClose callbacks hear only of the rest.
     this.endCb?.();
     this.endCb = undefined;
+    this.voiceId = undefined;
+    if (this.voiceWait) {
+      clearTimeout(this.voiceWait.timer);
+      this.voiceWait.reject(new DeviceError('notSent', 'The TV closed the connection'));
+      this.voiceWait = undefined;
+    }
     if (!this.ownClose) cbs.forEach((cb) => cb());
   }
 
@@ -224,6 +302,16 @@ export class AtvRemote {
       case 'imeBatchEdit':
         this.ime = { imeCounter: m.imeCounter, fieldCounter: m.fieldCounter };
         return;
+      case 'voiceBegin': {
+        const wait = this.voiceWait;
+        if (!wait) return;
+        this.voiceWait = undefined;
+        clearTimeout(wait.timer);
+        this.voiceId = m.sessionId;
+        this.send({ kind: 'voiceBegin', sessionId: m.sessionId });
+        wait.resolve(m.sessionId);
+        return;
+      }
       default:
         return;
     }

@@ -17,6 +17,9 @@ export const KEYCODE: Record<TvKey, number> = {
   power: 26,
 };
 
+/** `KEYCODE_SEARCH`: on a TV that negotiated voice, it starts the assistant's voice session. */
+export const KEYCODE_SEARCH = 84;
+
 /** Package to title. Unknown packages have no title (never a guessed name). */
 export const APP_TITLES: Record<string, string> = {
   'com.google.android.youtube.tv': 'YouTube',
