@@ -88,10 +88,10 @@ export function PairTvStep(props: PairTvStepProps): ReactElement {
   }, [tv, secrets, found, attempt]);
 
   useEffect(() => {
-    if (failure !== null) return;
+    if (failure !== null || byCode) return;
     const id = setInterval(() => setLeft((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(id);
-  }, [failure, attempt]);
+  }, [failure, attempt, byCode]);
 
   const retry = (): void => {
     setAsk(null);

@@ -8,7 +8,7 @@ export default {
   moveUp: 'Move up',
   moveDown: 'Move down',
   connected: "How it's connected",
-  linkWebos: 'Wi-Fi',
+  linkWifi: 'Wi-Fi',
   linkMatter: 'Matter',
   linkIr: 'IR',
   main: 'main',

@@ -11,9 +11,9 @@ import { DEVICE_ACTIONS, LINK_ACTIONS } from './linkActions';
 import type { DeviceActionRenderer, LinkActionRenderer } from './linkActions';
 
 const LINK_LABEL: Record<Link['kind'], string> = {
-  webos: 'device.linkWebos',
-  androidtv: 'device.linkWebos',
-  samsung: 'device.linkWebos',
+  webos: 'device.linkWifi',
+  androidtv: 'device.linkWifi',
+  samsung: 'device.linkWifi',
   matter: 'device.linkMatter',
   ir: 'device.linkIr',
 };

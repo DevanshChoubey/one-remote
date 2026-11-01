@@ -166,6 +166,18 @@ describe('Add TV flow', () => {
       expect(screen.queryByText(t('addTv.unreachable'))).toBeNull();
     });
 
+    it('runs no countdown timer on the code step', async () => {
+      const spy = jest.spyOn(global, 'setInterval');
+      try {
+        const r = await rig();
+        await toCode(r, []);
+        expect(screen.getByLabelText(t('addTv.codeTitle'))).toBeTruthy();
+        expect(spy.mock.calls.filter(([, ms]) => ms === 1000)).toHaveLength(0);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
     it('Show a new code starts pairing again', async () => {
       const r = await rig();
       const asks: (string | null)[] = [];

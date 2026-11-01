@@ -67,6 +67,7 @@ export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactEl
         kind: link.kind,
         host: link.host,
         name: device.name,
+        // `secure` only means something to webos; the other brands ignore it.
         secure: link.kind === 'webos' ? link.secure : true,
       };
       await tv.pair(
