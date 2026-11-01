@@ -40,7 +40,25 @@ const STREAM_INFO = {
   serverSubject: 'CN=atvremote/AA:BB:CC:00:11:22',
 };
 
+interface FakeRequest {
+  req: { method: string; url: string; timeoutMs: number; pinSha256?: string; pairing?: boolean };
+  resolve(r: object): void;
+  reject(e: unknown): void;
+}
+
 class FakeNative {
+  requests: FakeRequest[] = [];
+  behaveRequest: ((r: FakeRequest) => void) | undefined;
+  writeError: Error | undefined;
+  sendError: Error | undefined;
+  request(req: FakeRequest['req']): Promise<object> {
+    return new Promise((resolve, reject) => {
+      const r: FakeRequest = { req, resolve, reject };
+      this.requests.push(r);
+      const behave = this.behaveRequest;
+      if (behave) void Promise.resolve().then(() => behave(r));
+    });
+  }
   opens: FakeOpen[] = [];
   streamOpens: FakeStreamOpen[] = [];
   sent: [string, string][] = [];
@@ -77,9 +95,11 @@ class FakeNative {
     });
   }
   send(id: string, text: string): void {
+    if (this.sendError) throw this.sendError;
     this.sent.push([id, text]);
   }
   write(id: string, base64: string): void {
+    if (this.writeError) throw this.writeError;
     this.written.push([id, base64]);
   }
   close(id: string): void {
@@ -434,6 +454,142 @@ describe('openStream', () => {
     o.resolve(STREAM_INFO);
     await jest.advanceTimersByTimeAsync(0);
     expect(mockNative.closed).toEqual([o.id, o.id]);
+  });
+});
+
+describe('request', () => {
+  const RESPONSE = { status: 200, headers: { 'x-a': 'b' }, body: 'hi', certSha256: 'ab12' };
+
+  it('refuses a non-local host, and https without a pin outside pairing, without calling native', async () => {
+    const t = createRnTvTransport({ prefixes: lan });
+    await expect(
+      t.request({ method: 'GET', url: 'http://8.8.8.8/', timeoutMs: 1500 }),
+    ).rejects.toMatchObject({ code: 'notLocal' });
+    await expect(
+      t.request({ method: 'GET', url: 'https://192.168.1.23/', timeoutMs: 1500 }),
+    ).rejects.toMatchObject({ code: 'notPaired' });
+    await expect(
+      t.request({ method: 'GET', url: 'ftp://192.168.1.23/', timeoutMs: 1500 }),
+    ).rejects.toMatchObject({ code: 'notLocal' });
+    expect(mockNative.requests).toHaveLength(0);
+  });
+
+  it('passes the request to native and returns the response', async () => {
+    mockNative.behaveRequest = (r) => r.resolve(RESPONSE);
+    const t = createRnTvTransport({ prefixes: lan });
+    const res = await t.request({
+      method: 'POST',
+      url: 'https://192.168.1.23:8002/x',
+      body: 'b',
+      pairing: true,
+      timeoutMs: 1500,
+    });
+    expect(res).toEqual(RESPONSE);
+    expect(mockNative.requests[0]?.req).toEqual({
+      method: 'POST',
+      url: 'https://192.168.1.23:8002/x',
+      body: 'b',
+      pairing: true,
+      timeoutMs: 1500,
+    });
+  });
+
+  it('maps the native codes as open does', async () => {
+    const t = createRnTvTransport({ prefixes: lan });
+    const cases: [string, string][] = [
+      ['ERR_LAN_PIN_MISMATCH', 'notPaired'],
+      ['ERR_LAN_NO_TRUST', 'notPaired'],
+      ['ERR_LAN_NOT_LOCAL', 'notLocal'],
+      ['ERR_LAN_OPEN_FAILED', 'notSent'],
+    ];
+    for (const [code, want] of cases) {
+      mockNative.behaveRequest = (r) => r.reject(nativeError(code, 'native says no'));
+      const err = await t
+        .request({ method: 'GET', url: 'https://192.168.1.23/', pinSha256: 'ab', timeoutMs: 1500 })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(DeviceError);
+      expect(err).toMatchObject({ code: want });
+      expect((err as Error).message).toContain('native says no');
+    }
+  });
+
+  it('rejects notSent when the native module throws', async () => {
+    mockNative.request = () => {
+      throw new Error('native module missing');
+    };
+    await expect(
+      createRnTvTransport({ prefixes: lan }).request({
+        method: 'GET',
+        url: 'http://192.168.1.23/',
+        timeoutMs: 1500,
+      }),
+    ).rejects.toMatchObject({ code: 'notSent' });
+  });
+});
+
+describe('late close and failed writes', () => {
+  it('stream: a close that arrives before the open resolves still reaches onClose, deferred', async () => {
+    const t = createRnTvTransport({ prefixes: lan });
+    let resolveOpen: ((r: object) => void) | undefined;
+    mockNative.behaveStream = (o) => (resolveOpen = o.resolve);
+    const p = t.openStream('192.168.1.23', 6467, 1500, { pairing: true });
+    await flush();
+    const id = mockNative.streamOpens[0]?.id as string;
+    mockNative.emit('close', { id, error: 'reset' });
+    resolveOpen?.(STREAM_INFO);
+    const s = await p;
+    const cb = jest.fn();
+    s.onClose(cb);
+    expect(cb).not.toHaveBeenCalled();
+    await flush();
+    expect(cb).toHaveBeenCalledTimes(1);
+  });
+
+  it('stream: onClose after our own close is never called', async () => {
+    mockNative.behaveStream = (o) => o.resolve(STREAM_INFO);
+    const s = await createRnTvTransport({ prefixes: lan }).openStream('192.168.1.23', 6467, 1500, {
+      pairing: true,
+    });
+    const id = mockNative.streamOpens[0]?.id as string;
+    s.close();
+    mockNative.emit('close', { id, error: 'late' });
+    const cb = jest.fn();
+    s.onClose(cb);
+    await flush();
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('socket: a close that arrives before the open resolves still reaches onClose, deferred', async () => {
+    const t = createRnTvTransport({ prefixes: lan });
+    let resolveOpen: ((r: object) => void) | undefined;
+    mockNative.behave = (o) => (resolveOpen = o.resolve);
+    const p = t.open('ws://192.168.1.23:3000', 1500);
+    await flush();
+    const id = mockNative.opens[0]?.id as string;
+    mockNative.emit('close', { id, error: 'reset' });
+    resolveOpen?.({});
+    const s = await p;
+    const cb = jest.fn();
+    s.onClose(cb);
+    expect(cb).not.toHaveBeenCalled();
+    await flush();
+    expect(cb).toHaveBeenCalledTimes(1);
+  });
+
+  it('stream write: a native error becomes notSent', async () => {
+    mockNative.behaveStream = (o) => o.resolve(STREAM_INFO);
+    const s = await createRnTvTransport({ prefixes: lan }).openStream('192.168.1.23', 6467, 1500, {
+      pairing: true,
+    });
+    mockNative.writeError = nativeError('ERR_LAN_OPEN_FAILED', 'The stream is not open');
+    let err: unknown;
+    try {
+      s.write(new Uint8Array([1]));
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(DeviceError);
+    expect(err).toMatchObject({ code: 'notSent' });
   });
 });
 

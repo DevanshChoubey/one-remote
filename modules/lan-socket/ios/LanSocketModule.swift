@@ -20,6 +20,17 @@ struct StreamOptions: Record {
   @Field var timeoutMs: Double = 3000
 }
 
+struct RequestOptions: Record {
+  @Field var method: String = "GET"
+  @Field var url: String = ""
+  @Field var headers: [String: String]? = nil
+  @Field var body: String? = nil
+  @Field var pinSha256: String? = nil
+  @Field var pairing: Bool = false
+  @Field var timeoutMs: Double = 3000
+  @Field var maxBytes: Double = 262144
+}
+
 private let errNotLocal = "ERR_LAN_NOT_LOCAL"
 private let errNoTrust = "ERR_LAN_NO_TRUST"
 private let errPinMismatch = "ERR_LAN_PIN_MISMATCH"
@@ -67,6 +78,10 @@ public final class LanSocketModule: Module {
       stream.write(bytes)
     }
 
+    AsyncFunction("request") { (opts: RequestOptions, promise: Promise) in
+      self.request(opts: opts, promise: promise)
+    }
+
     Function("close") { (id: String) in
       self.take(id)?.closeByUs()
       self.takeStream(id)?.closeByUs()
@@ -82,6 +97,44 @@ public final class LanSocketModule: Module {
       all.forEach { $0.closeByUs() }
       allStreams.forEach { $0.closeByUs() }
     }
+  }
+
+  /// A one-shot HTTP(S) request. Checked here exactly like `open`, then run by a [LanHttpRequest]
+  /// that keeps itself alive until it completes (it is not tracked by id: it cannot be cancelled).
+  private func request(opts: RequestOptions, promise: Promise) {
+    guard let parsed = URL(string: opts.url), let scheme = parsed.scheme?.lowercased(),
+      scheme == "http" || scheme == "https", let host = parsed.host, parsed.user == nil,
+      parsed.password == nil
+    else {
+      promise.reject(lanError(errNotLocal, "Not a plain http:// or https:// address"))
+      return
+    }
+    guard LocalHost.isLocalLiteral(host) else {
+      promise.reject(lanError(errNotLocal, "Address is not a local IP"))
+      return
+    }
+    guard ["GET", "POST", "PUT"].contains(opts.method) else {
+      promise.reject(lanError(errOpenFailed, "Unsupported method \(opts.method)"))
+      return
+    }
+    let secure = scheme == "https"
+    let pin = opts.pinSha256?.trimmingCharacters(in: .whitespaces).lowercased()
+    let usablePin = (pin?.isEmpty ?? true) ? nil : pin
+    if secure && usablePin == nil && !opts.pairing {
+      promise.reject(lanError(errNoTrust, "https needs a pinned certificate outside pairing"))
+      return
+    }
+    var request = URLRequest(url: parsed)
+    request.httpMethod = opts.method
+    request.httpShouldHandleCookies = false
+    for (name, value) in opts.headers ?? [:] { request.setValue(value, forHTTPHeaderField: name) }
+    if let body = opts.body { request.httpBody = Data(body.utf8) }
+    let timeout = max(0.001, min(opts.timeoutMs, 60_000)) / 1000
+    request.timeoutInterval = timeout
+    LanHttpRequest(
+      secure: secure, pin: usablePin, maxBytes: max(0, Int(min(opts.maxBytes, 64 * 1024 * 1024))),
+      promise: promise
+    ).start(request: request, timeout: timeout)
   }
 
   private func openStream(
@@ -381,6 +434,148 @@ private final class LanConnection: NSObject, URLSessionWebSocketDelegate {
     }
     task?.cancel(with: .normalClosure, reason: nil)
     session?.invalidateAndCancel()
+  }
+}
+
+/// One one-shot request with its own ephemeral URLSession (no cookies, no cache, no proxy) and its
+/// own trust decision, made as for [LanConnection]: pairing accepts and records the leaf, a pin
+/// accepts only that leaf. Redirects are never followed: a 3xx is returned as it is. The response
+/// body is cut off, and the request fails, once it passes `maxBytes`. Everything runs on `queue`.
+private final class LanHttpRequest: NSObject, URLSessionDataDelegate {
+  private let secure: Bool
+  private let pin: String?
+  private let maxBytes: Int
+  private var promise: Promise?
+  private let queue: OperationQueue = {
+    let q = OperationQueue()
+    q.maxConcurrentOperationCount = 1
+    return q
+  }()
+  private var session: URLSession?
+  private var status = 0
+  private var headers: [String: String] = [:]
+  private var body = Data()
+  private var tooLarge = false
+  private var seenSha256: String?
+  private var mismatch = false
+  /// The session retains its delegate until invalidated, which `finish` does; this also keeps the
+  /// request alive if the caller drops it.
+  private var selfRetain: LanHttpRequest?
+
+  init(secure: Bool, pin: String?, maxBytes: Int, promise: Promise) {
+    self.secure = secure
+    self.pin = pin
+    self.maxBytes = maxBytes
+    self.promise = promise
+  }
+
+  func start(request: URLRequest, timeout: TimeInterval) {
+    selfRetain = self
+    let config = URLSessionConfiguration.ephemeral
+    config.timeoutIntervalForRequest = timeout
+    config.timeoutIntervalForResource = timeout
+    config.waitsForConnectivity = false
+    config.urlCache = nil
+    config.httpCookieStorage = nil
+    config.httpCookieAcceptPolicy = .never
+    config.httpShouldSetCookies = false
+    // No proxy: TV traffic never leaves the LAN through a system or MDM proxy.
+    config.connectionProxyDictionary = [:]
+    let session = URLSession(configuration: config, delegate: self, delegateQueue: queue)
+    queue.addOperation {
+      self.session = session
+      session.dataTask(with: request).resume()
+    }
+  }
+
+  private func finish(_ error: (code: String, message: String)?) {
+    guard let promise else { return }
+    self.promise = nil
+    session?.invalidateAndCancel()
+    session = nil
+    selfRetain = nil
+    if let error {
+      promise.reject(lanError(error.code, error.message))
+      return
+    }
+    var result: [String: Any] = [
+      "status": status, "headers": headers, "body": String(decoding: body, as: UTF8.self),
+    ]
+    if secure, let seenSha256 { result["certSha256"] = seenSha256 }
+    promise.resolve(result)
+  }
+
+  func urlSession(
+    _ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge,
+    completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+  ) {
+    guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust
+    else {
+      completionHandler(.cancelAuthenticationChallenge, nil)
+      return
+    }
+    guard secure, let trust = challenge.protectionSpace.serverTrust,
+      let chain = SecTrustCopyCertificateChain(trust) as? [SecCertificate], let leaf = chain.first
+    else {
+      completionHandler(.cancelAuthenticationChallenge, nil)
+      return
+    }
+    let der = SecCertificateCopyData(leaf) as Data
+    let sha = SHA256.hash(data: der).map { String(format: "%02x", $0) }.joined()
+    seenSha256 = sha
+    if let pin, sha != pin {
+      mismatch = true
+      completionHandler(.cancelAuthenticationChallenge, nil)
+      return
+    }
+    // Pairing, or the pinned leaf: accept without chain or host-name evaluation.
+    completionHandler(.useCredential, URLCredential(trust: trust))
+  }
+
+  /// Redirects are never followed: the target would skip the local-address check.
+  func urlSession(
+    _ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+    newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void
+  ) {
+    completionHandler(nil)
+  }
+
+  func urlSession(
+    _ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
+    completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+  ) {
+    if let http = response as? HTTPURLResponse {
+      status = http.statusCode
+      for (name, value) in http.allHeaderFields {
+        if let name = name as? String, let value = value as? String {
+          headers[name.lowercased()] = value
+        }
+      }
+    }
+    completionHandler(.allow)
+  }
+
+  func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+    guard !tooLarge else { return }
+    if body.count + data.count > maxBytes {
+      tooLarge = true
+      body = Data()
+      dataTask.cancel()
+      return
+    }
+    body.append(data)
+  }
+
+  func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+    if tooLarge {
+      finish((errOpenFailed, "The response is larger than \(maxBytes) bytes"))
+    } else if mismatch {
+      finish((errPinMismatch, "The TV's certificate does not match the one seen at pairing"))
+    } else if let error {
+      finish((errOpenFailed, error.localizedDescription))
+    } else {
+      finish(nil)
+    }
   }
 }
 

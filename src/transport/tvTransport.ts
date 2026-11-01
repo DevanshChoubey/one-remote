@@ -1,7 +1,14 @@
 import { Platform } from 'react-native';
 import dgram from 'react-native-udp';
 import { DeviceError } from '@/core';
-import type { TvSocket, TvStream, TvTls, TvTransport } from '@/tv/transport';
+import type {
+  TvHttpRequest,
+  TvHttpResponse,
+  TvSocket,
+  TvStream,
+  TvTls,
+  TvTransport,
+} from '@/tv/transport';
 import { parseSocketUrl } from '@/webos/url';
 import {
   assertLocal,
@@ -266,7 +273,11 @@ function openLan(
           ...(r.certSha256 ? { certSha256: r.certSha256 } : {}),
           send: (t) => {
             if (ended) throw new DeviceError('notSent', 'socket closed');
-            native.send(id, t);
+            try {
+              native.send(id, t);
+            } catch (e) {
+              throw notSent(e);
+            }
           },
           close: () => {
             if (closedByUs) return;
@@ -279,6 +290,8 @@ function openLan(
           },
           onClose: (cb) => {
             closeCbs.push(cb);
+            // The native close may have arrived before this promise resolved.
+            if (ended && !closedByUs) void Promise.resolve().then(cb);
           },
         };
         resolve(sock);
@@ -365,7 +378,11 @@ function openLanStream(
           serverSubject: r.serverSubject,
           write: (bytes) => {
             if (ended || closedByUs) throw new DeviceError('notSent', 'stream closed');
-            native.write(id, toBase64(bytes));
+            try {
+              native.write(id, toBase64(bytes));
+            } catch (e) {
+              throw notSent(e);
+            }
           },
           close: () => {
             if (closedByUs) return;
@@ -378,6 +395,8 @@ function openLanStream(
           },
           onClose: (cb) => {
             closeCbs.push(cb);
+            // The native close may have arrived before this promise resolved.
+            if (ended && !closedByUs) void Promise.resolve().then(cb);
           },
         });
       },
@@ -421,6 +440,25 @@ export function createRnTvTransport(
         throw new DeviceError('notPaired', `No pinned certificate for ${host}:${String(port)}`);
       }
       return openLanStream(lan, router, host, port, timeoutMs, tls);
+    },
+
+    async request(req: TvHttpRequest): Promise<TvHttpResponse> {
+      const secure = req.url.startsWith('https:');
+      if (!secure && !req.url.startsWith('http:')) {
+        throw new DeviceError('notLocal', 'Not a plain http:// or https:// address');
+      }
+      const parsed = parseSocketUrl(req.url.replace(/^http/, 'ws'));
+      if (!parsed) throw new DeviceError('notLocal', 'Not a plain http:// or https:// address');
+      assertLocal(parsed.host, await prefixes());
+      if (secure && !req.pinSha256 && !req.pairing) {
+        // Never connect unpinned outside pairing.
+        throw new DeviceError('notPaired', `No pinned certificate for ${req.url}`);
+      }
+      try {
+        return await lan().request(req);
+      } catch (e) {
+        throw openError(req.url, e);
+      }
     },
 
     async ssdpSearch(message, windowMs, onReply): Promise<void> {

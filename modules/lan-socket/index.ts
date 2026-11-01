@@ -20,6 +20,11 @@ import { requireNativeModule, type EventSubscription } from 'expo';
  * is presented as the client certificate; a missing one is `ERR_LAN_OPEN_FAILED`. Bytes travel as
  * base64 and arrive as `data` events, in order. A stream shares the id space, `close(id)` and the
  * `close` event with WebSockets.
+ *
+ * `request` is a one-shot HTTP(S) request to a literal local IP with the same trust rules (https
+ * needs `pairing` or `pinSha256`, else `ERR_LAN_NO_TRUST`). Redirects are never followed (a 3xx is
+ * returned as-is), no proxy and no cookies are used, and a body over `maxBytes` fails with
+ * `ERR_LAN_OPEN_FAILED`. Response header names are lower-case.
  */
 export interface LanOpenOptions {
   pinSha256?: string;
@@ -49,6 +54,29 @@ export interface LanStreamOpenResult {
   serverExponentHex: string;
   /** Server leaf certificate subject, RFC 2253 form (Android TV puts its MAC in the CN). */
   serverSubject: string;
+}
+
+export interface LanRequest {
+  method: 'GET' | 'POST' | 'PUT';
+  /** `http://` or `https://` to a literal local IP. */
+  url: string;
+  headers?: Record<string, string>;
+  body?: string;
+  /** https only; neither `pinSha256` nor `pairing` means refused (`ERR_LAN_NO_TRUST`). */
+  pinSha256?: string;
+  pairing?: boolean;
+  timeoutMs: number;
+  /** Default 262144; a larger response body fails. */
+  maxBytes?: number;
+}
+
+export interface LanResponse {
+  status: number;
+  /** Lower-case names; repeated headers joined with ", ". */
+  headers: Record<string, string>;
+  body: string;
+  /** The leaf certificate's SHA-256, lower-case hex; https only. */
+  certSha256?: string;
 }
 
 export interface LanDataEvent {
@@ -95,6 +123,8 @@ export interface LanSocketNative {
   ): Promise<LanStreamOpenResult>;
   /** Queues the bytes on a stream. Throws when the stream is not open. */
   write(id: string, base64: string): void;
+  /** One-shot HTTP(S) request; rejects with a `LAN_ERRORS` code. */
+  request(req: LanRequest): Promise<LanResponse>;
   /** Closes (or cancels the open of) the socket or stream. Unknown ids are ignored. */
   close(id: string): void;
   addListener(event: 'message', cb: (e: LanMessageEvent) => void): EventSubscription;

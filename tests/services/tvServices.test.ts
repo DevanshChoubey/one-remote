@@ -16,6 +16,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 function fakeTransport(): TvTransport & { calls: jest.Mock[] } {
   const open = jest.fn();
   const openStream = jest.fn();
+  const request = jest.fn();
   const ssdpSearch = jest.fn();
   const probe = jest.fn();
   const sendWol = jest.fn();
@@ -23,11 +24,12 @@ function fakeTransport(): TvTransport & { calls: jest.Mock[] } {
   return {
     open,
     openStream,
+    request,
     ssdpSearch,
     probe,
     sendWol,
     onWifi,
-    calls: [open, openStream, ssdpSearch, probe, sendWol, onWifi],
+    calls: [open, openStream, request, ssdpSearch, probe, sendWol, onWifi],
   };
 }
 

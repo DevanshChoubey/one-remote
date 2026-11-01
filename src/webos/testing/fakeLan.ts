@@ -1,5 +1,5 @@
 import { DeviceError } from '@/core';
-import type { TvSocket, TvStream, TvTls, TvTransport } from '@/tv/transport';
+import type { TvHttpResponse, TvSocket, TvStream, TvTls, TvTransport } from '@/tv/transport';
 import type { FakeTv } from './fakeTv';
 
 export type FakeLan = TvTransport & {
@@ -65,6 +65,9 @@ export function createFakeLan(opts: { tvs: FakeTv[]; wifi?: boolean; hang?: stri
     },
     openStream(host, port): Promise<TvStream> {
       return Promise.reject(new DeviceError('notSent', `cannot open ${host}:${String(port)}`));
+    },
+    request(req): Promise<TvHttpResponse> {
+      return Promise.reject(new DeviceError('notSent', `cannot request ${req.url}`));
     },
     ssdpSearch(_message, windowMs, onReply): Promise<void> {
       if (lan.ssdpEnabled && lan.wifi) {

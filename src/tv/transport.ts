@@ -36,6 +36,29 @@ export interface TvStream {
 
 /** Everything the webOS client needs from the network. Implemented by `src/transport/tvTransport.ts`
  *  and faked by `src/webos/testing/fakeLan.ts`. */
+export interface TvHttpRequest {
+  method: 'GET' | 'POST' | 'PUT';
+  /** `http://` or `https://` to a literal local IP. */
+  url: string;
+  headers?: Record<string, string>;
+  body?: string;
+  /** https only: `pairing` (trust on first use) or `pinSha256`; neither is refused (`notPaired`). */
+  pinSha256?: string;
+  pairing?: boolean;
+  timeoutMs: number;
+  /** Default 262144; a larger response body fails. */
+  maxBytes?: number;
+}
+
+export interface TvHttpResponse {
+  status: number;
+  /** Lower-case names. */
+  headers: Record<string, string>;
+  body: string;
+  /** The TV's leaf certificate SHA-256 (lower-case hex), for https. */
+  certSha256?: string;
+}
+
 export interface TvTransport {
   /** Rejects DeviceError('notSent') on refusal or after timeoutMs; 'notLocal' from assertLocal;
    *  'notPaired' for a `wss://` certificate that is not the pinned one, or no pin outside pairing. */
@@ -48,6 +71,9 @@ export interface TvTransport {
     timeoutMs: number,
     tls: TvTls & { identity?: string },
   ): Promise<TvStream>;
+  /** One HTTP(S) request. Redirects are not followed (a 3xx is returned), no proxy, no cookies.
+   *  The errors are those of `open`; 'notSent' also for a body over `maxBytes`. */
+  request(req: TvHttpRequest): Promise<TvHttpResponse>;
   ssdpSearch(
     message: string,
     windowMs: number,

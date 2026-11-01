@@ -8,6 +8,7 @@ import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 class OpenOptions : Record {
@@ -24,6 +25,17 @@ class StreamOptions : Record {
   @Field var timeoutMs: Double = 3000.0
 }
 
+class RequestOptions : Record {
+  @Field var method: String = "GET"
+  @Field var url: String = ""
+  @Field var headers: Map<String, String>? = null
+  @Field var body: String? = null
+  @Field var pinSha256: String? = null
+  @Field var pairing: Boolean = false
+  @Field var timeoutMs: Double = 3000.0
+  @Field var maxBytes: Double = 262144.0
+}
+
 private class LanException(code: String, message: String) : CodedException(code, message, null)
 
 /** WebSockets and TLS byte streams to literal local IPs; see modules/lan-socket/index.ts for the
@@ -36,6 +48,10 @@ class LanSocketModule : Module() {
   /** Our own clients: React Native's shared client and the default TLS trust stay untouched. */
   private val connector: LanConnector by lazy { LanConnector() }
   private val streamConnector: LanStreamConnector by lazy { LanStreamConnector() }
+  private val requestClient: LanRequestClient by lazy { LanRequestClient() }
+
+  /** One-shot requests block until the response is read, so they run off the module thread. */
+  private val requestPool by lazy { Executors.newCachedThreadPool() }
 
   override fun definition() = ModuleDefinition {
     Name("LanSocket")
@@ -73,6 +89,10 @@ class LanSocketModule : Module() {
       }
     }
 
+    AsyncFunction("request") { opts: RequestOptions, promise: Promise ->
+      request(opts, promise)
+    }
+
     Function("close") { id: String ->
       sockets.remove(id)?.close()
       streams.remove(id)?.close()
@@ -81,6 +101,40 @@ class LanSocketModule : Module() {
     OnDestroy {
       sockets.keys.toList().forEach { sockets.remove(it)?.close() }
       streams.keys.toList().forEach { streams.remove(it)?.close() }
+      requestPool.shutdownNow()
+    }
+  }
+
+  private fun request(opts: RequestOptions, promise: Promise) {
+    try {
+      requestPool.execute {
+        try {
+          val r =
+            requestClient.execute(
+              opts.method,
+              opts.url,
+              opts.headers ?: emptyMap(),
+              opts.body,
+              opts.pinSha256,
+              opts.pairing,
+              opts.timeoutMs.toLong(),
+              opts.maxBytes.toLong(),
+            )
+          val result = mutableMapOf<String, Any?>(
+            "status" to r.status,
+            "headers" to r.headers,
+            "body" to r.body,
+          )
+          r.certSha256?.let { result["certSha256"] = it }
+          promise.resolve(result)
+        } catch (e: LanOpenError) {
+          promise.reject(LanException(e.code, e.message ?: e.code))
+        } catch (e: Exception) {
+          promise.reject(LanException(ERR_OPEN_FAILED, e.message ?: "Request failed"))
+        }
+      }
+    } catch (e: java.util.concurrent.RejectedExecutionException) {
+      promise.reject(LanException(ERR_OPEN_FAILED, "The module is shutting down"))
     }
   }
 
