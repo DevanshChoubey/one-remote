@@ -81,6 +81,12 @@ class FakeNative {
   behave: ((o: FakeOpen) => void) | undefined;
   behaveStream: ((o: FakeStreamOpen) => void) | undefined;
   throwOnOpen = false;
+  tcpProbes: [string, number, number][] = [];
+  openTcp: (host: string, port: number) => boolean = () => false;
+  probeTcp(host: string, port: number, timeoutMs: number): Promise<boolean> {
+    this.tcpProbes.push([host, port, timeoutMs]);
+    return Promise.resolve(this.openTcp(host, port));
+  }
   browses: [string, string][] = [];
   stoppedBrowses: string[] = [];
   private listeners: Record<'message' | 'data' | 'close' | 'service', ((e: never) => void)[]> = {
@@ -789,6 +795,38 @@ describe('probe', () => {
       .map((o) => o.id);
     expect(mockNative.closed.sort()).toEqual(ids.sort());
     expect(mockNative.opens.some((o) => o.url.includes('192.168.1.7:'))).toBe(false);
+  });
+
+  it('checks non-LG ports with a plain TCP connect and keeps the WebSocket check for 3000', async () => {
+    mockNative.behave = (o) => {
+      if (o.url === 'ws://192.168.1.23:3000') o.resolve({});
+      else o.reject(nativeError('ERR_LAN_OPEN_FAILED', 'refused'));
+    };
+    mockNative.openTcp = (h, p) => h === '192.168.1.50' && p === 6466;
+    const opened: [string, number][] = [];
+    const hosts: [string, number[]][] = [];
+    await createRnTvTransport({ prefixes: lan }).probe(
+      [3000, 6466, 8002],
+      1500,
+      (h, p) => opened.push([h, p]),
+      undefined,
+      (h, ps) => hosts.push([h, ps]),
+    );
+    expect(opened.sort()).toEqual([
+      ['192.168.1.23', 3000],
+      ['192.168.1.50', 6466],
+    ]);
+    expect(hosts.sort()).toEqual([
+      ['192.168.1.23', [3000]],
+      ['192.168.1.50', [6466]],
+    ]);
+    expect(mockNative.tcpProbes).toHaveLength(253 * 2);
+    expect(
+      mockNative.tcpProbes.every(([, p, ms]) => (p === 6466 || p === 8002) && ms === 1500),
+    ).toBe(true);
+    // Only the LG port opens a WebSocket.
+    expect(mockNative.opens).toHaveLength(253);
+    expect(mockNative.opens.every((o) => o.url.endsWith(':3000'))).toBe(true);
   });
 
   it('calls onHost once per host with its open ports, before the sweep ends', async () => {

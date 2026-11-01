@@ -100,6 +100,10 @@ public final class LanSocketModule: Module {
       self.request(opts: opts, promise: promise)
     }
 
+    AsyncFunction("probeTcp") { (host: String, port: Int, timeoutMs: Double, promise: Promise) in
+      LanTcpProbe.run(host: host, port: port, timeoutMs: timeoutMs, promise: promise)
+    }
+
     Function("browse") { (id: String, serviceType: String) in
       let browse = LanBrowse(id: id, serviceType: serviceType, module: self)
       self.lock.lock()
@@ -1087,5 +1091,51 @@ enum LocalHost {
     guard b.count == 4 else { return false }
     return b[0] == 10 || b[0] == 127 || (b[0] == 172 && (16...31).contains(b[1]))
       || (b[0] == 192 && b[1] == 168) || (b[0] == 169 && b[1] == 254)
+  }
+}
+
+/// A plain TCP connect to a literal local IP, for discovery sweeps: resolves true when the port
+/// accepts the connection, false when it fails, is refused or stays silent for `timeoutMs`.
+/// Nothing is sent. A non-local address rejects `ERR_LAN_NOT_LOCAL` before any connection is made.
+/// (Not compiled in this environment: written without an Xcode toolchain.)
+enum LanTcpProbe {
+  private static let queue = DispatchQueue(label: "lan-socket.tcp-probe", attributes: .concurrent)
+
+  static func run(host: String, port: Int, timeoutMs: Double, promise: Promise) {
+    guard LocalHost.isLocalLiteral(host), let endpointHost = LocalHost.endpointHost(host) else {
+      promise.reject(lanError(errNotLocal, "Address is not a local IP"))
+      return
+    }
+    guard let endpointPort = NWEndpoint.Port(rawValue: UInt16(clamping: port)), port > 0 else {
+      promise.resolve(false)
+      return
+    }
+    let params = NWParameters.tcp
+    // No proxy: TV traffic never leaves the LAN through a system or MDM proxy.
+    params.preferNoProxies = true
+    let conn = NWConnection(host: endpointHost, port: endpointPort, using: params)
+    let lock = NSLock()
+    var done = false
+    // First outcome wins; the connection is always cancelled.
+    func finish(_ ok: Bool) {
+      lock.lock()
+      let first = !done
+      done = true
+      lock.unlock()
+      guard first else { return }
+      conn.stateUpdateHandler = nil
+      conn.cancel()
+      promise.resolve(ok)
+    }
+    conn.stateUpdateHandler = { state in
+      switch state {
+      case .ready: finish(true)
+      case .failed, .waiting, .cancelled: finish(false)
+      default: break
+      }
+    }
+    conn.start(queue: queue)
+    let timeout = max(0.001, min(timeoutMs, 60_000)) / 1000
+    queue.asyncAfter(deadline: .now() + timeout) { finish(false) }
   }
 }

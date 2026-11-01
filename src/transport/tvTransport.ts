@@ -33,6 +33,8 @@ import {
 const SSDP_ADDRESS = '239.255.255.250';
 const SSDP_PORT = 1900;
 const WOL_PORT = 9;
+const LG_WS_PORT = 3000;
+const LG_WSS_PORT = 3001;
 const PROBE_IN_FLIGHT = 32;
 const MAX_RESPONSE_BYTES = 64 * 1024 * 1024;
 
@@ -555,17 +557,22 @@ export function createRnTvTransport(
       const tryPort = async (host: string, port: number): Promise<boolean> => {
         try {
           assertLocal(host, local);
-          // Only checks that the socket opens (nothing is sent), so TLS is tried as if pairing.
-          const secure = port === 3001;
-          const sock = await openLan(
-            lan,
-            router,
-            `${secure ? 'wss' : 'ws'}://${host}:${port}`,
-            perHostMs,
-            secure ? { pairing: true } : {},
-            true,
-          );
-          sock.close();
+          if (port === LG_WS_PORT || port === LG_WSS_PORT) {
+            // LG ports: a real WebSocket open (nothing is sent), so another service on 3000 is not
+            // taken for a TV. TLS is tried as if pairing.
+            const secure = port === LG_WSS_PORT;
+            const sock = await openLan(
+              lan,
+              router,
+              `${secure ? 'wss' : 'ws'}://${host}:${port}`,
+              perHostMs,
+              secure ? { pairing: true } : {},
+              true,
+            );
+            sock.close();
+          } else if (!(await lan().probeTcp(host, port, perHostMs))) {
+            return false;
+          }
           onOpen(host, port);
           return true;
         } catch {

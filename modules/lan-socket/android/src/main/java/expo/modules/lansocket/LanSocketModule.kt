@@ -115,6 +115,10 @@ class LanSocketModule : Module() {
       request(opts, promise)
     }
 
+    AsyncFunction("probeTcp") { host: String, port: Int, timeoutMs: Double, promise: Promise ->
+      probeTcp(host, port, timeoutMs, promise)
+    }
+
     Function("browse") { id: String, serviceType: String -> browse(id, serviceType) }
 
     Function("stopBrowse") { id: String -> browses.remove(id)?.stop() }
@@ -145,6 +149,23 @@ class LanSocketModule : Module() {
       }
     browses.put(id, browse)?.stop()
     browse.start()
+  }
+
+  /** Blocks on the connect, so it runs off the module thread like [request]. */
+  private fun probeTcp(host: String, port: Int, timeoutMs: Double, promise: Promise) {
+    try {
+      requestPool.execute {
+        try {
+          promise.resolve(LanTcpProbe.probe(host, port, timeoutMs.toLong()))
+        } catch (e: LanOpenError) {
+          promise.reject(LanException(e.code, e.message ?: e.code))
+        } catch (e: Exception) {
+          promise.reject(LanException(ERR_OPEN_FAILED, e.message ?: "Probe failed"))
+        }
+      }
+    } catch (e: java.util.concurrent.RejectedExecutionException) {
+      promise.reject(LanException(ERR_OPEN_FAILED, "The module is shutting down"))
+    }
   }
 
   private fun request(opts: RequestOptions, promise: Promise) {

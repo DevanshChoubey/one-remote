@@ -159,6 +159,12 @@ export interface LanSocketNative {
   write(id: string, base64: string): void;
   /** One-shot HTTP(S) request; rejects with a `LAN_ERRORS` code. */
   request(req: LanRequest): Promise<LanResponse>;
+  /**
+   * A plain TCP connect to a literal local IP (nothing is sent): true when the port accepts it,
+   * false when it is refused, closed or silent for `timeoutMs`. Rejects `ERR_LAN_NOT_LOCAL` for any
+   * other address. For discovery sweeps of ports that are not WebSocket endpoints.
+   */
+  probeTcp(host: string, port: number, timeoutMs: number): Promise<boolean>;
   /** Closes (or cancels the open of) the socket or stream. Unknown ids are ignored. */
   close(id: string): void;
   /** Starts browsing for `serviceType` (e.g. `_androidtvremote2._tcp`); `id` is chosen by the caller. */
