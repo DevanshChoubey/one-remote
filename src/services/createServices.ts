@@ -8,6 +8,8 @@ import { createSecureSecretStore } from '@/store/secrets';
 import { createRnTvTransport } from '@/transport/tvTransport';
 import { tvHostChanged } from '@/tv/hostChanged';
 import { createCompositeTvSetup } from '@/tv/setup';
+import { createSamsungDriver } from '@/samsung/driver';
+import { createSamsungBrand } from '@/samsung/setup';
 import { createWebosDriver } from '@/webos/driver';
 import { createFrameTap } from '@/webos/frameTap';
 import { createWebosBrand } from '@/webos/setup';
@@ -84,6 +86,12 @@ function laneDrivers(ctx: LaneContext): LinkDriver[] {
   return [
     // tv lane
     createWebosDriver({
+      transport: ctx.tvTransport,
+      secrets: ctx.secrets,
+      onHostChanged: tvHostChanged(ctx.store),
+    }),
+    // samsung lane
+    createSamsungDriver({
       transport: ctx.tvTransport,
       secrets: ctx.secrets,
       onHostChanged: tvHostChanged(ctx.store),
@@ -181,6 +189,7 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
     createWebosBrand({ transport: tvTransport, secrets }),
     // androidtv brand
     // samsung brand
+    createSamsungBrand({ transport: tvTransport, secrets }),
   ];
   const removeDevice = deps.removeDevice ?? removeDeviceWith(store, secrets, drivers);
   return {
