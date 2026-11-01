@@ -1,10 +1,13 @@
 package expo.modules.lansocket
 
 import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyInfo
 import android.security.keystore.KeyProperties
 import java.math.BigInteger
+import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.KeyStore
+import java.security.PrivateKey
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.RSAKeyGenParameterSpec
 import java.util.Date
@@ -108,12 +111,15 @@ internal class LanIdentities(
 /**
  * The Android Keystore implementation. Key choices:
  *  - RSA-2048, e = 65537, hardware-backed where the phone can.
- *  - PURPOSE_SIGN only; the key can never be exported.
+ *  - PURPOSE_SIGN and PURPOSE_DECRYPT; the key can never be exported.
  *  - Digests NONE + SHA-256/384/512: TLS 1.2 client auth makes Conscrypt sign through
  *    `NONEwithRSA` (needs DIGEST_NONE), and the self-signed certificate is `SHA256withRSA`.
  *  - Signature padding PKCS1 (TLS 1.2 `rsa_pkcs1_*` and the certificate) and PSS (TLS 1.3 only
  *    allows `rsa_pss_*` for RSA); encryption padding RSA_PKCS1 because Conscrypt's raw PKCS#1
  *    signing path drives the key as an `RSA/ECB/PKCS1Padding` cipher.
+ *  - Encryption padding NONE with PURPOSE_DECRYPT: Conscrypt pads TLS 1.3 PSS itself and then
+ *    drives the key as an `RSA/ECB/NoPadding` decrypt. Without it the Airtel box's TLS 1.3
+ *    client auth failed "Incompatible padding mode" (2026-11-01).
  * Not unit-tested on the JVM (no Android Keystore): covered by the device build only.
  */
 internal class AndroidKeyStoreIdentityStore : IdentityKeyStore {
@@ -122,7 +128,17 @@ internal class AndroidKeyStoreIdentityStore : IdentityKeyStore {
   override fun publicKey(alias: String): RSAPublicKey? {
     val ks = keyStore()
     if (!ks.isKeyEntry(alias)) return null
+    if (!supportsTls13(ks.getKey(alias, null) as? PrivateKey)) return null
     return ks.getCertificate(alias)?.publicKey as? RSAPublicKey
+  }
+
+  /** Keys made before the NONE padding was added fail TLS 1.3 client auth; null makes [generate]
+   *  replace them. */
+  private fun supportsTls13(key: PrivateKey?): Boolean {
+    if (key == null) return false
+    val info = KeyFactory.getInstance(key.algorithm, PROVIDER).getKeySpec(key, KeyInfo::class.java)
+    return info.purposes and KeyProperties.PURPOSE_DECRYPT != 0 &&
+      KeyProperties.ENCRYPTION_PADDING_NONE in info.encryptionPaddings
   }
 
   override fun generate(
@@ -133,7 +149,7 @@ internal class AndroidKeyStoreIdentityStore : IdentityKeyStore {
     notAfter: Date,
   ): RSAPublicKey {
     val spec =
-      KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_SIGN)
+      KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_DECRYPT)
         .setKeySize(2048)
         .setAlgorithmParameterSpec(RSAKeyGenParameterSpec(2048, RSAKeyGenParameterSpec.F4))
         .setDigests(
@@ -146,7 +162,10 @@ internal class AndroidKeyStoreIdentityStore : IdentityKeyStore {
           KeyProperties.SIGNATURE_PADDING_RSA_PKCS1,
           KeyProperties.SIGNATURE_PADDING_RSA_PSS,
         )
-        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
+        .setEncryptionPaddings(
+          KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1,
+          KeyProperties.ENCRYPTION_PADDING_NONE,
+        )
         .setCertificateSubject(subject)
         .setCertificateSerialNumber(serial)
         .setCertificateNotBefore(notBefore)

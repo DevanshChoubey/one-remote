@@ -2,6 +2,7 @@ import { DeviceError, PairError, type Device, type FoundTv, type TvLink } from '
 import type { BrandSetup } from '@/tv/brands';
 import { createCompositeTvSetup } from '@/tv/setup';
 import type { TvTransport } from '@/tv/transport';
+import { createAndroidTvBrand } from '@/androidtv/setup';
 import { createWebosBrand } from '@/webos/setup';
 import { createFakeLan } from '@/webos/testing/fakeLan';
 import { createFakeTv } from '@/webos/testing/fakeTv';
@@ -270,5 +271,40 @@ describe('composite with the real webOS brand', () => {
     expect(found[0]?.usn).toBeTruthy();
     expect(found[1]?.name).toBe('Lounge LG');
     expect(found[1]?.usn).toBe(found[0]?.usn);
+  });
+});
+
+describe('composite with the real webOS and Android TV brands', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it('lists a host that both report once, as webOS', async () => {
+    const lan = createFakeLan({ tvs: [] });
+    const transport = {
+      ...lan,
+      probe: async (_p: number[], _ms: number, _o: OnOpen, _c?: () => boolean, onHost?: OnHost) => {
+        onHost?.('10.0.0.5', [3000, 6466]);
+      },
+    } as unknown as TvTransport;
+    const found: FoundTv[] = [];
+    const stop = createCompositeTvSetup({
+      brands: [
+        createWebosBrand({
+          transport,
+          secrets: {
+            get: async () => null,
+            set: async () => undefined,
+            delete: async () => undefined,
+          },
+        }),
+        createAndroidTvBrand({ transport }),
+      ],
+      transport,
+    }).discover((f) => found.push(f));
+    await Promise.resolve();
+    await Promise.resolve();
+    stop();
+    jest.runOnlyPendingTimers();
+    expect(found.map((f) => [f.kind, f.host])).toEqual([['webos', '10.0.0.5']]);
   });
 });

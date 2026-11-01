@@ -15,6 +15,7 @@
   "private": true,
   "license": "MIT",
   "dependencies": {
+    "@noble/hashes": "1.8.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~58.0.19",
     "expo-constants": "~58.0.13",

@@ -26,6 +26,7 @@ function TvSpike(): ReactElement {
   const [hits, setHits] = useState<string[]>([]);
   const [text, setText] = useState('hello');
   const [burst, setBurst] = useState('');
+  const [atvHost, setAtvHost] = useState('');
   const found = useRef<FoundTv[]>([]);
   const t0 = useRef(0);
 
@@ -128,6 +129,69 @@ function TvSpike(): ReactElement {
     add('spike TV removed');
   };
 
+  const ATV_ID = 'androidtv:spike';
+
+  const atvBrowse = async (): Promise<void> => {
+    add('ATV browse: _androidtvremote2._tcp for 5 s');
+    const at = now();
+    let n = 0;
+    try {
+      await createRnTvTransport().mdnsBrowse('_androidtvremote2._tcp', 5000, (s) => {
+        n++;
+        setAtvHost(s.host);
+        add(`mdns +${now() - at} ms ${s.name} ${s.host}:${s.port} txt=${JSON.stringify(s.txt)}`);
+      });
+      add(`ATV browse done: ${n} result(s)`);
+    } catch (e) {
+      add(`ATV browse FAILED: ${String(e)}`);
+    }
+  };
+
+  const atvProbe = async (): Promise<void> => {
+    add('ATV probe [6466, 6467] for 1.5 s per host');
+    try {
+      await createRnTvTransport().probe([6466, 6467], 1500, (h, p) => add(`open ${h}:${p}`));
+      add('ATV probe done');
+    } catch (e) {
+      add(`ATV probe FAILED: ${String(e)}`);
+    }
+  };
+
+  const atvTls = async (port: 6466 | 6467): Promise<void> => {
+    const host = atvHost.trim();
+    if (!host) return add('ATV TLS: enter a host first');
+    try {
+      const t = createRnTvTransport();
+      await t.ensureIdentity(ATV_ID, 'One Remote spike');
+      const s = await t.openStream(host, port, 3000, { pairing: true, identity: ATV_ID });
+      add(
+        `${port} cert=${s.certSha256} mod=${s.serverModulusHex.length} exp=${s.serverExponentHex}`,
+      );
+      add(`${port} subject=${s.serverSubject}`);
+      if (port === 6466) {
+        const at = now();
+        s.onClose(() => add(`${port} closed by TV after ${now() - at} ms`));
+        setTimeout(() => {
+          s.close();
+          add(`${port} held 3 s, closed by app`);
+        }, 3000);
+      } else {
+        s.close();
+      }
+    } catch (e) {
+      add(`ATV TLS ${port} FAILED: ${String(e)}`);
+    }
+  };
+
+  const atvForget = async (): Promise<void> => {
+    try {
+      await createRnTvTransport().deleteIdentity(ATV_ID);
+      add('identity deleted');
+    } catch (e) {
+      add(`identity delete FAILED: ${String(e)}`);
+    }
+  };
+
   const keys: TvKey[] = [
     'up',
     'down',
@@ -169,6 +233,13 @@ function TvSpike(): ReactElement {
           onPress={() => void send({ kind: 'tv.powerOn' })}
         />
         <Button label="Remove spike TV" variant="ghost" onPress={() => void forget()} />
+        <Txt variant="heading">Android TV spike (Airtel Xstream)</Txt>
+        <Input value={atvHost} onChangeText={setAtvHost} accessibilityLabel="Android TV host" />
+        <Button label="ATV browse" variant="secondary" onPress={() => void atvBrowse()} />
+        <Button label="ATV probe" variant="secondary" onPress={() => void atvProbe()} />
+        <Button label="ATV TLS 6467" variant="secondary" onPress={() => void atvTls(6467)} />
+        <Button label="ATV TLS 6466" variant="secondary" onPress={() => void atvTls(6466)} />
+        <Button label="ATV forget" variant="ghost" onPress={() => void atvForget()} />
         <Txt variant="heading">SSAP log</Txt>
         <ScrollView style={{ maxHeight: 400 }} nestedScrollEnabled>
           {log.map((l, i) => (

@@ -340,6 +340,86 @@ describe('Add TV flow', () => {
     expect(await r.s.store.devices()).toHaveLength(1);
   });
 
+  it('finds a duplicate by certificate pin when there is no MAC, and saves one device', async () => {
+    const r = await rig();
+    const link = {
+      kind: 'androidtv' as const,
+      host: '192.168.1.20',
+      certRef: 'androidtv:identity',
+      pinSha256: 'pin-1',
+    };
+    await r.s.store.upsertDevice({
+      id: 'old',
+      kind: 'tv',
+      name: 'Sony',
+      roomId: 'r1',
+      order: 0,
+      links: [{ ...link, host: '192.168.1.99' }],
+    });
+    r.setup.pair.mockImplementationOnce(async (_tv, prompts) => {
+      await prompts.askCode(false);
+      return { link, suggestedName: 'Sony' };
+    });
+    await renderWith(r.s, <AddTvFlow />);
+    await toFind();
+    await r.found(atv);
+    await fireEvent.press(screen.getByLabelText('Sony, 192.168.1.20'));
+    await fireEvent.changeText(screen.getByLabelText(t('addTv.codeTitle')), 'a1b2c3');
+    await fireEvent.press(screen.getByLabelText(t('addTv.codePair')));
+    expect(await screen.findByText(t('addTv.duplicate', { name: 'Sony' }))).toBeTruthy();
+    expect(await r.s.store.devices()).toHaveLength(1);
+  });
+
+  it('does not call two Android TVs with different pins duplicates', async () => {
+    const r = await rig();
+    const link = {
+      kind: 'androidtv' as const,
+      host: '192.168.1.20',
+      certRef: 'androidtv:identity',
+      pinSha256: 'pin-1',
+    };
+    await r.s.store.upsertDevice({
+      id: 'old',
+      kind: 'tv',
+      name: 'Sony',
+      roomId: 'r1',
+      order: 0,
+      links: [{ ...link, pinSha256: 'pin-2' }],
+    });
+    r.setup.pair.mockImplementationOnce(async (_tv, prompts) => {
+      await prompts.askCode(false);
+      return { link, suggestedName: 'Other' };
+    });
+    await renderWith(r.s, <AddTvFlow />);
+    await toFind();
+    await r.found(atv);
+    await fireEvent.press(screen.getByLabelText('Sony, 192.168.1.20'));
+    await fireEvent.changeText(screen.getByLabelText(t('addTv.codeTitle')), 'a1b2c3');
+    await fireEvent.press(screen.getByLabelText(t('addTv.codePair')));
+    expect(await screen.findByDisplayValue('Other')).toBeTruthy();
+  });
+
+  it('shows the Android TV unreachable line when a code pairing cannot reach the TV', async () => {
+    const r = await rig();
+    r.setup.pair.mockImplementationOnce(() => Promise.reject(new PairError('unreachable')));
+    await renderWith(r.s, <AddTvFlow />);
+    await toFind();
+    await r.found(atv);
+    await fireEvent.press(screen.getByLabelText('Sony, 192.168.1.20'));
+    expect(await screen.findByText(t('addTv.unreachableAndroidTv'))).toBeTruthy();
+    expect(screen.queryByText(t('addTv.unreachable'))).toBeNull();
+  });
+
+  it('keeps the LG unreachable line for an LG pairing', async () => {
+    const r = await rig();
+    r.setup.pair.mockImplementationOnce(() => Promise.reject(new PairError('unreachable')));
+    await renderWith(r.s, <AddTvFlow />);
+    await toFind();
+    await r.found(lg);
+    await fireEvent.press(screen.getByLabelText('LG OLED C4, 192.168.1.23'));
+    expect(await screen.findByText(t('addTv.unreachable'))).toBeTruthy();
+  });
+
   it('deletes the key of a pairing that finishes after the step was left', async () => {
     const r = await rig();
     let finish: (p: PairedTv) => void = () => undefined;

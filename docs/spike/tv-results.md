@@ -70,3 +70,75 @@ rejected: blacklisted certificate detected`. The client retries with an unsigned
 - Power on from off over Wake-on-LAN ("Turn on via Wi-Fi" on): yes, after 1088c80.
 - Phone volume buttons change the TV volume: yes; one press was lost right after an app reload,
   not reproduced.
+
+## Android TV spike (Airtel Xstream)
+
+Status: code only. The spike buttons are in `app/dev/tv-spike.tsx` (block "Android TV spike").
+The phone has not run them, and the box has not been checked. The hardware steps need the author
+present, so they are pending. Run them with the controller.
+
+- Pending: the box is on and on the same Wi-Fi as the phone (plan Task 1 step 3).
+- Pending: "Android TV Remote Service" present on the box, and its version (v2 needs version 5 or
+  later).
+- Pending: ATV browse, ATV probe, ATV TLS 6467, ATV TLS 6466, ATV forget, logged on the phone
+  (plan Task 1 step 5). Record each log line here, whether the 6466 and 6467 certificate SHA-256
+  values match, and what an unpaired identity gets on 6466 (an error, or a close after N ms).
+- Pending: laptop cross-check with `avahi-browse -rt _androidtvremote2._tcp` and `openssl s_client`
+  on 6467, to record the certificate subject (plan Task 1 step 4).
+- Go/no-go: pending.
+
+## Android TV run 1 (Airtel Xstream)
+
+Status: Android TV: untested on hardware. The lane was built and tested on the fake TV
+(`src/androidtv/testing`); the spike (Task 1) and the pass bar (Task 10) need the phone and the box,
+and were not run. Both are pending, to run with the author present.
+
+Pending, per spec §7:
+
+1. Pair: Add TV, Find my TV, the box shows "Google TV / Android TV · <ip>", type the code. Also try a
+   wrong code first, and "Show a new code".
+2. Keys and touchpad in four directions, OK, Back and Home. 100 touchpad moves with no visible lag.
+3. Keyboard: type "news" into a search field on the box. With no field open, expect the error line.
+4. Volume +/- and mute from the screen and the phone's volume keys. Does the box push its level?
+5. Input: the button sends KEYCODE_TV_INPUT. Does the box show a picker?
+6. Power off, then on. Which path worked: the power key in standby, IR, or none (the off panel then
+   shows the Android TV line)?
+7. IP change (DHCP reservation, or Wi-Fi off and on): the app finds the box again by pin.
+8. Remove the device: the box asks to pair again on the next add.
+
+Open questions the run must answer, because the fake guesses them:
+
+- Does the certificate on 6466 equal the one on 6467? (The fake uses one certificate for both.)
+- What does an unpaired identity get on 6466: an error code, or a close after N ms? (The fake fails
+  `notSent` "handshake failed".)
+- Does the certificate subject carry the MAC (`CN=atvremote/<model>/<mac>`)? Without it there is no
+  `link.mac` and Wake on LAN is unavailable; power on then relies on the standby session or IR.
+- Is the Remote Service version 5 or later?
+- Does the box in standby accept a 6466 session and report `started: false`?
+
+If the hardware differs from the fake, update `src/androidtv/testing/fakeAtv.ts` and fix the tests.
+
+## Android TV run 2 (2026-11-01, Airtel Xstream, Realme X release build)
+
+Status: pairing and keys pass. The rest of the pass bar is still pending.
+
+Box: IP 192.168.1.11, certificate subject
+`CN=atvremote/HY0001-Airtel/HY00A/XStream-Smart-Box-002/10:76:36:6C:B7:61`.
+
+Answers to the open questions:
+
+- Ports 6466 and 6467 serve the same certificate (SHA-256 64:3A:D1:…:54:9B).
+- The subject carries the MAC, so `link.mac` and Wake on LAN are available.
+- An unpaired identity completes TLS 1.3 on 6466 and then gets alert 46 "certificate unknown" about
+  0.5 s later. With no client certificate, it gets alert 116 "certificate required".
+
+Results:
+
+- The first pairing attempt failed with "Couldn't reach the TV". The cause was a Keystore
+  "Incompatible padding mode" error during TLS 1.3 client auth. Fixed in f9d06ae: the client key now
+  allows PURPOSE_DECRYPT with ENCRYPTION_PADDING_NONE, and an older key is regenerated.
+- 1. Pair: pass. The code was typed on the phone and the box was saved.
+- 2. Keys: pass for Home, Right, Right, Down and Back. The box responded to each.
+- 4. Volume: pass for +/-.
+- Still pending: wrong code, touchpad, keyboard (3), mute, input (5), power off and on (6), IP
+  change (7), and remove device (8).

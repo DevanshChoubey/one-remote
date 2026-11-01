@@ -29,15 +29,21 @@ export function AddTvFlow(): ReactElement {
   const onPaired = useCallback(
     (paired: PairedTv): void => {
       const mac = paired.link.mac;
+      // Android TV and Samsung links carry the TV's certificate pin: the same pin is the same TV.
+      const pin = 'pinSha256' in paired.link ? paired.link.pinSha256 : undefined;
       // The unused-key cleanup knows only the webOS key layout; other brands clean up in their
       // own pairing flow.
       const newRef = paired.link.kind === 'webos' ? paired.link.clientKeyRef : undefined;
       store.devices().then(
         (all) => {
-          const existing =
-            mac === undefined
-              ? undefined
-              : all.find((d) => d.links.some((l) => isTvLink(l) && l.mac === mac));
+          const existing = all.find((d) =>
+            d.links.some(
+              (l) =>
+                isTvLink(l) &&
+                ((mac !== undefined && l.mac === mac) ||
+                  (pin !== undefined && 'pinSha256' in l && l.pinSha256 === pin)),
+            ),
+          );
           if (existing) {
             // The pairing made a new key for a TV we already have: drop it, keep the old one.
             const keep = existing.links.some(

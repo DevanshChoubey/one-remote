@@ -64,13 +64,13 @@ describe('createServices', () => {
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
-  it('has only the lanes drivers by default (webos so far)', () => {
+  it('has only the lanes drivers by default (webos, androidtv so far)', () => {
     const s = createServices({
       store: createMemoryStore(),
       secrets: createMemorySecretStore(),
       prefs: createMemoryPreferenceStore(),
     });
-    expect(s.drivers.map((x) => x.kind)).toEqual(['webos']);
+    expect(s.drivers.map((x) => x.kind)).toEqual(['webos', 'androidtv']);
   });
 });
 
