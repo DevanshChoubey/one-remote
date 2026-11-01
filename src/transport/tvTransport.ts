@@ -498,23 +498,30 @@ export function createRnTvTransport(
 
     async mdnsBrowse(serviceType, windowMs, onService): Promise<void> {
       const id = newId();
-      router.add(id, {
-        service: (e) => onService({ name: e.name, host: e.host, port: e.port, txt: e.txt }),
-        close: () => undefined,
-      });
-      const native = lan();
       let stopped = false;
+      let native: LanSocketNative | undefined;
       const stop = (): void => {
         if (stopped) return;
         stopped = true;
         router.remove(id);
         try {
-          native.stopBrowse(id);
+          native?.stopBrowse(id);
         } catch {
           // already gone
         }
       };
       try {
+        const local = await prefixes();
+        native = lan();
+        router.add(id, {
+          // Defence in depth: native already drops non-local hosts.
+          service: (e) => {
+            if (isLocalAddress(e.host, local)) {
+              onService({ name: e.name, host: e.host, port: e.port, txt: e.txt });
+            }
+          },
+          close: () => undefined,
+        });
         native.browse(id, serviceType);
       } catch (e) {
         stop();

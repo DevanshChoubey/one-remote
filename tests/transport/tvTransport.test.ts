@@ -917,4 +917,30 @@ describe('mdnsBrowse', () => {
     });
     expect(mockNative.stoppedBrowses).toHaveLength(1);
   });
+
+  it('rejects notSent when the native module cannot be loaded', async () => {
+    const t = createRnTvTransport({
+      prefixes: lan,
+      lan: () => {
+        throw new Error('native module missing');
+      },
+    });
+    await expect(t.mdnsBrowse('_x._tcp', 100, () => undefined)).rejects.toMatchObject({
+      code: 'notSent',
+    });
+  });
+
+  it('drops service events whose host is not local', async () => {
+    const t = createRnTvTransport({ prefixes: lan });
+    const seen: string[] = [];
+    const done = t.mdnsBrowse('_x._tcp', 100, (s) => seen.push(s.host));
+    await jest.advanceTimersByTimeAsync(0);
+    const id = mockNative.browses[0]?.[0] as string;
+    for (const host of ['8.8.8.8', 'example.com', '192.168.1.50']) {
+      mockNative.emit('service', { id, name: 'n', host, port: 1, txt: {} });
+    }
+    await jest.advanceTimersByTimeAsync(100);
+    await done;
+    expect(seen).toEqual(['192.168.1.50']);
+  });
 });

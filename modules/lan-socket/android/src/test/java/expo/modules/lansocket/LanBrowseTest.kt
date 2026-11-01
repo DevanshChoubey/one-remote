@@ -54,4 +54,60 @@ class LanBrowseTest {
     }
     assertEquals(listOf("second"), log)
   }
+
+  private class FakeScheduler {
+    val tasks = mutableListOf<Pair<Long, () -> Unit>>()
+    var cancelled = 0
+    val scheduler: Scheduler = { ms, block ->
+      tasks += ms to block
+      val cancel: () -> Unit = { cancelled++ }
+      cancel
+    }
+  }
+
+  @Test
+  fun timeoutWinsAndALateAnswerIsIgnored() {
+    val f = FakeScheduler()
+    var timeouts = 0
+    val g = ResolveGuard(f.scheduler, 5000) { timeouts++ }
+    assertEquals(5000L, f.tasks[0].first)
+    f.tasks[0].second()
+    assertEquals(1, timeouts)
+    assertEquals(false, g.complete())
+    f.tasks[0].second()
+    assertEquals(1, timeouts)
+  }
+
+  @Test
+  fun answerCancelsTheTimer() {
+    val f = FakeScheduler()
+    var timeouts = 0
+    val g = ResolveGuard(f.scheduler, 5000) { timeouts++ }
+    assertEquals(true, g.complete())
+    assertEquals(1, f.cancelled)
+    f.tasks[0].second()
+    assertEquals(0, timeouts)
+    assertEquals(false, g.complete())
+  }
+
+  @Test
+  fun aTimedOutResolveFreesTheQueueOnceOnly() {
+    val f = FakeScheduler()
+    val q = SerialQueue()
+    val started = mutableListOf<Int>()
+    val dones = mutableListOf<() -> Unit>()
+    for (n in 1..2) {
+      q.enqueue { done ->
+        started += n
+        dones += done
+        ResolveGuard(f.scheduler, 5000) { done() }
+      }
+    }
+    assertEquals(listOf(1), started)
+    f.tasks[0].second() // task 1 times out
+    assertEquals(listOf(1, 2), started)
+    dones[0]() // a late done from task 1 must not free task 2's slot
+    q.enqueue { started += 3 }
+    assertEquals(listOf(1, 2), started)
+  }
 }

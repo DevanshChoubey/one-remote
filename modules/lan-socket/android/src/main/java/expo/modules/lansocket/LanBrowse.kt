@@ -2,6 +2,9 @@ package expo.modules.lansocket
 
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import java.net.Inet4Address
 import java.nio.charset.StandardCharsets
 import java.util.ArrayDeque
@@ -82,6 +85,46 @@ internal class SerialQueue {
   }
 }
 
+/** Runs [block] after [delayMs]; the returned function cancels it. */
+internal typealias Scheduler = (delayMs: Long, block: () -> Unit) -> () -> Unit
+
+internal val mainScheduler: Scheduler = { delayMs, block ->
+  val handler = Handler(Looper.getMainLooper())
+  val r = Runnable { block() }
+  handler.postDelayed(r, delayMs)
+  val cancel: () -> Unit = { handler.removeCallbacks(r) }
+  cancel
+}
+
+/**
+ * Guards one resolve: exactly one of [complete] (the platform answered) or the timeout wins. The
+ * loser does nothing, so a late answer neither reports nor frees the next queued task early.
+ */
+internal class ResolveGuard(
+  schedule: Scheduler,
+  timeoutMs: Long,
+  private val onTimeout: () -> Unit,
+) {
+  private var settled = false
+  private val cancel: () -> Unit
+
+  init {
+    cancel = schedule(timeoutMs) { if (settle()) onTimeout() }
+  }
+
+  /** True when the caller owns the result (the timeout has not fired); stops the timer. */
+  fun complete(): Boolean {
+    if (!settle()) return false
+    cancel()
+    return true
+  }
+
+  private fun settle(): Boolean =
+    synchronized(this) {
+      if (settled) false else { settled = true; true }
+    }
+}
+
 /**
  * One mDNS browse on [NsdManager]. Each found service is resolved (one resolve at a time: before
  * API 34 a second concurrent resolve fails with FAILURE_ALREADY_ACTIVE) and reported through
@@ -91,8 +134,10 @@ internal class SerialQueue {
 internal class LanBrowse(
   private val nsd: NsdManager,
   private val serviceType: String,
+  private val schedule: Scheduler = mainScheduler,
   private val onService: (BrowsedService) -> Unit,
 ) {
+  private val reported = HashSet<String>()
   private val queue = SerialQueue()
   private var stopped = false
   private var started = false
@@ -147,21 +192,38 @@ internal class LanBrowse(
       if (synchronized(this) { stopped }) {
         done()
       } else {
-        @Suppress("DEPRECATION")
-        nsd.resolveService(
-          found,
+        var guard: ResolveGuard? = null
+        val listener =
           object : NsdManager.ResolveListener {
-            override fun onResolveFailed(info: NsdServiceInfo, errorCode: Int) = done()
+            override fun onResolveFailed(info: NsdServiceInfo, errorCode: Int) {
+              if (guard?.complete() != false) done()
+            }
 
             override fun onServiceResolved(info: NsdServiceInfo) {
+              if (guard?.complete() == false) return
               try {
                 if (!synchronized(this@LanBrowse) { stopped }) report(info)
               } finally {
                 done()
               }
             }
-          },
-        )
+          }
+        guard =
+          ResolveGuard(schedule, RESOLVE_TIMEOUT_MS) {
+            if (Build.VERSION.SDK_INT >= 34) {
+              try {
+                nsd.stopServiceResolution(listener)
+              } catch (e: Exception) {
+                // not resolving any more
+              }
+            }
+            done()
+          }
+        try {
+          @Suppress("DEPRECATION") nsd.resolveService(found, listener)
+        } catch (e: Exception) {
+          if (guard.complete()) done()
+        }
       }
     }
   }
@@ -169,6 +231,11 @@ internal class LanBrowse(
   private fun report(info: NsdServiceInfo) {
     @Suppress("DEPRECATION") val host = info.host?.let { (it as? Inet4Address)?.hostAddress ?: it.hostAddress }
     BrowsedService.from(info.serviceName ?: "", host, info.port, info.attributes ?: emptyMap())
+      ?.takeIf { synchronized(reported) { reported.add("${it.name}|${it.host}") } }
       ?.let(onService)
+  }
+
+  private companion object {
+    const val RESOLVE_TIMEOUT_MS = 5000L
   }
 }
