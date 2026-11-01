@@ -99,9 +99,15 @@
   .main3 span { display: grid; place-items: center; border-radius: 50%; background: var(--surface);
     border: 1px solid var(--line); width: 64px; height: 64px; font-size: 22px; }
   .main3 span.big { width: 84px; height: 84px; font-size: 26px; }
-  .mini { display: flex; justify-content: space-between; gap: 6px; }
-  .mini span { flex: 1; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 15px;
     background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); }
+  .tvbar { gap: 6px; } .tvbar .grow { flex: 1; min-width: 0; } .tvbar .icon { width: 34px; height: 34px; font-size: 14px; flex: none; }
+  .tvbar h2, .tvbar .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .tvbar h2 { font-size: 17px; }
+  .phone { position: relative; }
+  .menu { position: absolute; top: 64px; right: 16px; z-index: 2; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.18); display: flex; flex-direction: column; min-width: 140px; }
+  .menu span { padding: 10px 14px; font-size: 14px; }
+  .menu span.dim { color: var(--ink-2); }
+  .main3 span.fill { background: var(--ink); color: var(--phone); border-color: transparent; }
   .notes { max-width: 1240px; margin: 0 auto; padding: 0 16px 32px; color: var(--ink-2); font-size: 13px; }
   .notes li { margin: 4px 0; }
 </style>
@@ -110,7 +116,7 @@
 <header>
   <h1>One Remote: first mockup</h1>
   <p>Five screens: the device list, the TV (touchpad and D-pad), the AC and a fan. Rough wireframes to react to, not final
-  visuals. The TV screen follows the Google TV phone remote: a big touchpad and a handful of buttons.</p>
+  visuals. The TV screen follows the Google TV phone remote: a big touchpad or D-pad and three buttons.</p>
   <div class="toggle" role="group" aria-label="Theme">
     <button onclick="document.documentElement.dataset.theme='light'">Light</button>
     <button onclick="document.documentElement.dataset.theme='dark'">Dark</button>
@@ -136,28 +142,25 @@
   <!-- 2a. TV, touchpad -->
   <figure>
     <div class="phone">
-      <div class="bar"><div class="icon">‹</div><div style="text-align:center"><h2>LG OLED C4</h2><div class="sub">Wi-Fi · connected</div></div><div class="icon power">⏻</div></div>
-      <div class="seg"><span class="sel">Touchpad</span><span>D-pad</span></div>
+      <div class="bar tvbar"><div class="icon">‹</div><div class="grow"><h2>LG OLED C4</h2><div class="sub">Wi-Fi · connected</div></div><div class="icon power">⏻</div><div class="icon">⌨</div><div class="icon">⋮</div></div>
+      <div class="menu"><span class="dim">Touchpad</span><span>D-pad</span><span>Input</span></div>
       <div class="pad"><div><div class="dot"></div><div class="hint">Swipe to move<br>Tap to select</div></div></div>
-      <div class="main3"><span>↩</span><span class="big">⌂</span><span>⌨</span></div>
-      <div class="mini"><span>－</span><span>＋</span><span>🔇</span><span>⇄</span><span>▶❚❚</span></div>
+      <div class="main3"><span>←</span><span class="big">⌂</span><span class="fill">🎙</span></div>
     </div>
-    <figcaption><b>TV, touchpad.</b> The pad fills the screen, as on the Google TV phone remote; a dot follows the finger. Back, Home and Keyboard as big round buttons under it. Volume, mute, input and play/pause in one small row; the phone's volume keys also work.</figcaption>
+    <figcaption><b>TV, touchpad.</b> Laid out exactly like the Google TV phone remote: a big pad (a dot follows the finger), then only Back, Home and Voice (the mic, where Google has the Assistant). No volume, mute or media buttons: the phone's volume keys do volume. Power, Keyboard and ⋮ sit top right, as in the Google TV app; ⋮ (shown open) switches Touchpad / D-pad and holds Input. Voice streams the phone's mic to the TV over Wi-Fi on Android TV; on LG and Samsung it dictates text into the TV's search box.</figcaption>
   </figure>
 
   <!-- 2b. TV, D-pad -->
   <figure>
     <div class="phone">
-      <div class="bar"><div class="icon">‹</div><div style="text-align:center"><h2>LG OLED C4</h2><div class="sub">Wi-Fi · connected</div></div><div class="icon power">⏻</div></div>
-      <div class="seg"><span>Touchpad</span><span class="sel">D-pad</span></div>
+      <div class="bar tvbar"><div class="icon">‹</div><div class="grow"><h2>LG OLED C4</h2><div class="sub">Wi-Fi · connected</div></div><div class="icon power">⏻</div><div class="icon">⌨</div><div class="icon">⋮</div></div>
       <div class="ring-wrap"><div class="ring">
         <span class="ar up">︿</span><span class="ar dn">﹀</span><span class="ar lf">‹</span><span class="ar rt">›</span>
         <div class="ok">OK</div>
       </div></div>
-      <div class="main3"><span>↩</span><span class="big">⌂</span><span>⌨</span></div>
-      <div class="mini"><span>－</span><span>＋</span><span>🔇</span><span>⇄</span><span>▶❚❚</span></div>
+      <div class="main3"><span>←</span><span class="big">⌂</span><span class="fill">🎙</span></div>
     </div>
-    <figcaption><b>TV, D-pad.</b> One big ring: press an edge to move, the large centre button selects. Same bottom rows as the touchpad, so switching modes only swaps the top half. The choice is remembered per TV.</figcaption>
+    <figcaption><b>TV, D-pad.</b> One big ring: press an edge to move, the large centre button selects. The same three buttons underneath, so switching modes only swaps the top half. The choice is remembered per TV.</figcaption>
   </figure>
 
   <!-- 3. AC -->
@@ -195,7 +198,8 @@
 <section class="notes">
   <b>Open questions for this mockup</b>
   <ul>
-    <li>TV: touchpad by default (Google style), or D-pad by default?</li>
+    <li>TV: touchpad by default (Google style), or D-pad by default? And is Input in the ⋮ menu enough, or does it need a button?</li>
+    <li>TV voice: Android TV takes the phone's mic audio over the local network, and its own Assistant answers. LG and Samsung have no local voice API, so there the mic dictates: the phone turns speech into text on the device and types it into the TV's open search box (see docs/research/2026-11-02-tv-voice.md). Decided: hold to talk; with no box open, the app asks you to open one; if the phone can't do speech-to-text offline, the mic is hidden for LG and Samsung.</li>
     <li>AC: dial, or a large number with + and − buttons only?</li>
     <li>Home: grouped by room, or a flat list of devices?</li>
     <li>Phones without IR: hide the AC and fan cards, or show them greyed out with a short explanation?</li>
