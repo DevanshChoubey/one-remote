@@ -15,6 +15,7 @@ import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -54,7 +55,10 @@ class LanStreamTest {
       synchronized(data) { data.write(bytes) }
     }
 
+    @Volatile var closeError: String? = null
+
     override fun onClosed(error: String?) {
+      closeError = error
       closes.incrementAndGet()
       closed.countDown()
     }
@@ -271,6 +275,9 @@ class LanStreamTest {
     assertEquals(made.modulusHex, LanIdentities.hex(key.modulus))
     assertEquals(made.exponentHex, LanIdentities.hex(key.publicExponent))
     handle.write("ping".toByteArray())
+    val deadline = System.currentTimeMillis() + 5000
+    while (r.received().size < 4 && System.currentTimeMillis() < deadline) Thread.sleep(10)
+    assertArrayEquals("ping".toByteArray(), r.received())
     handle.close()
   }
 
@@ -279,8 +286,16 @@ class LanStreamTest {
     val port = startServer(clientCa = HeldCertificate.Builder().rsa2048().build()) { it.startHandshake() }
     val (_, r) = open(port, pairing = true)
     r.await()
-    // Depending on the TLS version the failure shows at open or on the first read.
-    assertTrue(r.closed.await(5, TimeUnit.SECONDS) || r.error != null)
+    // TLS 1.3 finishes the client handshake before the server rejects the missing certificate, so
+    // the failure shows either as a failed open or as an abnormal close right after it.
+    val failed = r.error
+    if (failed != null) {
+      assertEquals(ERR_OPEN_FAILED, failed.code)
+    } else {
+      assertTrue("stream was not closed", r.closed.await(5, TimeUnit.SECONDS))
+      assertNotNull("closed without an error", r.closeError)
+    }
+    assertEquals(0, r.received().size)
   }
 
   @Test

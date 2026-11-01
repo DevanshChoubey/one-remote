@@ -4,13 +4,13 @@ import Security
 /// The phone's TLS client identities in the Keychain, one per ref.
 ///
 /// Storage for ref `r` (tag `lan-identity:r`):
-///  - the RSA-2048 private key, `kSecClassKey` with `kSecAttrApplicationTag` = tag;
+///  - the RSA-2048 private key, `kSecClassKey` with `kSecAttrApplicationTag` = tag and
+///    `kSecAttrLabel` = tag;
 ///  - its self-signed certificate, `kSecClassCertificate` with `kSecAttrLabel` = tag.
 /// Both are `AfterFirstUnlockThisDeviceOnly` and not synchronised (no iCloud). The Keychain pairs
 /// them into a `SecIdentity` because the certificate's public key hash equals the key's
-/// `kSecAttrApplicationLabel`. The lookup therefore finds the certificate by its label and asks
-/// Security for the identity of that certificate, rather than querying `kSecClassIdentity` by an
-/// application tag (which only the key item carries).
+/// `kSecAttrApplicationLabel`. The lookup is a `kSecClassIdentity` query on the label, which is set
+/// on both items. (`SecIdentityCreateWithCertificate` is macOS-only and is not used.)
 enum LanIdentityStore {
   private static let lock = NSLock()
   private static let serial: UInt64 = 1000
@@ -18,24 +18,22 @@ enum LanIdentityStore {
 
   static func tag(_ ref: String) -> String { "lan-identity:\(ref)" }
 
-  /// The identity for [ref], or nil when it is missing or incomplete.
+  /// The identity for [ref], or nil when it is missing or incomplete. A `kSecClassIdentity` query
+  /// only returns a pair whose certificate and private key are both in the Keychain, so a half-made
+  /// pair is nil. The label is set on both items, so it matches whichever one iOS reads it from.
   static func identity(ref: String) -> SecIdentity? {
     let query: [String: Any] = [
-      kSecClass as String: kSecClassCertificate,
+      kSecClass as String: kSecClassIdentity,
       kSecAttrLabel as String: tag(ref),
       kSecReturnRef as String: true,
       kSecMatchLimit as String: kSecMatchLimitOne,
     ]
     var item: CFTypeRef?
     guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess, let item,
-      CFGetTypeID(item) == SecCertificateGetTypeID()
+      CFGetTypeID(item) == SecIdentityGetTypeID()
     else { return nil }
     // swiftlint:disable:next force_cast
-    let certificate = item as! SecCertificate
-    var identity: SecIdentity?
-    guard SecIdentityCreateWithCertificate(nil, certificate, &identity) == errSecSuccess
-    else { return nil }
-    return identity
+    return (item as! SecIdentity)
   }
 
   /// Makes the identity once, then returns the same public key until [delete]. Throws a message
@@ -93,6 +91,7 @@ enum LanIdentityStore {
       kSecPrivateKeyAttrs as String: [
         kSecAttrIsPermanent as String: true,
         kSecAttrApplicationTag as String: Data(tag.utf8),
+        kSecAttrLabel as String: tag,
         kSecAttrAccessible as String: accessible,
       ] as [String: Any],
     ]

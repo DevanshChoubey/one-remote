@@ -75,11 +75,11 @@ enum Der {
     let c = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
     let year = c.year!
     let rest = String(
-      format: "%02d%02d%02d%02d%02dZ", c.month!, c.day!, c.hour!, c.minute!, c.second!)
+      format: "%02ld%02ld%02ld%02ld%02ldZ", c.month!, c.day!, c.hour!, c.minute!, c.second!)
     if year < 2050 {
-      return tlv(0x17, Array((String(format: "%02d", year % 100) + rest).utf8))
+      return tlv(0x17, Array((String(format: "%02ld", year % 100) + rest).utf8))
     }
-    return tlv(0x18, Array((String(format: "%04d", year) + rest).utf8))
+    return tlv(0x18, Array((String(format: "%04ld", year) + rest).utf8))
   }
 }
 
