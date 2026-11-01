@@ -59,17 +59,28 @@ export type TvKey =
   | 'input'
   | 'power';
 
+export interface TvInput {
+  /** The TV's id for the input, e.g. `HDMI_1`. */
+  id: string;
+  /** The name the TV shows, which the user may have changed. */
+  label: string;
+  /** Something is plugged in. */
+  connected: boolean;
+}
+
 export interface TvState {
   power: boolean;
   app?: string;
   volume?: number;
   muted?: boolean;
+  inputs?: TvInput[];
 }
 
 export type Command =
   | { kind: 'tv.key'; key: TvKey }
   | { kind: 'tv.text'; text: string }
   | { kind: 'tv.powerOn' }
+  | { kind: 'tv.input'; inputId: string }
   | { kind: 'ac.set'; state: AcState }
   | { kind: 'fan.set'; state: FanState };
 
@@ -90,7 +101,12 @@ const DEFAULT_SETPOINT_MAX = 30;
 
 /** Commands that set absolute state or are safe to repeat. Key presses are not. */
 export function isIdempotent(cmd: Command): boolean {
-  return cmd.kind === 'ac.set' || cmd.kind === 'fan.set' || cmd.kind === 'tv.powerOn';
+  return (
+    cmd.kind === 'ac.set' ||
+    cmd.kind === 'fan.set' ||
+    cmd.kind === 'tv.powerOn' ||
+    cmd.kind === 'tv.input'
+  );
 }
 
 export function defaultAcState(): AcState {

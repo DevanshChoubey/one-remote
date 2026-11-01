@@ -111,6 +111,54 @@ describe('architecture lint rules', () => {
     ).toContain('no-restricted-imports');
   });
 
+  it('bans the lan-socket module outside src/transport, by import, require and import()', () => {
+    const where: [string, string][] = [
+      ['src/webos/x.ts', '../../modules/lan-socket'],
+      ['src/services/x.ts', '../../modules/lan-socket/index'],
+      ['src/device/x.ts', '../../modules/lan-socket'],
+      ['src/screens/x.tsx', '../../modules/lan-socket'],
+      ['src/ui/x.tsx', '../../modules/lan-socket'],
+      ['src/ui/primitives/x.tsx', '../../../modules/lan-socket'],
+      ['app/x.tsx', '../modules/lan-socket'],
+      ['app/dev/tv-spike.tsx', '../../modules/lan-socket'],
+      ['src/store/x.ts', 'lan-socket'],
+    ];
+    for (const [file, spec] of where) {
+      expect(errorsFor(`import '${spec}';\nexport const x = 1;\n`, file)).toContain(
+        'no-restricted-imports',
+      );
+    }
+    expect(
+      errorsFor("export const m = require('../../modules/lan-socket');\n", 'src/webos/x.ts'),
+    ).toContain('no-restricted-syntax');
+    expect(
+      errorsFor("export const m = import('../../modules/lan-socket');\n", 'src/services/x.ts'),
+    ).toContain('no-restricted-syntax');
+  });
+
+  it('bans loading the LanSocket native module by name outside modules/lan-socket', () => {
+    const sources = [
+      "import { requireNativeModule } from 'expo';\nexport const m = requireNativeModule('LanSocket');\n",
+      "import * as E from 'expo';\nexport const m = E.requireOptionalNativeModule('LanSocket');\n",
+      "import { NativeModules } from 'react-native';\nexport const m = NativeModules.LanSocket;\n",
+    ];
+    for (const file of ['src/services/x.ts', 'src/transport/x.ts']) {
+      for (const src of sources) expect(errorsFor(src, file)).toContain('no-restricted-syntax');
+    }
+    expect(errorsFor(sources[0] ?? '', 'modules/lan-socket/index.ts')).not.toContain(
+      'no-restricted-syntax',
+    );
+  });
+
+  it('allows the lan-socket module in src/transport', () => {
+    expect(
+      errorsFor(
+        "import { lanSocket } from '../../modules/lan-socket';\nexport const x = lanSocket;\n",
+        'src/transport/x.ts',
+      ),
+    ).not.toContain('no-restricted-imports');
+  });
+
   it('allows dgram in src/transport', () => {
     expect(
       errorsFor("import 'dgram';\nexport const x = 1;\n", 'src/transport/udp.ts'),

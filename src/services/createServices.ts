@@ -1,9 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Device, LinkDriver } from '@/core';
+import type { Device, Link, LinkDriver, TvSetup } from '@/core';
 import { DeviceHub } from '@/device/hub';
 import { createAsyncStorageStore } from '@/store/asyncStorageStore';
 import { createAsyncStoragePreferenceStore } from '@/store/preferences';
 import { createSecureSecretStore } from '@/store/secrets';
+import { createRnTvTransport } from '@/transport/tvTransport';
+import { createWebosDriver } from '@/webos/driver';
+import { createFrameTap } from '@/webos/frameTap';
+import { createTvSetup } from '@/webos/setup';
+import type { TvTransport } from '@/webos/transport';
 import type { Services } from './services';
 
 /** Keeps the hub's device list equal to the store's; applies the newest read that succeeded. */
@@ -64,28 +69,117 @@ function removeDeviceWith(
   };
 }
 
+/** What a lane's driver may need from the composition root. */
+interface LaneContext {
+  store: Services['store'];
+  secrets: Services['secrets'];
+  tvTransport: TvTransport;
+}
+
 /** The real drivers, one per line, each just under its lane's slot comment. */
-function laneDrivers(): LinkDriver[] {
+function laneDrivers(ctx: LaneContext): LinkDriver[] {
   return [
     // tv lane
+    createWebosDriver({
+      transport: ctx.tvTransport,
+      secrets: ctx.secrets,
+      onHostChanged: webosHostChanged(ctx.store),
+    }),
     // ir lane
     // matter lane
   ];
 }
+
+/** The TV was found at a new address: store it on the device's webos link. A gone device is ignored. */
+export function webosHostChanged(
+  store: Services['store'],
+): (id: string, host: string) => Promise<void> {
+  return async (id, host) => {
+    const device = (await store.devices()).find((d) => d.id === id);
+    if (!device) return;
+    await store.upsertDevice({
+      ...device,
+      links: device.links.map((l) => (l.kind === 'webos' ? { ...l, host } : l)),
+    });
+  };
+}
+
+type ClearsNotPaired = LinkDriver & {
+  clearNotPaired(deviceId: string, link?: Extract<Link, { kind: 'webos' }>): void;
+};
+
+function canClearNotPaired(d: LinkDriver): d is ClearsNotPaired {
+  return 'clearNotPaired' in d && typeof d.clearNotPaired === 'function';
+}
+
+/**
+ * Makes the TV setup finish its job: a TV found at a new address is saved (as the driver's own
+ * rediscovery does), and after pairing again the driver is released from its "not paired" latch,
+ * so it connects with the new key without an app restart.
+ */
+export function withTvFollowUp(
+  tv: TvSetup,
+  store: Services['store'],
+  drivers: Services['drivers'],
+): TvSetup {
+  const hostChanged = webosHostChanged(store);
+  return {
+    ...tv,
+    async findAgain(device) {
+      const host = await tv.findAgain(device);
+      const current = device.links.find((l) => l.kind === 'webos');
+      if (host !== null && (current?.kind !== 'webos' || current.host !== host)) {
+        await hostChanged(device.id, host);
+      }
+      return host;
+    },
+    async pair(found, onPrompt, clientKeyRef) {
+      const paired = await tv.pair(found, onPrompt, clientKeyRef);
+      const driver = drivers.find(canClearNotPaired);
+      if (driver && clientKeyRef !== undefined) {
+        try {
+          for (const d of await store.devices()) {
+            const link = d.links.find(
+              (l) => l.kind === 'webos' && l.clientKeyRef === paired.link.clientKeyRef,
+            );
+            if (link?.kind !== 'webos') continue;
+            // Save the new address first, then release the driver with that same link, so a
+            // stale stored host can never put the old one back.
+            const merged = { ...link, ...paired.link };
+            await store.upsertDevice({
+              ...d,
+              links: d.links.map((l) => (l === link ? merged : l)),
+            });
+            driver.clearNotPaired(d.id, merged);
+          }
+        } catch (e) {
+          console.error('Could not release the TV driver after pairing', e);
+        }
+      }
+      return paired;
+    },
+  };
+}
+
+/** `tvTransport` replaces the real TV network (tests pass a fake). */
+export type CreateServicesDeps = Partial<Services> & { tvTransport?: TvTransport };
 
 /**
  * Builds the app's services. Pass any part to replace it (tests pass memory stores and fake
  * drivers). Each lane adds its lines just under its own slot comments below (its setup lines, its
  * driver in `drivers`, its setup object in the result), so lane merges do not conflict.
  */
-export function createServices(deps: Partial<Services> = {}): Services {
+export function createServices(deps: CreateServicesDeps = {}): Services {
   // tv lane
+  const tvTap = __DEV__ ? createFrameTap() : undefined;
+  const tvBase = deps.tvTransport ?? createRnTvTransport();
+  const tvTransport = tvTap ? tvTap.wrap(tvBase) : tvBase;
   // ir lane
   // matter lane
-  const drivers = deps.drivers ?? laneDrivers();
-  const hub = deps.hub ?? new DeviceHub({ drivers });
   const store = deps.store ?? createAsyncStorageStore(AsyncStorage);
   const secrets = deps.secrets ?? createSecureSecretStore();
+  const drivers = deps.drivers ?? laneDrivers({ store, secrets, tvTransport });
+  const hub = deps.hub ?? new DeviceHub({ drivers });
   const prefs = deps.prefs ?? createAsyncStoragePreferenceStore(AsyncStorage);
   syncHub(hub, store);
   const removeDevice = deps.removeDevice ?? removeDeviceWith(store, secrets, drivers);
@@ -97,6 +191,11 @@ export function createServices(deps: Partial<Services> = {}): Services {
     drivers,
     removeDevice,
     // tv lane
+    tv: withTvFollowUp(
+      deps.tv ?? createTvSetup({ transport: tvTransport, secrets, frames: tvTap }),
+      store,
+      drivers,
+    ),
     // ir lane
     // matter lane
   };

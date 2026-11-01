@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["LanSocketModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.lansocket.LanSocketModule"]
+  }
+}

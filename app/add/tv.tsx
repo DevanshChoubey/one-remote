@@ -1,6 +1,5 @@
-import { AddPlaceholder } from '@/screens/add/AddPlaceholder';
+import { AddTvFlow } from '@/screens/add/tv/AddTvFlow';
 
-/** Placeholder: the tv lane plan replaces this with its add flow. */
 export default function AddTvRoute(): React.JSX.Element {
-  return <AddPlaceholder kind="tv" />;
+  return <AddTvFlow />;
 }

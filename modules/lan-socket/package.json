@@ -1,0 +1,8 @@
+{
+  "name": "lan-socket",
+  "version": "0.1.0",
+  "description": "WebSockets to literal local-network IP addresses, with per-socket certificate pinning",
+  "main": "index.ts",
+  "private": true,
+  "license": "MIT"
+}
