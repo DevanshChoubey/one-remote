@@ -31,8 +31,9 @@ interface Datagram {
   bind(port: number): void;
   send(
     msg: string | unknown[],
-    offset: number,
-    length: number,
+    /** Must be undefined when `msg` is an array: react-native-udp throws otherwise. */
+    offset: number | undefined,
+    length: number | undefined,
     port: number,
     address: string,
     cb: (e?: Error) => void,
@@ -328,7 +329,7 @@ export function createRnTvTransport(
         sock.setBroadcast(true);
         let left = targets.length;
         for (const address of targets) {
-          sock.send(Array.from(packet), 0, packet.length, WOL_PORT, address, (e) => {
+          sock.send(Array.from(packet), undefined, undefined, WOL_PORT, address, (e) => {
             if (e) fail(notSent(e));
             else if (--left === 0) done(undefined);
           });

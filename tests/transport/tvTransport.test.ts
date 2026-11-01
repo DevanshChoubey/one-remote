@@ -91,12 +91,16 @@ class FakeUdp {
   }
   send(
     msg: unknown,
-    _o: number,
-    _l: number,
+    offset: number | undefined,
+    length: number | undefined,
     port: number,
     address: string,
     cb: (e?: Error) => void,
   ): void {
+    // As react-native-udp does: an array message takes no offset or length.
+    if (Array.isArray(msg) && (offset !== undefined || length !== undefined)) {
+      throw new Error('socket.send(): offset and length must be undefined for a msg of type Array');
+    }
     this.sends.push({ msg, port, address });
     cb(this.sendError);
   }
