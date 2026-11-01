@@ -70,3 +70,19 @@ rejected: blacklisted certificate detected`. The client retries with an unsigned
 - Power on from off over Wake-on-LAN ("Turn on via Wi-Fi" on): yes, after 1088c80.
 - Phone volume buttons change the TV volume: yes; one press was lost right after an app reload,
   not reproduced.
+
+## Android TV spike (Airtel Xstream)
+
+Status: code only. The spike buttons are in `app/dev/tv-spike.tsx` (block "Android TV spike").
+The phone has not run them, and the box has not been checked. The hardware steps need the author
+present, so they are pending. Run them with the controller.
+
+- Pending: the box is on and on the same Wi-Fi as the phone (plan Task 1 step 3).
+- Pending: "Android TV Remote Service" present on the box, and its version (v2 needs version 5 or
+  later).
+- Pending: ATV browse, ATV probe, ATV TLS 6467, ATV TLS 6466, ATV forget, logged on the phone
+  (plan Task 1 step 5). Record each log line here, whether the 6466 and 6467 certificate SHA-256
+  values match, and what an unpaired identity gets on 6466 (an error, or a close after N ms).
+- Pending: laptop cross-check with `avahi-browse -rt _androidtvremote2._tcp` and `openssl s_client`
+  on 6467, to record the certificate subject (plan Task 1 step 4).
+- Go/no-go: pending.
