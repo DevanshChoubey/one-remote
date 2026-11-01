@@ -170,3 +170,18 @@ on. Run it with any Samsung Tizen TV (2016 or later) and a phone on the same Wi-
 | 12  | Token revoked: delete the phone in the TV's device list; the app says "Pair the TV again" once and the TV shows no repeated prompts. Re-pair from the device sheet.                                    |        |
 | 13  | Wrong network: phone on mobile data shows the "Can't reach it" panel, no hang.                                                                                                                         |        |
 | 14  | Info page: confirm it is served on 8001 on this model (some firmware may need 8002). Record `GET http://<ip>:8001/api/v2/` output (without the MAC) so the parser can be adjusted.                     |        |
+
+## Voice (lane/voice): still to test on hardware
+
+Date: 2026-11-02.
+
+Voice is proven against the fake TV and fake mic only. Hold the mic button on the TV screen for each
+item.
+
+| #   | Item                                                                                                                                         | Result |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | The Airtel box negotiates the voice bit (feature 8), so the mic button shows on its screen.                                                  |        |
+| 2   | The assistant answers phone audio: hold the mic, ask something, release. Check the 2 s wait for `remote_voice_begin` and the 8000 Hz format. |        |
+| 3   | Dictation on an Android 13+ phone: needs an installed on-device language. The mic shows on LG and Samsung only when it can run offline.      |        |
+| 4   | Dictation on an iPhone: the text reaches an open TV search box. With no box open the line says to open one first.                            |        |
+| 5   | The mic is hidden on the Android 11 test phone for LG (no on-device recognition there), and the rest of the screen is unchanged.             |        |
