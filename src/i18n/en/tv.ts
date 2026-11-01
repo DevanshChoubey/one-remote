@@ -40,6 +40,8 @@ export default {
   waking: 'Turning on…',
   wakeFailed:
     "Didn't turn on? On the TV, turn on Settings › General › Devices › TV Management › Turn on via Wi-Fi, or use the TV's remote once.",
+  wakeFailedSamsung:
+    "Didn't turn on? On the TV, open Settings › General › Network › Expert Settings and turn on Power on with mobile, or use the TV's remote once.",
   unreachableTitle: "Can't reach it",
   unreachableBody: "Not on the same Wi-Fi as the TV, or the TV's address changed. Looking again…",
   wifiSettings: 'Wi-Fi settings',

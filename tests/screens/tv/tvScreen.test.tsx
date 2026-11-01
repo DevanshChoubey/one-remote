@@ -218,6 +218,47 @@ describe('TvScreen', () => {
     expect(screen.getByText(/Turn on via Wi-Fi/)).toBeTruthy();
   });
 
+  it('explains a failed wake with the Samsung line for a Samsung TV, and the LG line for LG', async () => {
+    const samsung = createFakeDriver('samsung');
+    const tv: TvSetup = {
+      discover: () => () => undefined,
+      probeHost: () => Promise.resolve(null),
+      pair: () => Promise.reject(new Error('unused')),
+      findAgain: () => Promise.resolve(null),
+    };
+    const s = createServices({
+      store: createMemoryStore(),
+      secrets: createMemorySecretStore(),
+      prefs: createMemoryPreferenceStore(),
+      drivers: [samsung],
+      tv,
+    });
+    await s.store.upsertRoom(room('r1', 'Living room', 0));
+    await s.store.upsertDevice({
+      ...tvDevice('tv1'),
+      links: [
+        {
+          kind: 'samsung',
+          host: '192.168.1.40',
+          mac: 'aa:bb:cc:dd:ee:ff',
+          tokenRef: 't',
+          pinSha256: 'p',
+        },
+      ],
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await renderWith(s, <TvScreen deviceId="tv1" />);
+    await act(async () => {
+      samsung.emit('tv1', { kind: 'tv', state: { power: false } });
+    });
+    await fireEvent.press(screen.getByLabelText(t('tv.turnOn')));
+    await advance(20000);
+    expect(screen.getByText(t('tv.wakeFailedSamsung'))).toBeTruthy();
+    expect(screen.queryByText(t('tv.wakeFailed'))).toBeNull();
+  });
+
   it('sends the Input key when the TV cannot list its inputs', async () => {
     const r = await rig({ tv: { inputList: false, text: true, powerOn: true } });
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
