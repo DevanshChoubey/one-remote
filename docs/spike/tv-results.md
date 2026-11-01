@@ -86,3 +86,34 @@ present, so they are pending. Run them with the controller.
 - Pending: laptop cross-check with `avahi-browse -rt _androidtvremote2._tcp` and `openssl s_client`
   on 6467, to record the certificate subject (plan Task 1 step 4).
 - Go/no-go: pending.
+
+## Android TV run 1 (Airtel Xstream)
+
+Status: Android TV: untested on hardware. The lane was built and tested on the fake TV
+(`src/androidtv/testing`); the spike (Task 1) and the pass bar (Task 10) need the phone and the box,
+and were not run. Both are pending, to run with the author present.
+
+Pending, per spec §7:
+
+1. Pair: Add TV, Find my TV, the box shows "Google TV / Android TV · <ip>", type the code. Also try a
+   wrong code first, and "Show a new code".
+2. Keys and touchpad in four directions, OK, Back and Home. 100 touchpad moves with no visible lag.
+3. Keyboard: type "news" into a search field on the box. With no field open, expect the error line.
+4. Volume +/- and mute from the screen and the phone's volume keys. Does the box push its level?
+5. Input: the button sends KEYCODE_TV_INPUT. Does the box show a picker?
+6. Power off, then on. Which path worked: the power key in standby, IR, or none (the off panel then
+   shows the Android TV line)?
+7. IP change (DHCP reservation, or Wi-Fi off and on): the app finds the box again by pin.
+8. Remove the device: the box asks to pair again on the next add.
+
+Open questions the run must answer, because the fake guesses them:
+
+- Does the certificate on 6466 equal the one on 6467? (The fake uses one certificate for both.)
+- What does an unpaired identity get on 6466: an error code, or a close after N ms? (The fake fails
+  `notSent` "handshake failed".)
+- Does the certificate subject carry the MAC (`CN=atvremote/<model>/<mac>`)? Without it there is no
+  `link.mac` and Wake on LAN is unavailable; power on then relies on the standby session or IR.
+- Is the Remote Service version 5 or later?
+- Does the box in standby accept a 6466 session and report `started: false`?
+
+If the hardware differs from the fake, update `src/androidtv/testing/fakeAtv.ts` and fix the tests.
