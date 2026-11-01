@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
+import { isTvLink } from '@/core';
 import type { Device, Link } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
@@ -18,7 +19,7 @@ const LINK_LABEL: Record<Link['kind'], string> = {
 };
 
 function linkDetail(link: Link): string | null {
-  return link.kind === 'webos' ? link.host : null;
+  return isTvLink(link) ? link.host : null;
 }
 
 export interface DeviceSheetProps {

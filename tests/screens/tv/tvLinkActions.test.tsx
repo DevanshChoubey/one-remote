@@ -102,6 +102,26 @@ describe('TvLinkActions', () => {
     expect(await screen.findByText(t('addTv.paired'))).toBeTruthy();
   });
 
+  it('pairs an Android TV link again with that link as reuse', async () => {
+    const atv = {
+      kind: 'androidtv' as const,
+      host: '10.0.0.5',
+      certRef: 'phone',
+      pinSha256: 'p',
+    };
+    const r = await rig({ ...tvDevice, links: [atv] });
+    r.setup.pair.mockResolvedValueOnce({ link: atv, suggestedName: 'x' });
+    await renderWith(r.s, <TvLinkActions deviceId="tv1" />);
+    expect(await screen.findByText('10.0.0.5')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText(t('addTv.pairAgain')));
+    expect(r.setup.pair).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'androidtv', host: '10.0.0.5' }),
+      expect.anything(),
+      atv,
+    );
+    expect(await screen.findByText(t('addTv.paired'))).toBeTruthy();
+  });
+
   it('renders nothing for a device that is not a TV', async () => {
     const r = await rig({
       ...tvDevice,

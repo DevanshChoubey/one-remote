@@ -1,5 +1,5 @@
-import { isTvLink, tvLinkOf, withTvHost } from '@/core';
-import type { Device, Link } from '@/core';
+import { isTvLink, tvLinkOf, tvLinkRef, withTvHost } from '@/core';
+import type { Device, Link, TvLink } from '@/core';
 
 const webos: Link = { kind: 'webos', host: '192.168.1.23', secure: true, clientKeyRef: 'k' };
 const ir: Link = { kind: 'ir', remoteId: 'lg-tv/default' };
@@ -38,5 +38,11 @@ describe('tvLink', () => {
     const only = device([{ kind: 'webos', host: 'h', secure: false, clientKeyRef: 'r' }]);
     expect(only.links.every(isTvLink)).toBe(true);
     expect(tvLinkOf(only)?.kind).toBe('webos');
+  });
+
+  it('returns the secret ref by kind', () => {
+    expect(tvLinkRef(webos as TvLink)).toBe('k');
+    expect(tvLinkRef({ kind: 'androidtv', host: 'h', certRef: 'c', pinSha256: 'p' })).toBe('c');
+    expect(tvLinkRef({ kind: 'samsung', host: 'h', tokenRef: 't', pinSha256: 'p' })).toBe('t');
   });
 });

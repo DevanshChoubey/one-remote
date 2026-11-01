@@ -1,16 +1,14 @@
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 import type { FoundTv, Link } from '@/core';
-import { PairError } from '@/core';
+import { isTvLink, PairError, tvLinkOf } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
 import { Button, Column, Row, Txt } from '@/ui';
 import { useKnownDevice } from '../device/useKnownDevice';
 
-type Webos = Extract<Link, { kind: 'webos' }>;
-
 /**
- * Connection actions for a TV's Wi-Fi link: its address, finding it again after the address
+ * Connection actions for a TV's Wi-Fi link (any brand): its address, finding it again after the address
  * changed, and pairing again. Renders nothing for any other device or link.
  */
 export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactElement | null {
@@ -18,9 +16,8 @@ export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactEl
   const device = useKnownDevice(props.deviceId);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const link: Link | undefined = props.link ?? device?.links.find((l) => l.kind === 'webos');
-  if (!device || device.kind !== 'tv' || !link || link.kind !== 'webos') return null;
-  const webos: Webos = link;
+  const link: Link | undefined = props.link ?? (device ? tvLinkOf(device) : undefined);
+  if (!device || device.kind !== 'tv' || !link || !isTvLink(link)) return null;
 
   const run = (job: () => Promise<string>): void => {
     setBusy(true);
@@ -53,15 +50,15 @@ export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactEl
   const pairAgain = (): void =>
     run(async () => {
       const found: FoundTv = {
-        kind: 'webos',
-        host: webos.host,
+        kind: link.kind,
+        host: link.host,
         name: device.name,
-        secure: webos.secure,
+        secure: link.kind === 'webos' ? link.secure : true,
       };
       await tv.pair(
         found,
         { onAllow: () => setNote(t('addTv.pairAllow')), askCode: () => Promise.resolve(null) },
-        webos,
+        link,
       );
       return t('addTv.paired');
     });
@@ -72,7 +69,7 @@ export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactEl
         <Txt variant="caption" color="ink2">
           {t('addTv.address')}
         </Txt>
-        <Txt variant="caption">{webos.host}</Txt>
+        <Txt variant="caption">{link.host}</Txt>
       </Row>
       <Row gap={2} wrap>
         <Button

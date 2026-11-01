@@ -89,4 +89,42 @@ describe('TV follow-up in services', () => {
     const [d] = await r.s.store.devices();
     expect(d?.links[0]).toMatchObject({ host: '192.168.1.23' });
   });
+
+  it('re-pairing an Android TV touches only that host and only the androidtv driver', async () => {
+    const { setup } = fakeTvSetup();
+    const atvClear = jest.fn();
+    const webosClear = jest.fn();
+    const drivers = [
+      Object.assign(createFakeDriver('webos'), { clearNotPaired: webosClear }),
+      Object.assign(createFakeDriver('androidtv'), { clearNotPaired: atvClear }),
+    ];
+    const s = createServices({
+      store: createMemoryStore(),
+      secrets: createMemorySecretStore(),
+      prefs: createMemoryPreferenceStore(),
+      drivers,
+      tv: setup,
+    });
+    await s.store.upsertRoom({ id: 'r1', name: 'Room', order: 0 });
+    const atv = (host: string) => ({
+      kind: 'androidtv' as const,
+      host,
+      certRef: 'phone',
+      pinSha256: 'p',
+    });
+    const dev = (id: string, host: string): Device => ({ ...tvDevice, id, links: [atv(host)] });
+    await s.store.upsertDevice(dev('a1', '10.0.0.1'));
+    await s.store.upsertDevice(dev('a2', '10.0.0.2'));
+    const upsert = jest.spyOn(s.store, 'upsertDevice');
+    setup.pair.mockResolvedValue({ link: atv('10.0.0.1'), suggestedName: 'A' });
+    await s.tv.pair(
+      { kind: 'androidtv', host: '10.0.0.1', name: 'A', secure: true },
+      PROMPTS,
+      atv('10.0.0.1'),
+    );
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(atvClear).toHaveBeenCalledTimes(1);
+    expect(atvClear).toHaveBeenCalledWith('a1', expect.objectContaining({ host: '10.0.0.1' }));
+    expect(webosClear).not.toHaveBeenCalled();
+  });
 });

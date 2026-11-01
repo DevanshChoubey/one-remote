@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Device, Link, LinkDriver, TvSetup } from '@/core';
+import { isTvLink, tvLinkOf, tvLinkRef } from '@/core';
+import type { Device, LinkDriver, TvLink, TvSetup } from '@/core';
 import { DeviceHub } from '@/device/hub';
 import { createAsyncStorageStore } from '@/store/asyncStorageStore';
 import { createAsyncStoragePreferenceStore } from '@/store/preferences';
@@ -93,7 +94,7 @@ function laneDrivers(ctx: LaneContext): LinkDriver[] {
 }
 
 type ClearsNotPaired = LinkDriver & {
-  clearNotPaired(deviceId: string, link?: Extract<Link, { kind: 'webos' }>): void;
+  clearNotPaired(deviceId: string, link?: TvLink): void;
 };
 
 function canClearNotPaired(d: LinkDriver): d is ClearsNotPaired {
@@ -102,8 +103,8 @@ function canClearNotPaired(d: LinkDriver): d is ClearsNotPaired {
 
 /**
  * Makes the TV setup finish its job: a TV found at a new address is saved (as the driver's own
- * rediscovery does), and after pairing again the driver is released from its "not paired" latch,
- * so it connects with the new key without an app restart.
+ * rediscovery does), and after pairing again the driver of that brand is released from its "not
+ * paired" latch, so it connects with the new key without an app restart.
  */
 export function withTvFollowUp(
   tv: TvSetup,
@@ -115,38 +116,40 @@ export function withTvFollowUp(
     ...tv,
     async findAgain(device) {
       const host = await tv.findAgain(device);
-      const current = device.links.find((l) => l.kind === 'webos');
-      if (host !== null && (current?.kind !== 'webos' || current.host !== host)) {
+      const current = tvLinkOf(device);
+      if (host !== null && current?.host !== host) {
         await hostChanged(device.id, host);
       }
       return host;
     },
     async pair(found, prompts, reuse) {
       const paired = await tv.pair(found, prompts, reuse);
-      const clientKeyRef = reuse?.kind === 'webos' ? reuse.clientKeyRef : undefined;
-      const driver = drivers.find(canClearNotPaired);
-      if (driver && clientKeyRef !== undefined) {
-        try {
-          for (const d of await store.devices()) {
-            const link = d.links.find(
-              (l) =>
-                l.kind === 'webos' &&
-                paired.link.kind === 'webos' &&
-                l.clientKeyRef === paired.link.clientKeyRef,
-            );
-            if (link?.kind !== 'webos' || paired.link.kind !== 'webos') continue;
-            // Save the new address first, then release the driver with that same link, so a
-            // stale stored host can never put the old one back.
-            const merged = { ...link, ...paired.link };
-            await store.upsertDevice({
-              ...d,
-              links: d.links.map((l) => (l === link ? merged : l)),
-            });
-            driver.clearNotPaired(d.id, merged);
-          }
-        } catch (e) {
-          console.error('Could not release the TV driver after pairing', e);
+      if (reuse === undefined) return paired;
+      try {
+        const reuseRef = tvLinkRef(reuse);
+        const pairedRef = tvLinkRef(paired.link);
+        for (const d of await store.devices()) {
+          const link = d.links.find(
+            (l): l is TvLink =>
+              isTvLink(l) &&
+              l.kind === paired.link.kind &&
+              tvLinkRef(l) === pairedRef &&
+              // Every Android TV shares one phone-wide cert, so tell them apart by address.
+              (l.kind !== 'androidtv' || l.host === reuse.host),
+          );
+          if (!link || link.kind !== reuse.kind || tvLinkRef(link) !== reuseRef) continue;
+          const driver = drivers.find((x) => x.kind === link.kind && canClearNotPaired(x));
+          // Save the new address first, then release the driver with that same link, so a
+          // stale stored host can never put the old one back.
+          const merged = { ...link, ...paired.link } as TvLink;
+          await store.upsertDevice({
+            ...d,
+            links: d.links.map((l) => (l === link ? merged : l)),
+          });
+          if (driver && canClearNotPaired(driver)) driver.clearNotPaired(d.id, merged);
         }
+      } catch (e) {
+        console.error('Could not release the TV driver after pairing', e);
       }
       return paired;
     },

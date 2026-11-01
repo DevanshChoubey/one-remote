@@ -218,6 +218,32 @@ describe('Add TV flow', () => {
     expect(mockReplace).toHaveBeenCalledWith('/device/old');
   });
 
+  it('finds a duplicate by MAC across brands', async () => {
+    const r = await rig();
+    await r.s.store.upsertDevice({
+      id: 'old',
+      kind: 'tv',
+      name: 'Sony',
+      roomId: 'r1',
+      order: 0,
+      links: [
+        {
+          kind: 'androidtv',
+          host: '192.168.1.50',
+          mac: 'AA:BB:CC:DD:EE:FF',
+          certRef: 'phone',
+          pinSha256: 'p',
+        },
+      ],
+    });
+    await renderWith(r.s, <AddTvFlow />);
+    await toFind();
+    await r.found(lg);
+    await fireEvent.press(screen.getByLabelText('LG OLED C4, 192.168.1.23'));
+    expect(await screen.findByText(t('addTv.duplicate', { name: 'Sony' }))).toBeTruthy();
+    expect(await r.s.store.devices()).toHaveLength(1);
+  });
+
   it('deletes the key of a pairing that finishes after the step was left', async () => {
     const r = await rig();
     let finish: (p: PairedTv) => void = () => undefined;
