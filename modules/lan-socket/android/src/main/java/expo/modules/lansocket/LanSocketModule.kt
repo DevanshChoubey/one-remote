@@ -1,5 +1,7 @@
 package expo.modules.lansocket
 
+import android.content.Context
+import android.net.nsd.NsdManager
 import android.util.Base64
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.CodedException
@@ -44,6 +46,7 @@ private class LanException(code: String, message: String) : CodedException(code,
 class LanSocketModule : Module() {
   private val sockets = ConcurrentHashMap<String, LanHandle>()
   private val streams = ConcurrentHashMap<String, LanStreamHandle>()
+  private val browses = ConcurrentHashMap<String, LanBrowse>()
 
   /** Our own clients: React Native's shared client and the default TLS trust stay untouched. */
   private val connector: LanConnector by lazy { LanConnector() }
@@ -56,7 +59,7 @@ class LanSocketModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("LanSocket")
 
-    Events("message", "data", "close")
+    Events("message", "data", "close", "service")
 
     AsyncFunction("open") { id: String, url: String, opts: OpenOptions, promise: Promise ->
       open(id, url, opts, promise)
@@ -93,6 +96,10 @@ class LanSocketModule : Module() {
       request(opts, promise)
     }
 
+    Function("browse") { id: String, serviceType: String -> browse(id, serviceType) }
+
+    Function("stopBrowse") { id: String -> browses.remove(id)?.stop() }
+
     Function("close") { id: String ->
       sockets.remove(id)?.close()
       streams.remove(id)?.close()
@@ -101,8 +108,24 @@ class LanSocketModule : Module() {
     OnDestroy {
       sockets.keys.toList().forEach { sockets.remove(it)?.close() }
       streams.keys.toList().forEach { streams.remove(it)?.close() }
+      browses.keys.toList().forEach { browses.remove(it)?.stop() }
       requestPool.shutdownNow()
     }
+  }
+
+  /** Never throws: with no NsdManager or a failing platform the browse just finds nothing. */
+  private fun browse(id: String, serviceType: String) {
+    val nsd =
+      appContext.reactContext?.getSystemService(Context.NSD_SERVICE) as? NsdManager ?: return
+    val browse =
+      LanBrowse(nsd, serviceType) { s ->
+        sendEvent(
+          "service",
+          mapOf("id" to id, "name" to s.name, "host" to s.host, "port" to s.port, "txt" to s.txt),
+        )
+      }
+    browses.put(id, browse)?.stop()
+    browse.start()
   }
 
   private fun request(opts: RequestOptions, promise: Promise) {

@@ -67,11 +67,20 @@ class FakeNative {
   behave: ((o: FakeOpen) => void) | undefined;
   behaveStream: ((o: FakeStreamOpen) => void) | undefined;
   throwOnOpen = false;
-  private listeners: Record<'message' | 'data' | 'close', ((e: never) => void)[]> = {
+  browses: [string, string][] = [];
+  stoppedBrowses: string[] = [];
+  private listeners: Record<'message' | 'data' | 'close' | 'service', ((e: never) => void)[]> = {
     message: [],
     data: [],
     close: [],
+    service: [],
   };
+  browse(id: string, serviceType: string): void {
+    this.browses.push([id, serviceType]);
+  }
+  stopBrowse(id: string): void {
+    this.stoppedBrowses.push(id);
+  }
   open(id: string, url: string, opts: FakeOpen['opts']): Promise<{ certSha256?: string }> {
     if (this.throwOnOpen) throw new Error('native module missing');
     return new Promise((resolve, reject) => {
@@ -105,11 +114,14 @@ class FakeNative {
   close(id: string): void {
     this.closed.push(id);
   }
-  addListener(event: 'message' | 'data' | 'close', cb: (e: never) => void): { remove(): void } {
+  addListener(
+    event: 'message' | 'data' | 'close' | 'service',
+    cb: (e: never) => void,
+  ): { remove(): void } {
     this.listeners[event].push(cb);
     return { remove: () => undefined };
   }
-  emit(event: 'message' | 'data' | 'close', e: object): void {
+  emit(event: 'message' | 'data' | 'close' | 'service', e: object): void {
     this.listeners[event].forEach((cb) => cb(e as never));
   }
 }
@@ -847,5 +859,62 @@ describe('construction', () => {
     createRnTvTransport();
     expect(dgram.createSocket).not.toHaveBeenCalled();
     expect(lanSocket).not.toHaveBeenCalled();
+  });
+});
+
+describe('mdnsBrowse', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it("relays this browse's services, ignores other ids, and stops after the window", async () => {
+    const t = createRnTvTransport({ prefixes: lan });
+    const seen: object[] = [];
+    const done = t.mdnsBrowse('_androidtvremote2._tcp', 5000, (s) => seen.push(s));
+    await jest.advanceTimersByTimeAsync(0);
+    const [id, type] = mockNative.browses[0] as [string, string];
+    expect(type).toBe('_androidtvremote2._tcp');
+    mockNative.emit('service', {
+      id,
+      name: 'Living room',
+      host: '192.168.1.40',
+      port: 6466,
+      txt: { bt: 'AA:BB' },
+    });
+    mockNative.emit('service', {
+      id: 'someone-else',
+      name: 'Stray',
+      host: '192.168.1.41',
+      port: 1,
+      txt: {},
+    });
+    expect(mockNative.stoppedBrowses).toEqual([]);
+    await jest.advanceTimersByTimeAsync(5000);
+    await done;
+    expect(seen).toEqual([
+      { name: 'Living room', host: '192.168.1.40', port: 6466, txt: { bt: 'AA:BB' } },
+    ]);
+    expect(mockNative.stoppedBrowses).toEqual([id]);
+    mockNative.emit('service', { id, name: 'Late', host: '192.168.1.42', port: 1, txt: {} });
+    expect(seen).toHaveLength(1);
+  });
+
+  it('stops once even when the promise is awaited twice', async () => {
+    const t = createRnTvTransport({ prefixes: lan });
+    const p = t.mdnsBrowse('_x._tcp', 100, () => undefined);
+    await jest.advanceTimersByTimeAsync(100);
+    await p;
+    await p;
+    expect(mockNative.stoppedBrowses).toHaveLength(1);
+  });
+
+  it('rejects notSent and stops when the native browse throws', async () => {
+    mockNative.browse = () => {
+      throw new Error('native module missing');
+    };
+    const t = createRnTvTransport({ prefixes: lan });
+    await expect(t.mdnsBrowse('_x._tcp', 100, () => undefined)).rejects.toMatchObject({
+      code: 'notSent',
+    });
+    expect(mockNative.stoppedBrowses).toHaveLength(1);
   });
 });

@@ -18,6 +18,7 @@ function fakeTransport(): TvTransport & { calls: jest.Mock[] } {
   const openStream = jest.fn();
   const request = jest.fn();
   const ssdpSearch = jest.fn();
+  const mdnsBrowse = jest.fn();
   const probe = jest.fn();
   const sendWol = jest.fn();
   const onWifi = jest.fn();
@@ -26,10 +27,11 @@ function fakeTransport(): TvTransport & { calls: jest.Mock[] } {
     openStream,
     request,
     ssdpSearch,
+    mdnsBrowse,
     probe,
     sendWol,
     onWifi,
-    calls: [open, openStream, request, ssdpSearch, probe, sendWol, onWifi],
+    calls: [open, openStream, request, ssdpSearch, mdnsBrowse, probe, sendWol, onWifi],
   };
 }
 

@@ -45,12 +45,13 @@ private func lanError(_ code: String, _ message: String) -> Exception {
 public final class LanSocketModule: Module {
   private var sockets: [String: LanConnection] = [:]
   private var streams: [String: LanStream] = [:]
+  private var browses: [String: LanBrowse] = [:]
   private let lock = NSLock()
 
   public func definition() -> ModuleDefinition {
     Name("LanSocket")
 
-    Events("message", "data", "close")
+    Events("message", "data", "close", "service")
 
     AsyncFunction("open") { (id: String, url: String, opts: OpenOptions, promise: Promise) in
       self.open(id: id, url: url, opts: opts, promise: promise)
@@ -82,6 +83,22 @@ public final class LanSocketModule: Module {
       self.request(opts: opts, promise: promise)
     }
 
+    Function("browse") { (id: String, serviceType: String) in
+      let browse = LanBrowse(id: id, serviceType: serviceType, module: self)
+      self.lock.lock()
+      let previous = self.browses.updateValue(browse, forKey: id)
+      self.lock.unlock()
+      previous?.stop()
+      browse.start()
+    }
+
+    Function("stopBrowse") { (id: String) in
+      self.lock.lock()
+      let browse = self.browses.removeValue(forKey: id)
+      self.lock.unlock()
+      browse?.stop()
+    }
+
     Function("close") { (id: String) in
       self.take(id)?.closeByUs()
       self.takeStream(id)?.closeByUs()
@@ -91,9 +108,12 @@ public final class LanSocketModule: Module {
       self.lock.lock()
       let all = Array(self.sockets.values)
       let allStreams = Array(self.streams.values)
+      let allBrowses = Array(self.browses.values)
       self.sockets.removeAll()
       self.streams.removeAll()
+      self.browses.removeAll()
       self.lock.unlock()
+      allBrowses.forEach { $0.stop() }
       all.forEach { $0.closeByUs() }
       allStreams.forEach { $0.closeByUs() }
     }
@@ -248,6 +268,106 @@ public final class LanSocketModule: Module {
 
   fileprivate func emit(_ name: String, _ body: [String: Any?]) {
     sendEvent(name, body)
+  }
+}
+
+/// One mDNS browse: an `NWBrowser` for `serviceType` in `local.`, and for each service found an
+/// `NWConnection` to its endpoint, only to read the IP the system resolved it to. Only services
+/// whose IP passes `LocalHost.isLocalLiteral` are emitted. Any failure ends the browse quietly.
+private final class LanBrowse {
+  private let id: String
+  private let serviceType: String
+  private weak var module: LanSocketModule?
+  private let queue = DispatchQueue(label: "lan-browse")
+  private var browser: NWBrowser?
+  private var resolving: [String: NWConnection] = [:]
+  private var reported = Set<String>()
+  private var stopped = false
+
+  init(id: String, serviceType: String, module: LanSocketModule) {
+    self.id = id
+    self.serviceType = serviceType
+    self.module = module
+  }
+
+  func start() {
+    queue.async {
+      guard !self.stopped, self.browser == nil else { return }
+      let browser = NWBrowser(
+        for: .bonjourWithTXTRecord(type: self.serviceType, domain: "local."), using: .tcp)
+      self.browser = browser
+      browser.stateUpdateHandler = { [weak self] state in
+        switch state {
+        case .failed, .cancelled: self?.stop()
+        default: break
+        }
+      }
+      browser.browseResultsChangedHandler = { [weak self] _, changes in
+        for change in changes {
+          if case .added(let result) = change { self?.resolve(result) }
+        }
+      }
+      browser.start(queue: self.queue)
+    }
+  }
+
+  /// Safe to call more than once and from any thread.
+  func stop() {
+    queue.async {
+      if self.stopped { return }
+      self.stopped = true
+      self.browser?.cancel()
+      self.browser = nil
+      self.resolving.values.forEach { $0.cancel() }
+      self.resolving.removeAll()
+    }
+  }
+
+  private func resolve(_ result: NWBrowser.Result) {
+    guard !stopped, case .service(let name, _, _, _) = result.endpoint, resolving[name] == nil
+    else { return }
+    var txt: [String: String] = [:]
+    if case .bonjour(let record) = result.metadata {
+      for (key, value) in record.dictionary { txt[key] = value }
+    }
+    // IPv4 only: a scoped IPv6 address could not be dialled anyway.
+    let parameters = NWParameters.tcp
+    if let ip = parameters.defaultProtocolStack.internetProtocol as? NWProtocolIP.Options {
+      ip.version = .v4
+    }
+    let connection = NWConnection(to: result.endpoint, using: parameters)
+    resolving[name] = connection
+    connection.stateUpdateHandler = { [weak self, weak connection] state in
+      guard let self, let connection else { return }
+      switch state {
+      case .ready:
+        if case .hostPort(let host, let port)? = connection.currentPath?.remoteEndpoint,
+          case .ipv4(let address) = host
+        {
+          // The description of a scoped address ends in "%interface".
+          let ip = "\(address)".split(separator: "%").first.map(String.init) ?? ""
+          self.report(name: name, host: ip, port: Int(port.rawValue), txt: txt)
+        }
+        self.finish(name)
+      case .failed, .cancelled:
+        self.finish(name)
+      default:
+        break
+      }
+    }
+    connection.start(queue: queue)
+    queue.asyncAfter(deadline: .now() + 5) { [weak self] in self?.finish(name) }
+  }
+
+  private func finish(_ name: String) {
+    resolving.removeValue(forKey: name)?.cancel()
+  }
+
+  private func report(name: String, host: String, port: Int, txt: [String: String]) {
+    guard !stopped, LocalHost.isLocalLiteral(host), reported.insert("\(name)|\(host)").inserted
+    else { return }
+    module?.emit(
+      "service", ["id": id, "name": name, "host": host, "port": port, "txt": txt])
   }
 }
 

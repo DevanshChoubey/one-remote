@@ -5,6 +5,7 @@ import { ScrollView } from 'react-native';
 import type { Command, Device, FoundTv, TvKey } from '@/core';
 import { Button, Column, Input, Row, Screen, Txt } from '@/ui';
 import { useServices } from '@/services';
+import { createRnTvTransport } from '@/transport/tvTransport';
 
 const DEVICE_ID = 'spike-tv';
 const ROOM_ID = 'spike-room';
@@ -65,6 +66,21 @@ function TvSpike(): ReactElement {
       stop();
       add('discover stopped after 15 s');
     }, 15000);
+  };
+
+  const browseMdns = async (): Promise<void> => {
+    add('mDNS browse _androidtvremote2._tcp for 5 s');
+    const at = now();
+    let n = 0;
+    try {
+      await createRnTvTransport().mdnsBrowse('_androidtvremote2._tcp', 5000, (s) => {
+        n++;
+        add(`mdns +${now() - at} ms ${s.name} ${s.host}:${s.port} txt=${JSON.stringify(s.txt)}`);
+      });
+      add(`mDNS browse done: ${n} result(s)`);
+    } catch (e) {
+      add(`mDNS browse FAILED: ${String(e)}`);
+    }
   };
 
   const pair = async (): Promise<void> => {
@@ -134,6 +150,7 @@ function TvSpike(): ReactElement {
             {h}
           </Txt>
         ))}
+        <Button label="Browse mDNS" variant="secondary" onPress={() => void browseMdns()} />
         <Button label="Pair with last hit" onPress={() => void pair()} />
         <Row gap={2}>
           {keys.map((k) => (

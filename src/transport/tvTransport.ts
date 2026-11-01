@@ -24,6 +24,7 @@ import {
   type LanCloseEvent,
   type LanDataEvent,
   type LanMessageEvent,
+  type LanServiceEvent,
   type LanSocketNative,
   type LanStreamOpenResult,
 } from '../../modules/lan-socket';
@@ -140,6 +141,7 @@ function fromBase64(text: string): Uint8Array {
 interface Handler {
   message?(text: string): void;
   data?(base64: string): void;
+  service?(e: LanServiceEvent): void;
   close(why: string): void;
 }
 
@@ -162,6 +164,7 @@ function createRouter(lan: () => LanSocketNative): Router {
           handlers.get(e.id)?.message?.(e.data),
         );
         native.addListener('data', (e: LanDataEvent) => handlers.get(e.id)?.data?.(e.base64));
+        native.addListener('service', (e: LanServiceEvent) => handlers.get(e.id)?.service?.(e));
         native.addListener('close', (e: LanCloseEvent) => {
           const h2 = handlers.get(e.id);
           handlers.delete(e.id);
@@ -491,6 +494,34 @@ export function createRnTvTransport(
         const timer = setTimeout(() => done(undefined), windowMs);
         return () => clearTimeout(timer);
       });
+    },
+
+    async mdnsBrowse(serviceType, windowMs, onService): Promise<void> {
+      const id = newId();
+      router.add(id, {
+        service: (e) => onService({ name: e.name, host: e.host, port: e.port, txt: e.txt }),
+        close: () => undefined,
+      });
+      const native = lan();
+      let stopped = false;
+      const stop = (): void => {
+        if (stopped) return;
+        stopped = true;
+        router.remove(id);
+        try {
+          native.stopBrowse(id);
+        } catch {
+          // already gone
+        }
+      };
+      try {
+        native.browse(id, serviceType);
+      } catch (e) {
+        stop();
+        throw notSent(e);
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, windowMs));
+      stop();
     },
 
     async probe(ports, perHostMs, onOpen, isCancelled): Promise<void> {

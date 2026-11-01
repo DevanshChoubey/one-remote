@@ -21,6 +21,10 @@ import { requireNativeModule, type EventSubscription } from 'expo';
  * base64 and arrive as `data` events, in order. A stream shares the id space, `close(id)` and the
  * `close` event with WebSockets.
  *
+ * `browse` looks for mDNS/Bonjour services of one type (e.g. `_androidtvremote2._tcp`) until
+ * `stopBrowse(id)`, emitting a `service` event per resolved service. It never rejects: a platform
+ * failure just ends the browse with nothing found. It shares no id space with sockets.
+ *
  * `request` is a one-shot HTTP(S) request to a literal local IP with the same trust rules (https
  * needs `pairing` or `pinSha256`, else `ERR_LAN_NO_TRUST`). Redirects are never followed (a 3xx is
  * returned as-is), no proxy and no cookies are used, and a body over `maxBytes` fails with
@@ -89,6 +93,19 @@ export interface LanMessageEvent {
   data: string;
 }
 
+/**
+ * One resolved service of a `browse`. `host` is a literal local IP (services that resolve to
+ * anything else are dropped natively); `txt` holds the TXT record's key/value pairs (a key
+ * without a value maps to '').
+ */
+export interface LanServiceEvent {
+  id: string;
+  name: string;
+  host: string;
+  port: number;
+  txt: Record<string, string>;
+}
+
 /** The socket ended. Not sent for a socket whose `open` rejected, nor after `close(id)`. */
 export interface LanCloseEvent {
   id: string;
@@ -127,9 +144,14 @@ export interface LanSocketNative {
   request(req: LanRequest): Promise<LanResponse>;
   /** Closes (or cancels the open of) the socket or stream. Unknown ids are ignored. */
   close(id: string): void;
+  /** Starts browsing for `serviceType` (e.g. `_androidtvremote2._tcp`); `id` is chosen by the caller. */
+  browse(id: string, serviceType: string): void;
+  /** Stops a browse. Unknown ids are ignored. */
+  stopBrowse(id: string): void;
   addListener(event: 'message', cb: (e: LanMessageEvent) => void): EventSubscription;
   addListener(event: 'data', cb: (e: LanDataEvent) => void): EventSubscription;
   addListener(event: 'close', cb: (e: LanCloseEvent) => void): EventSubscription;
+  addListener(event: 'service', cb: (e: LanServiceEvent) => void): EventSubscription;
 }
 
 let native: LanSocketNative | undefined;

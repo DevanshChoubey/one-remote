@@ -79,6 +79,18 @@ export interface TvTransport {
     windowMs: number,
     onReply: (text: string, fromHost: string) => void,
   ): Promise<void>;
+  /** Browses mDNS for `serviceType` (e.g. `_androidtvremote2._tcp`) for `windowMs`, reporting each
+   *  service resolved to a local IP. Rejects 'notSent' when the platform cannot browse. */
+  mdnsBrowse(
+    serviceType: string,
+    windowMs: number,
+    onService: (s: {
+      name: string;
+      host: string;
+      port: number;
+      txt: Record<string, string>;
+    }) => void,
+  ): Promise<void>;
   probe(
     ports: number[],
     perHostMs: number,
