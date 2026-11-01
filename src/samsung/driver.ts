@@ -504,6 +504,7 @@ export function createSamsungDriver(o: SamsungDriverOpts): LinkDriver & {
       tv: {
         inputList: false,
         text: true,
+        voice: false,
         powerOn:
           (link.kind === 'samsung' && !!link.mac) || device.links.some((l) => l.kind === 'ir'),
       },

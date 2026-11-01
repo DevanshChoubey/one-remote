@@ -128,11 +128,11 @@ describe('supports and capabilities', () => {
   it('capabilities', () => {
     const r = rig();
     expect(r.driver.capabilities(r.dev, r.link)).toEqual({
-      tv: { inputList: false, text: true, powerOn: true },
+      tv: { inputList: false, text: true, powerOn: true, voice: false },
     });
     const noMac = samsung({ mac: undefined });
     expect(r.driver.capabilities(device([noMac]), noMac)).toEqual({
-      tv: { inputList: false, text: true, powerOn: false },
+      tv: { inputList: false, text: true, powerOn: false, voice: false },
     });
     const ir = device([noMac, { kind: 'ir', remoteId: 'x' }]);
     expect(r.driver.capabilities(ir, noMac).tv?.powerOn).toBe(true);

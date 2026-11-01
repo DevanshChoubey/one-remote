@@ -8,6 +8,7 @@ import type {
   LinkKind,
   Reported,
   Unsubscribe,
+  VoiceSession,
 } from '@/core';
 import { DeviceError } from '@/core';
 
@@ -15,6 +16,8 @@ export interface FakeDriverOptions {
   available?: boolean;
   supports?: (cmd: Command) => boolean;
   capabilities?: Capabilities;
+  /** Gives the driver a `startVoice`. */
+  startVoice?: (device: Device) => Promise<VoiceSession>;
 }
 
 export interface FakeDriver extends LinkDriver {
@@ -35,9 +38,11 @@ export function createFakeDriver(kind: LinkKind, opts: FakeDriverOptions = {}): 
   const sent: { deviceId: string; cmd: Command }[] = [];
   const observers = new Map<string, Set<(r: Reported) => void>>();
 
+  const voice = opts.startVoice;
   return {
     kind,
     sent,
+    ...(voice ? { startVoice: (device: Device): Promise<VoiceSession> => voice(device) } : {}),
     available: (): boolean => isAvailable,
     setAvailable: (v: boolean): void => {
       isAvailable = v;

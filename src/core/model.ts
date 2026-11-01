@@ -96,6 +96,8 @@ export interface TvCaps {
   text: boolean;
   /** `tv.powerOn` can work for this TV from this phone. */
   powerOn: boolean;
+  /** The TV takes phone audio (a voice session over the link). */
+  voice: boolean;
 }
 
 export interface Capabilities {

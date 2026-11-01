@@ -9,6 +9,7 @@ import {
   type TvLink,
   type TvState,
   type Unsubscribe,
+  type VoiceSession,
 } from '@/core';
 import { magicPacket } from '@/tv/wol';
 import type { AtvTransport } from './constants';
@@ -216,6 +217,8 @@ export function createAndroidTvDriver(o: AndroidTvDriverOpts): LinkDriver & {
     e.lastRediscoverAt = undefined;
     clearOffTimer(e);
     e.liveUnsub = remote.onLive((live) => publish(e, live));
+    // A new session can change what the TV takes (voice), so observers always hear of it.
+    e.lastJson = undefined;
     publish(e, remote.live);
     remote.onClose(() => onRemoteClosed(e, remote));
     if (e.observers.size === 0) scheduleIdle(e);
@@ -423,6 +426,7 @@ export function createAndroidTvDriver(o: AndroidTvDriverOpts): LinkDriver & {
       tv: {
         inputList: false,
         text: true,
+        voice: entries.get(device.id)?.remote?.voiceSupported ?? false,
         powerOn:
           (link.kind === 'androidtv' && !!link.mac) ||
           hasIr(device) ||
@@ -459,6 +463,36 @@ export function createAndroidTvDriver(o: AndroidTvDriverOpts): LinkDriver & {
         else remote.key(KEYCODE[cmd.key]);
       } finally {
         scheduleIdle(e);
+      }
+    },
+
+    /** Opens a voice session on the (connected, if need be) remote session. Rejects `notSent`. */
+    async startVoice(device: Device, link: Link): Promise<VoiceSession> {
+      if (link.kind !== 'androidtv') throw new DeviceError('unsupported');
+      const e = entryFor(device, link);
+      if (e.notPaired) throw new DeviceError('notPaired', 'The TV no longer trusts this phone');
+      try {
+        const remote = await withinBudget(connectMs, connectOnce(e, true));
+        const id = await remote.startVoice();
+        // The idle timer closes the connection 10 s after the last use; keep it for the hold.
+        if (e.idleTimer) clearTimeout(e.idleTimer);
+        e.idleTimer = undefined;
+        let over = false;
+        return {
+          push: (pcm) => {
+            if (over) throw new DeviceError('notSent', 'The voice session is over');
+            remote.sendVoice(id, pcm);
+          },
+          end: () => {
+            if (over) return;
+            over = true;
+            remote.endVoice(id);
+            scheduleIdle(e);
+          },
+        };
+      } catch (err) {
+        scheduleIdle(e);
+        throw asDeviceError(err);
       }
     },
 

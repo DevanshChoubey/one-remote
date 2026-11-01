@@ -286,7 +286,7 @@ describe('TvScreen', () => {
   });
 
   it('sends the Input key when the TV cannot list its inputs', async () => {
-    const r = await rig({ tv: { inputList: false, text: true, powerOn: true } });
+    const r = await rig({ tv: { inputList: false, text: true, powerOn: true, voice: false } });
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
     await on(r);
     await fireEvent.press(screen.getByLabelText(t('tv.more')));
@@ -297,7 +297,7 @@ describe('TvScreen', () => {
   });
 
   it('hides the Keyboard button when the TV takes no text', async () => {
-    const r = await rig({ tv: { inputList: true, text: false, powerOn: true } });
+    const r = await rig({ tv: { inputList: true, text: false, powerOn: true, voice: false } });
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
     expect(screen.queryByLabelText(t('tv.keyboard'))).toBeNull();
     expect(screen.getByLabelText(t('tv.more'))).toBeTruthy();
@@ -332,7 +332,7 @@ describe('TvScreen', () => {
   });
 
   it('says the TV cannot be turned on from the phone, with no Turn on button', async () => {
-    const r = await rig({ tv: { inputList: true, text: true, powerOn: false } });
+    const r = await rig({ tv: { inputList: true, text: true, powerOn: false, voice: false } });
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
     await act(async () => {
       r.webos.emit('tv1', { kind: 'tv', state: { power: false } });

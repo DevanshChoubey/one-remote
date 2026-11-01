@@ -2,6 +2,13 @@ import type { Capabilities, Command, Device, Link, LinkKind, Reported } from './
 
 export type Unsubscribe = () => void;
 
+/** A live voice session with a TV. */
+export interface VoiceSession {
+  /** PCM16 LE mono 8 kHz. Throws DeviceError('notSent') once the session is gone. */
+  push(pcm: Uint8Array): void;
+  end(): void;
+}
+
 export interface LinkDriver {
   readonly kind: LinkKind;
   /** Quick, synchronous: false when this phone can't use the link at all (e.g. no IR emitter). */
@@ -19,6 +26,9 @@ export interface LinkDriver {
    *  drop per-node data. Best effort and idempotent, so a later retry is safe. A failure is logged
    *  and never blocks the removal. */
   forget?(device: Device, link: Link): Promise<void>;
+  /** Optional: opens a voice session with the TV (Android TV). Rejects DeviceError('notSent') when
+   *  the TV does not start one. */
+  startVoice?(device: Device, link: Link): Promise<VoiceSession>;
   /** Optional live state (webOS, Matter). */
   observe?(device: Device, link: Link, cb: (r: Reported) => void): Unsubscribe;
 }
