@@ -17,12 +17,37 @@ export interface TvSocket {
   onClose(cb: () => void): void;
 }
 
+/** One open TLS byte stream to a TV. `onClose` fires when the stream ends for any reason other than
+ *  the caller's own `close()`. */
+export interface TvStream {
+  /** The TV's leaf certificate SHA-256 (lower-case hex). */
+  readonly certSha256: string;
+  /** The TV's leaf certificate RSA public key, upper-case hex, no leading zeros. */
+  readonly serverModulusHex: string;
+  readonly serverExponentHex: string;
+  /** The TV's leaf certificate subject, RFC 2253 form. */
+  readonly serverSubject: string;
+  /** Throws DeviceError('notSent') once the stream has ended. */
+  write(bytes: Uint8Array): void;
+  close(): void;
+  onData(cb: (bytes: Uint8Array) => void): void;
+  onClose(cb: () => void): void;
+}
+
 /** Everything the webOS client needs from the network. Implemented by `src/transport/tvTransport.ts`
  *  and faked by `src/webos/testing/fakeLan.ts`. */
 export interface TvTransport {
   /** Rejects DeviceError('notSent') on refusal or after timeoutMs; 'notLocal' from assertLocal;
    *  'notPaired' for a `wss://` certificate that is not the pinned one, or no pin outside pairing. */
   open(url: string, timeoutMs: number, tls?: TvTls): Promise<TvSocket>;
+  /** A TLS byte stream to `host:port`; the errors are those of `open`. `identity` is the ref of a
+   *  client identity to present as the TLS client certificate. */
+  openStream(
+    host: string,
+    port: number,
+    timeoutMs: number,
+    tls: TvTls & { identity?: string },
+  ): Promise<TvStream>;
   ssdpSearch(
     message: string,
     windowMs: number,

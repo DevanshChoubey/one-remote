@@ -24,14 +24,34 @@ function nativeError(code: string, message: string): Error {
   return Object.assign(new Error(message), { code });
 }
 
+interface FakeStreamOpen {
+  id: string;
+  host: string;
+  port: number;
+  opts: { pinSha256?: string; pairing?: boolean; identity?: string; timeoutMs: number };
+  resolve(r: object): void;
+  reject(e: unknown): void;
+}
+
+const STREAM_INFO = {
+  certSha256: 'ab12',
+  serverModulusHex: 'C0FFEE',
+  serverExponentHex: '10001',
+  serverSubject: 'CN=atvremote/AA:BB:CC:00:11:22',
+};
+
 class FakeNative {
   opens: FakeOpen[] = [];
+  streamOpens: FakeStreamOpen[] = [];
   sent: [string, string][] = [];
+  written: [string, string][] = [];
   closed: string[] = [];
   behave: ((o: FakeOpen) => void) | undefined;
+  behaveStream: ((o: FakeStreamOpen) => void) | undefined;
   throwOnOpen = false;
-  private listeners: Record<'message' | 'close', ((e: never) => void)[]> = {
+  private listeners: Record<'message' | 'data' | 'close', ((e: never) => void)[]> = {
     message: [],
+    data: [],
     close: [],
   };
   open(id: string, url: string, opts: FakeOpen['opts']): Promise<{ certSha256?: string }> {
@@ -43,17 +63,33 @@ class FakeNative {
       if (behave) void Promise.resolve().then(() => behave(o));
     });
   }
+  openStream(
+    id: string,
+    host: string,
+    port: number,
+    opts: FakeStreamOpen['opts'],
+  ): Promise<object> {
+    return new Promise((resolve, reject) => {
+      const o: FakeStreamOpen = { id, host, port, opts, resolve, reject };
+      this.streamOpens.push(o);
+      const behave = this.behaveStream;
+      if (behave) void Promise.resolve().then(() => behave(o));
+    });
+  }
   send(id: string, text: string): void {
     this.sent.push([id, text]);
+  }
+  write(id: string, base64: string): void {
+    this.written.push([id, base64]);
   }
   close(id: string): void {
     this.closed.push(id);
   }
-  addListener(event: 'message' | 'close', cb: (e: never) => void): { remove(): void } {
+  addListener(event: 'message' | 'data' | 'close', cb: (e: never) => void): { remove(): void } {
     this.listeners[event].push(cb);
     return { remove: () => undefined };
   }
-  emit(event: 'message' | 'close', e: object): void {
+  emit(event: 'message' | 'data' | 'close', e: object): void {
     this.listeners[event].forEach((cb) => cb(e as never));
   }
 }
@@ -293,6 +329,111 @@ describe('open: URL tricks', () => {
     const t = createRnTvTransport({ prefixes: lan });
     await expect(t.open(url, 1500, { pairing: true })).rejects.toMatchObject({ code: 'notLocal' });
     expect(mockNative.opens).toHaveLength(0);
+  });
+});
+
+describe('openStream', () => {
+  it('refuses a non-local host, and no pin outside pairing, without calling native', async () => {
+    const t = createRnTvTransport({ prefixes: lan });
+    await expect(t.openStream('8.8.8.8', 6467, 1500, { pairing: true })).rejects.toMatchObject({
+      code: 'notLocal',
+    });
+    await expect(t.openStream('192.168.1.23', 6467, 1500, {})).rejects.toMatchObject({
+      code: 'notPaired',
+    });
+    expect(mockNative.streamOpens).toHaveLength(0);
+  });
+
+  it('passes the trust and identity to native and reports the server certificate', async () => {
+    mockNative.behaveStream = (o) => o.resolve(STREAM_INFO);
+    const t = createRnTvTransport({ prefixes: lan });
+    const s = await t.openStream('192.168.1.23', 6467, 1500, {
+      pairing: true,
+      identity: 'androidtv:tv1',
+    });
+    const o = mockNative.streamOpens[0] as FakeStreamOpen;
+    expect([o.host, o.port]).toEqual(['192.168.1.23', 6467]);
+    expect(o.opts).toEqual({ timeoutMs: 1500, pairing: true, identity: 'androidtv:tv1' });
+    expect(s).toMatchObject(STREAM_INFO);
+    await t.openStream('192.168.1.23', 6466, 1500, { pinSha256: 'ab12' });
+    expect(mockNative.streamOpens[1]?.opts).toEqual({ timeoutMs: 1500, pinSha256: 'ab12' });
+  });
+
+  it('maps the native codes as open does', async () => {
+    const t = createRnTvTransport({ prefixes: lan });
+    const cases: [string, string][] = [
+      ['ERR_LAN_PIN_MISMATCH', 'notPaired'],
+      ['ERR_LAN_NO_TRUST', 'notPaired'],
+      ['ERR_LAN_NOT_LOCAL', 'notLocal'],
+      ['ERR_LAN_OPEN_FAILED', 'notSent'],
+    ];
+    for (const [code, want] of cases) {
+      mockNative.behaveStream = (o) => o.reject(nativeError(code, 'native says no'));
+      const err = await t
+        .openStream('192.168.1.23', 6467, 1500, { pinSha256: 'ab' })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(DeviceError);
+      expect(err).toMatchObject({ code: want });
+      expect((err as Error).message).toContain('native says no');
+      expect((err as Error).message).toContain('192.168.1.23:6467');
+    }
+  });
+
+  it('base64-encodes writes and decodes data, buffering until a listener exists', async () => {
+    mockNative.behaveStream = (o) => o.resolve(STREAM_INFO);
+    const s = await createRnTvTransport({ prefixes: lan }).openStream('192.168.1.23', 6467, 1500, {
+      pairing: true,
+    });
+    const id = mockNative.streamOpens[0]?.id as string;
+    s.write(new Uint8Array([0, 1, 2, 250, 255]));
+    s.write(new Uint8Array([104, 105]));
+    expect(mockNative.written).toEqual([
+      [id, 'AAEC+v8='],
+      [id, 'aGk='],
+    ]);
+    mockNative.emit('data', { id, base64: 'AAEC+v8=' });
+    mockNative.emit('data', { id: 'someone-else', base64: 'aGk=' });
+    const got: number[][] = [];
+    s.onData((b) => got.push([...b]));
+    mockNative.emit('data', { id, base64: 'aGk=' });
+    mockNative.emit('data', { id, base64: '' });
+    expect(got).toEqual([[0, 1, 2, 250, 255], [104, 105], []]);
+  });
+
+  it('fires onClose once for a remote close, not for our own, and refuses writes after', async () => {
+    mockNative.behaveStream = (o) => o.resolve(STREAM_INFO);
+    const t = createRnTvTransport({ prefixes: lan });
+    const s1 = await t.openStream('192.168.1.23', 6467, 1500, { pairing: true });
+    const id1 = mockNative.streamOpens[0]?.id as string;
+    const c1 = jest.fn();
+    s1.onClose(c1);
+    mockNative.emit('close', { id: id1, error: 'reset' });
+    mockNative.emit('close', { id: id1, error: 'again' });
+    expect(c1).toHaveBeenCalledTimes(1);
+    expect(() => s1.write(new Uint8Array([1]))).toThrow(DeviceError);
+    const s2 = await t.openStream('192.168.1.23', 6467, 1500, { pairing: true });
+    const id2 = mockNative.streamOpens[1]?.id as string;
+    const c2 = jest.fn();
+    s2.onClose(c2);
+    s2.close();
+    s2.close();
+    expect(mockNative.closed).toEqual([id2]);
+    mockNative.emit('close', { id: id2, error: 'late' });
+    expect(c2).not.toHaveBeenCalled();
+  });
+
+  it('rejects notSent after timeoutMs and closes a late stream', async () => {
+    jest.useFakeTimers();
+    const t = createRnTvTransport({ prefixes: lan });
+    let err: unknown;
+    t.openStream('192.168.1.23', 6467, 1500, { pairing: true }).catch((e: unknown) => (err = e));
+    await jest.advanceTimersByTimeAsync(1500);
+    expect(err).toMatchObject({ code: 'notSent' });
+    const o = mockNative.streamOpens[0] as FakeStreamOpen;
+    expect(mockNative.closed).toEqual([o.id]);
+    o.resolve(STREAM_INFO);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(mockNative.closed).toEqual([o.id, o.id]);
   });
 });
 

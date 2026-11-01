@@ -1,8 +1,8 @@
 import { requireNativeModule, type EventSubscription } from 'expo';
 
 /**
- * `lan-socket`: WebSockets to a literal private, link-local or loopback IP only, with the TLS trust
- * chosen per socket. Imported only by `src/transport` (lint enforces it).
+ * `lan-socket`: WebSockets and TLS byte streams to a literal private, link-local or loopback IP
+ * only, with the TLS trust chosen per socket. Imported only by `src/transport` (lint enforces it).
  *
  * - `ws://` opens a plain socket.
  * - `wss://` with `pairing: true` and no pin accepts the server's certificate (trust on first use)
@@ -13,6 +13,13 @@ import { requireNativeModule, type EventSubscription } from 'expo';
  *
  * Redirects are refused, no proxy is used, and only the checked IP literal is ever dialled. The
  * default TLS trust of the app is never changed.
+ *
+ * `openStream` opens a raw TLS byte stream (TLS only; there is no plain stream) with the same trust
+ * rules: `pairing` (trust on first use) or `pinSha256`, else `ERR_LAN_NO_TRUST`. With `identity`,
+ * the client identity stored under `lan-identity:<ref>` (Android Keystore alias, iOS Keychain tag)
+ * is presented as the client certificate; a missing one is `ERR_LAN_OPEN_FAILED`. Bytes travel as
+ * base64 and arrive as `data` events, in order. A stream shares the id space, `close(id)` and the
+ * `close` event with WebSockets.
  */
 export interface LanOpenOptions {
   pinSha256?: string;
@@ -25,6 +32,28 @@ export interface LanOpenOptions {
 export interface LanOpenResult {
   /** The leaf certificate's SHA-256, lower-case hex; wss only. */
   certSha256?: string;
+}
+
+export interface LanStreamOptions {
+  pinSha256?: string;
+  pairing?: boolean;
+  /** Ref of a client identity made by `ensureIdentity` (Task 8); presented as the TLS client cert. */
+  identity?: string;
+  timeoutMs: number;
+}
+
+export interface LanStreamOpenResult {
+  certSha256: string;
+  /** Server leaf certificate RSA public key, upper-case hex, no leading zeros. */
+  serverModulusHex: string;
+  serverExponentHex: string;
+  /** Server leaf certificate subject, RFC 2253 form (Android TV puts its MAC in the CN). */
+  serverSubject: string;
+}
+
+export interface LanDataEvent {
+  id: string;
+  base64: string;
 }
 
 export interface LanMessageEvent {
@@ -57,9 +86,19 @@ export interface LanSocketNative {
   open(id: string, url: string, opts: LanOpenOptions): Promise<LanOpenResult>;
   /** Throws when the socket is not open. */
   send(id: string, text: string): void;
-  /** Closes (or cancels the open of) the socket. Unknown ids are ignored. */
+  /** `id` is chosen by the caller, as for `open`. */
+  openStream(
+    id: string,
+    host: string,
+    port: number,
+    opts: LanStreamOptions,
+  ): Promise<LanStreamOpenResult>;
+  /** Queues the bytes on a stream. Throws when the stream is not open. */
+  write(id: string, base64: string): void;
+  /** Closes (or cancels the open of) the socket or stream. Unknown ids are ignored. */
   close(id: string): void;
   addListener(event: 'message', cb: (e: LanMessageEvent) => void): EventSubscription;
+  addListener(event: 'data', cb: (e: LanDataEvent) => void): EventSubscription;
   addListener(event: 'close', cb: (e: LanCloseEvent) => void): EventSubscription;
 }
 

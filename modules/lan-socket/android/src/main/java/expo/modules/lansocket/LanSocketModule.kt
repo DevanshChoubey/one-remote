@@ -1,5 +1,6 @@
 package expo.modules.lansocket
 
+import android.util.Base64
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
@@ -16,20 +17,30 @@ class OpenOptions : Record {
   @Field var timeoutMs: Double = 3000.0
 }
 
+class StreamOptions : Record {
+  @Field var pinSha256: String? = null
+  @Field var pairing: Boolean = false
+  @Field var identity: String? = null
+  @Field var timeoutMs: Double = 3000.0
+}
+
 private class LanException(code: String, message: String) : CodedException(code, message, null)
 
-/** WebSockets to literal local IPs; see modules/lan-socket/index.ts for the contract. The network
- *  work is in [LanConnector]; this class only bridges it to JS. */
+/** WebSockets and TLS byte streams to literal local IPs; see modules/lan-socket/index.ts for the
+ *  contract. The network work is in [LanConnector] and [LanStreamConnector]; this class only bridges
+ *  them to JS. Sockets and streams share one id space and `close(id)`. */
 class LanSocketModule : Module() {
   private val sockets = ConcurrentHashMap<String, LanHandle>()
+  private val streams = ConcurrentHashMap<String, LanStreamHandle>()
 
   /** Our own clients: React Native's shared client and the default TLS trust stay untouched. */
   private val connector: LanConnector by lazy { LanConnector() }
+  private val streamConnector: LanStreamConnector by lazy { LanStreamConnector() }
 
   override fun definition() = ModuleDefinition {
     Name("LanSocket")
 
-    Events("message", "close")
+    Events("message", "data", "close")
 
     AsyncFunction("open") { id: String, url: String, opts: OpenOptions, promise: Promise ->
       open(id, url, opts, promise)
@@ -41,13 +52,104 @@ class LanSocketModule : Module() {
       }
     }
 
-    Function("close") { id: String -> sockets.remove(id)?.close() }
+    AsyncFunction("openStream") {
+      id: String,
+      host: String,
+      port: Int,
+      opts: StreamOptions,
+      promise: Promise ->
+      openStream(id, host, port, opts, promise)
+    }
 
-    OnDestroy { sockets.keys.toList().forEach { sockets.remove(it)?.close() } }
+    Function("write") { id: String, base64: String ->
+      val bytes =
+        try {
+          Base64.decode(base64, Base64.DEFAULT)
+        } catch (e: IllegalArgumentException) {
+          throw LanException(ERR_OPEN_FAILED, "Not valid base64")
+        }
+      if (streams[id]?.write(bytes) != true) {
+        throw LanException(ERR_OPEN_FAILED, "The stream is not open")
+      }
+    }
+
+    Function("close") { id: String ->
+      sockets.remove(id)?.close()
+      streams.remove(id)?.close()
+    }
+
+    OnDestroy {
+      sockets.keys.toList().forEach { sockets.remove(it)?.close() }
+      streams.keys.toList().forEach { streams.remove(it)?.close() }
+    }
+  }
+
+  private fun idInUse(id: String): Boolean = sockets.containsKey(id) || streams.containsKey(id)
+
+  private fun openStream(
+    id: String,
+    host: String,
+    port: Int,
+    opts: StreamOptions,
+    promise: Promise,
+  ) {
+    if (idInUse(id)) {
+      promise.reject(LanException(ERR_OPEN_FAILED, "Socket id already in use"))
+      return
+    }
+    // A failure can arrive (on a reader thread) before the handle is stored below.
+    val finished = AtomicBoolean(false)
+    val cb =
+      object : LanStreamCallbacks {
+        override fun onOpen(info: LanStreamInfo) {
+          promise.resolve(
+            mapOf(
+              "certSha256" to info.certSha256,
+              "serverModulusHex" to info.serverModulusHex,
+              "serverExponentHex" to info.serverExponentHex,
+              "serverSubject" to info.serverSubject,
+            )
+          )
+        }
+
+        override fun onOpenFailed(error: LanOpenError) {
+          finished.set(true)
+          streams.remove(id)
+          promise.reject(LanException(error.code, error.message ?: error.code))
+        }
+
+        override fun onData(bytes: ByteArray) {
+          val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+          sendEvent("data", mapOf("id" to id, "base64" to base64))
+        }
+
+        override fun onClosed(error: String?) {
+          finished.set(true)
+          streams.remove(id)
+          val event = mutableMapOf<String, Any?>("id" to id)
+          if (error != null) event["error"] = error else event["reason"] = "Closed by the TV"
+          sendEvent("close", event)
+        }
+      }
+    try {
+      streams[id] =
+        streamConnector.open(
+          host,
+          port,
+          opts.pinSha256,
+          opts.pairing,
+          opts.identity,
+          opts.timeoutMs.toLong(),
+          cb,
+        )
+      if (finished.get()) streams.remove(id)
+    } catch (e: LanOpenError) {
+      promise.reject(LanException(e.code, e.message ?: e.code))
+    }
   }
 
   private fun open(id: String, url: String, opts: OpenOptions, promise: Promise) {
-    if (sockets.containsKey(id)) {
+    if (idInUse(id)) {
       promise.reject(LanException(ERR_OPEN_FAILED, "Socket id already in use"))
       return
     }

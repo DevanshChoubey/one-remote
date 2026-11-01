@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import dgram from 'react-native-udp';
 import { DeviceError } from '@/core';
-import type { TvSocket, TvTls, TvTransport } from '@/tv/transport';
+import type { TvSocket, TvStream, TvTls, TvTransport } from '@/tv/transport';
 import { parseSocketUrl } from '@/webos/url';
 import {
   assertLocal,
@@ -15,8 +15,10 @@ import {
   LAN_ERRORS,
   lanSocket,
   type LanCloseEvent,
+  type LanDataEvent,
   type LanMessageEvent,
   type LanSocketNative,
+  type LanStreamOpenResult,
 } from '../../modules/lan-socket';
 
 const SSDP_ADDRESS = '239.255.255.250';
@@ -91,21 +93,67 @@ function withSocket<T>(
   });
 }
 
-/** Routes the native module's events to the socket they belong to. Subscribes on first use. */
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const B64_INDEX = new Map([...B64].map((c, i) => [c, i]));
+
+function toBase64(bytes: Uint8Array): string {
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i] ?? 0;
+    const b = bytes[i + 1] ?? 0;
+    const c = bytes[i + 2] ?? 0;
+    const n = (a << 16) | (b << 8) | c;
+    out += B64[(n >> 18) & 63];
+    out += B64[(n >> 12) & 63];
+    out += i + 1 < bytes.length ? B64[(n >> 6) & 63] : '=';
+    out += i + 2 < bytes.length ? B64[n & 63] : '=';
+  }
+  return out;
+}
+
+/** Standard base64 as the native module sends it; characters outside the alphabet are skipped. */
+function fromBase64(text: string): Uint8Array {
+  const out: number[] = [];
+  let acc = 0;
+  let bits = 0;
+  for (const ch of text) {
+    const v = B64_INDEX.get(ch);
+    if (v === undefined) continue;
+    acc = ((acc << 6) | v) & 0xffffff;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      out.push((acc >> bits) & 0xff);
+    }
+  }
+  return Uint8Array.from(out);
+}
+
+interface Handler {
+  message?(text: string): void;
+  data?(base64: string): void;
+  close(why: string): void;
+}
+
+/** Routes the native module's events to the socket or stream they belong to. Subscribes on first
+ *  use. */
 interface Router {
-  add(id: string, h: { message(text: string): void; close(why: string): void }): void;
+  add(id: string, h: Handler): void;
   remove(id: string): void;
 }
 
 function createRouter(lan: () => LanSocketNative): Router {
-  const handlers = new Map<string, { message(text: string): void; close(why: string): void }>();
+  const handlers = new Map<string, Handler>();
   let subscribed = false;
   return {
     add(id, h) {
       if (!subscribed) {
         subscribed = true;
         const native = lan();
-        native.addListener('message', (e: LanMessageEvent) => handlers.get(e.id)?.message(e.data));
+        native.addListener('message', (e: LanMessageEvent) =>
+          handlers.get(e.id)?.message?.(e.data),
+        );
+        native.addListener('data', (e: LanDataEvent) => handlers.get(e.id)?.data?.(e.base64));
         native.addListener('close', (e: LanCloseEvent) => {
           const h2 = handlers.get(e.id);
           handlers.delete(e.id);
@@ -133,8 +181,8 @@ function errorCode(e: unknown): string | undefined {
 }
 
 /** Maps a native open rejection to a DeviceError that keeps the native text. */
-function openError(url: string, e: unknown): DeviceError {
-  const why = `cannot open ${url}: ${errorText(e)}`;
+function openError(target: string, e: unknown): DeviceError {
+  const why = `cannot open ${target}: ${errorText(e)}`;
   switch (errorCode(e)) {
     case LAN_ERRORS.pinMismatch:
     case LAN_ERRORS.noTrust:
@@ -246,6 +294,104 @@ function openLan(
   });
 }
 
+/** Opens one native TLS stream. Rejects after `timeoutMs` (cancelling the native open). */
+function openLanStream(
+  lan: () => LanSocketNative,
+  router: Router,
+  host: string,
+  port: number,
+  timeoutMs: number,
+  tls: TvTls & { identity?: string },
+): Promise<TvStream> {
+  const target = `${host.includes(':') ? `[${host}]` : host}:${String(port)}`;
+  return new Promise<TvStream>((resolve, reject) => {
+    const id = newId();
+    let settled = false;
+    let closedByUs = false;
+    let ended = false;
+    let onData: ((b: Uint8Array) => void) | undefined;
+    const backlog: Uint8Array[] = [];
+    const closeCbs: (() => void)[] = [];
+    const native = lan();
+    const cancel = (): void => {
+      router.remove(id);
+      try {
+        native.close(id);
+      } catch {
+        // already gone
+      }
+    };
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cancel();
+      reject(new DeviceError('notSent', `timed out opening ${target}`));
+    }, timeoutMs);
+    router.add(id, {
+      data: (base64) => {
+        const bytes = fromBase64(base64);
+        if (onData) onData(bytes);
+        else backlog.push(bytes);
+      },
+      close: () => {
+        ended = true;
+        if (settled && !closedByUs) closeCbs.forEach((cb) => cb());
+      },
+    });
+    const opts = {
+      timeoutMs,
+      ...(tls.pinSha256 ? { pinSha256: tls.pinSha256 } : {}),
+      ...(tls.pairing ? { pairing: true } : {}),
+      ...(tls.identity ? { identity: tls.identity } : {}),
+    };
+    let opening: Promise<LanStreamOpenResult>;
+    try {
+      opening = native.openStream(id, host, port, opts);
+    } catch (e) {
+      opening = Promise.reject(e);
+    }
+    opening.then(
+      (r) => {
+        if (settled) {
+          cancel();
+          return;
+        }
+        settled = true;
+        clearTimeout(timer);
+        resolve({
+          certSha256: r.certSha256,
+          serverModulusHex: r.serverModulusHex,
+          serverExponentHex: r.serverExponentHex,
+          serverSubject: r.serverSubject,
+          write: (bytes) => {
+            if (ended || closedByUs) throw new DeviceError('notSent', 'stream closed');
+            native.write(id, toBase64(bytes));
+          },
+          close: () => {
+            if (closedByUs) return;
+            closedByUs = true;
+            cancel();
+          },
+          onData: (cb) => {
+            onData = cb;
+            backlog.splice(0).forEach(cb);
+          },
+          onClose: (cb) => {
+            closeCbs.push(cb);
+          },
+        });
+      },
+      (e: unknown) => {
+        router.remove(id);
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(openError(target, e));
+      },
+    );
+  });
+}
+
 /** `TvTransport` over the `lan-socket` native module and `react-native-udp`. Every unicast connect
  *  goes through `assertLocal()` (and the native side refuses any host that is not a literal local
  *  IP). Nothing is opened, and no native module is loaded, until first use. */
@@ -266,6 +412,15 @@ export function createRnTvTransport(
         throw new DeviceError('notPaired', `No pinned certificate for ${url}`);
       }
       return openLan(lan, router, url, timeoutMs, tls);
+    },
+
+    async openStream(host, port, timeoutMs, tls): Promise<TvStream> {
+      assertLocal(host, await prefixes());
+      if (!tls.pinSha256 && !tls.pairing) {
+        // Never connect unpinned outside pairing.
+        throw new DeviceError('notPaired', `No pinned certificate for ${host}:${String(port)}`);
+      }
+      return openLanStream(lan, router, host, port, timeoutMs, tls);
     },
 
     async ssdpSearch(message, windowMs, onReply): Promise<void> {
