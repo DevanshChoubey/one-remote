@@ -7,6 +7,7 @@ export interface KeyButtonProps {
   onPress: () => void;
   round?: boolean;
   primary?: boolean;
+  big?: boolean;
 }
 
 /** One remote key: a glyph on a surface, spoken as `label`. */
@@ -17,8 +18,8 @@ export function KeyButton(props: KeyButtonProps): ReactElement {
         bg={props.primary ? 'accent' : 'surface'}
         border="line"
         radius={props.round ? 'pill' : 'md'}
-        px={4}
-        py={3}
+        px={props.big ? 6 : 4}
+        py={props.big ? 5 : 3}
         align="center"
         justify="center"
       >

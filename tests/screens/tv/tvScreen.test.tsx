@@ -121,10 +121,11 @@ describe('TvScreen', () => {
     expect(screen.getByText(t('tv.statusConnecting'))).toBeTruthy();
   });
 
-  it('remembers the D-pad per TV', async () => {
+  it('the ⋮ menu switches to D-pad and remembers it per TV', async () => {
     const r = await rig();
     const set = jest.spyOn(r.s.prefs, 'set');
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await fireEvent.press(screen.getByLabelText(t('tv.more')));
     await fireEvent.press(screen.getByLabelText(t('tv.dpad')));
     await advance(0);
     expect(set).toHaveBeenCalledWith({ tvPad: { tv1: 'dpad' } });
@@ -151,20 +152,18 @@ describe('TvScreen', () => {
     expect(screen.queryByLabelText(t('tv.up'))).toBeNull();
   });
 
-  it('sends keys from the D-pad and the volume rocker', async () => {
+  it('sends keys from the D-pad', async () => {
     const r = await rig();
     await r.s.prefs.set({ tvPad: { tv1: 'dpad' } });
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
     await advance(0);
-    for (const label of ['tv.up', 'tv.ok', 'tv.volumeUp', 'tv.volumeDown']) {
+    for (const label of ['tv.up', 'tv.ok']) {
       await fireEvent.press(screen.getByLabelText(t(label)));
       await advance(0);
     }
     expect(r.sent()).toEqual([
       { kind: 'tv.key', key: 'up' },
       { kind: 'tv.key', key: 'ok' },
-      { kind: 'tv.key', key: 'volumeUp' },
-      { kind: 'tv.key', key: 'volumeDown' },
     ]);
   });
 
@@ -196,6 +195,7 @@ describe('TvScreen', () => {
         },
       });
     });
+    await fireEvent.press(screen.getByLabelText(t('tv.more')));
     await fireEvent.press(screen.getByLabelText(t('tv.input')));
     expect(screen.getByText(t('tv.inputsTitle'))).toBeTruthy();
     expect(screen.getByLabelText(t('tv.inputEmpty', { label: 'PlayStation' }))).toBeTruthy();
@@ -208,6 +208,7 @@ describe('TvScreen', () => {
     const r = await rig();
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
     await on(r);
+    await fireEvent.press(screen.getByLabelText(t('tv.more')));
     await fireEvent.press(screen.getByLabelText(t('tv.input')));
     expect(screen.getByText(t('tv.inputsNone'))).toBeTruthy();
     await fireEvent.press(screen.getByLabelText(t('tv.inputsDone')));
@@ -288,6 +289,7 @@ describe('TvScreen', () => {
     const r = await rig({ tv: { inputList: false, text: true, powerOn: true } });
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
     await on(r);
+    await fireEvent.press(screen.getByLabelText(t('tv.more')));
     await fireEvent.press(screen.getByLabelText(t('tv.input')));
     await advance(0);
     expect(r.sent()).toEqual([{ kind: 'tv.key', key: 'input' }]);
@@ -298,7 +300,35 @@ describe('TvScreen', () => {
     const r = await rig({ tv: { inputList: true, text: false, powerOn: true } });
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
     expect(screen.queryByLabelText(t('tv.keyboard'))).toBeNull();
-    expect(screen.getByLabelText(t('tv.input'))).toBeTruthy();
+    expect(screen.getByLabelText(t('tv.more'))).toBeTruthy();
+  });
+
+  it('puts Keyboard and the ⋮ button in the header', async () => {
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    expect(screen.getByLabelText(t('tv.keyboard'))).toBeTruthy();
+    expect(screen.getByLabelText(t('tv.more'))).toBeTruthy();
+  });
+
+  it('has no volume, mute or play/pause buttons', async () => {
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    for (const label of ['Volume up', 'Volume down', 'Mute', 'Play or pause']) {
+      expect(screen.queryByLabelText(label)).toBeNull();
+    }
+    expect(screen.getAllByLabelText(t('tv.goBack')).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText(t('tv.home'))).toBeTruthy();
+    expect(screen.queryByLabelText(t('tv.input'))).toBeNull();
+    expect(screen.queryByLabelText(t('tv.dpad'))).toBeNull();
+  });
+
+  it('closes the ⋮ menu after an item is picked', async () => {
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await fireEvent.press(screen.getByLabelText(t('tv.more')));
+    await fireEvent.press(screen.getByLabelText(t('tv.dpad')));
+    await advance(0);
+    expect(screen.queryByLabelText(t('tv.touchpad'))).toBeNull();
   });
 
   it('says the TV cannot be turned on from the phone, with no Turn on button', async () => {
@@ -347,7 +377,7 @@ describe('TvScreen', () => {
     expect(await screen.findByText(t('tv.notFound'))).toBeTruthy();
   });
 
-  it('keeps the phone volume keys only while the rocker is on screen', async () => {
+  it('keeps the phone volume keys only while the remote is on screen', async () => {
     const r = await rig();
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
     expect(mockUseVolumeKeys).toHaveBeenLastCalledWith('tv1', true);
@@ -370,6 +400,7 @@ describe('TvScreen', () => {
     jest.spyOn(r.s.prefs, 'set').mockRejectedValue(new Error('disk'));
     const err = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await fireEvent.press(screen.getByLabelText(t('tv.more')));
     await fireEvent.press(screen.getByLabelText(t('tv.dpad')));
     await advance(0);
     expect(err).toHaveBeenCalledWith('Could not save the pad style', expect.any(Error));

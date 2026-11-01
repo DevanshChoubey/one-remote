@@ -8,7 +8,7 @@ import { DeviceError, tvLinkOf } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
 import type { DeviceView } from '@/services';
-import { Box, Chip, Column, Row, Screen, Touchable, Txt } from '@/ui';
+import { Box, Column, Row, Screen, Touchable, Txt } from '@/ui';
 import { DeviceSettingsButton } from '../device/DeviceSettingsButton';
 import { useKnownDevice } from '../device/useKnownDevice';
 import { DPad } from './DPad';
@@ -17,15 +17,14 @@ import { InputSheet } from './InputSheet';
 import { KeyboardSheet } from './KeyboardSheet';
 import { pressFeedback } from './pressFeedback';
 import { TouchPad } from './TouchPad';
+import { TvMenu } from './TvMenu';
+import type { Pad } from './TvMenu';
 import { TvOffPanel } from './TvOffPanel';
 import { tvMode } from './tvMode';
 import { UnreachablePanel } from './UnreachablePanel';
 import { wakeHintKey } from './wakeHint';
 import { usePreferences } from './usePreferences';
 import { useVolumeKeys } from './useVolumeKeys';
-import { VolumeRocker } from './VolumeRocker';
-
-type Pad = 'touchpad' | 'dpad';
 
 function nowMs(): number {
   return Date.now();
@@ -75,6 +74,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   const [problem, setProblem] = useState<string | null>(null);
   const [keyboard, setKeyboard] = useState(false);
   const [inputsOpen, setInputsOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [finding, setFinding] = useState(false);
   const [findNote, setFindNote] = useState<string | null>(null);
   const [pickedPad, setPickedPad] = useState<Pad | null>(null);
@@ -121,7 +121,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   const canTurnOn = caps?.powerOn !== false;
   const brandKind = (device ? tvLinkOf(device)?.kind : undefined) ?? 'webos';
   const haptics = preferences?.haptics ?? true;
-  // The rocker is only on screen in these modes; elsewhere the phone keeps its own volume.
+  // Volume is the phone's keys only (no buttons on screen); they steer the TV in these modes.
   useVolumeKeys(deviceId, watching && (mode === 'ready' || mode === 'connecting'));
 
   const send = (cmd: Command): void => {
@@ -179,6 +179,8 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     );
   };
 
+  const live = mode === 'ready' || mode === 'connecting';
+
   const status =
     mode === 'connecting'
       ? t('tv.statusConnecting')
@@ -231,35 +233,11 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     }
     return (
       <Column gap={4}>
-        <Row gap={2} justify="center">
-          <Chip
-            label={t('tv.touchpad')}
-            state={pad === 'touchpad' ? 'selected' : 'neutral'}
-            onToggle={() => choosePad('touchpad')}
-          />
-          <Chip
-            label={t('tv.dpad')}
-            state={pad === 'dpad' ? 'selected' : 'neutral'}
-            onToggle={() => choosePad('dpad')}
-          />
-        </Row>
         {pad === 'touchpad' ? <TouchPad onKey={key} /> : <DPad onKey={key} />}
-        <VolumeRocker onKey={key} />
-        <Row gap={3} justify="center">
-          <KeyButton label={t('tv.goBack')} glyph="↩" onPress={() => key('back')} />
-          <KeyButton label={t('tv.home')} glyph="⌂" onPress={() => key('home')} />
-          <KeyButton label={t('tv.mute')} glyph="🔇" onPress={() => key('mute')} />
-        </Row>
-        <Row gap={3} justify="center">
-          {caps?.text === false ? null : (
-            <KeyButton label={t('tv.keyboard')} glyph="⌨" onPress={() => setKeyboard(true)} />
-          )}
-          <KeyButton
-            label={t('tv.input')}
-            glyph="⇄"
-            onPress={() => (caps?.inputList === false ? key('input') : setInputsOpen(true))}
-          />
-          <KeyButton label={t('tv.playPause')} glyph="▶❚❚" onPress={() => key('playPause')} />
+        <Row gap={3} align="center" justify="between">
+          <KeyButton label={t('tv.goBack')} glyph="←" onPress={() => key('back')} />
+          <KeyButton label={t('tv.home')} glyph="⌂" big onPress={() => key('home')} />
+          {/* mic: Task 5 */}
         </Row>
       </Column>
     );
@@ -277,15 +255,49 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
             ) : null}
           </Box>
           <Touchable
-            onPress={() => (mode === 'ready' || mode === 'connecting' ? key('power') : turnOn())}
+            onPress={() => (live ? key('power') : turnOn())}
             accessibilityLabel={t('tv.power')}
           >
             <Box px={3}>
               <Txt variant="heading">{t('tv.power')}</Txt>
             </Box>
           </Touchable>
+          {live && caps?.text !== false ? (
+            <Touchable
+              onPress={() => {
+                setMenuOpen(false);
+                setKeyboard(true);
+              }}
+              accessibilityLabel={t('tv.keyboard')}
+            >
+              <Box px={3}>
+                <Txt variant="heading">⌨</Txt>
+              </Box>
+            </Touchable>
+          ) : null}
+          {live ? (
+            <Touchable onPress={() => setMenuOpen((o) => !o)} accessibilityLabel={t('tv.more')}>
+              <Box px={3}>
+                <Txt variant="heading">⋮</Txt>
+              </Box>
+            </Touchable>
+          ) : null}
           <DeviceSettingsButton deviceId={deviceId} />
         </Row>
+        {live && menuOpen ? (
+          <TvMenu
+            pad={pad}
+            onPad={(next) => {
+              setMenuOpen(false);
+              choosePad(next);
+            }}
+            onInput={() => {
+              setMenuOpen(false);
+              if (caps?.inputList === false) key('input');
+              else setInputsOpen(true);
+            }}
+          />
+        ) : null}
         {body}
         {problem ? (
           <Txt live color="ink2">
