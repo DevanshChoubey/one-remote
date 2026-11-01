@@ -94,12 +94,17 @@ export function createFakeLan(opts: { tvs: FakeTv[]; wifi?: boolean; hang?: stri
     mdnsBrowse(_serviceType, windowMs): Promise<void> {
       return new Promise((resolve) => setTimeout(resolve, windowMs));
     },
-    probe(ports, perHostMs, onOpen, isCancelled): Promise<void> {
+    probe(ports, perHostMs, onOpen, isCancelled, onHost): Promise<void> {
       if (isCancelled?.()) return Promise.resolve();
       for (const tv of lan.wifi ? opts.tvs : []) {
         if (!tv.isUp() || hang.includes(tv.host)) continue;
         const port = tv.port();
-        if (ports.includes(port)) void Promise.resolve().then(() => onOpen(tv.host, port));
+        if (ports.includes(port)) {
+          void Promise.resolve().then(() => {
+            onOpen(tv.host, port);
+            onHost?.(tv.host, [port]);
+          });
+        }
       }
       return new Promise((resolve) => setTimeout(resolve, perHostMs));
     },

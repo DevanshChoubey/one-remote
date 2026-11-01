@@ -791,6 +791,27 @@ describe('probe', () => {
     expect(mockNative.opens.some((o) => o.url.includes('192.168.1.7:'))).toBe(false);
   });
 
+  it('calls onHost once per host with its open ports, before the sweep ends', async () => {
+    mockNative.behave = (o) => {
+      if (o.url.endsWith(':3000') && o.url.includes('.23:')) o.resolve({});
+      else if (o.url === 'wss://192.168.1.23:3001' || o.url === 'wss://192.168.1.40:3001')
+        o.resolve({});
+      else o.reject(nativeError('ERR_LAN_OPEN_FAILED', 'refused'));
+    };
+    const hosts: [string, number[]][] = [];
+    await createRnTvTransport({ prefixes: lan }).probe(
+      [3000, 3001],
+      1500,
+      jest.fn(),
+      undefined,
+      (h, ports) => hosts.push([h, ports]),
+    );
+    expect(hosts.sort()).toEqual([
+      ['192.168.1.23', [3000, 3001]],
+      ['192.168.1.40', [3001]],
+    ]);
+  });
+
   it('keeps 32 hosts in flight and gives up on a silent host after perHostMs', async () => {
     jest.useFakeTimers();
     const opened = jest.fn();

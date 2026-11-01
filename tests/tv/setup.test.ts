@@ -7,6 +7,7 @@ import { createFakeLan } from '@/webos/testing/fakeLan';
 import { createFakeTv } from '@/webos/testing/fakeTv';
 
 type OnOpen = (host: string, port: number) => void;
+type OnHost = (host: string, openPorts: number[]) => void;
 
 function fakeBrand(
   kind: 'webos' | 'androidtv',
@@ -43,8 +44,13 @@ function fakeBrand(
 
 function fakeProbe(hits: [string, number][]) {
   const probe = jest.fn(
-    async (_ports: number[], _ms: number, onOpen: OnOpen, _c?: () => boolean) => {
-      for (const [h, p] of hits) onOpen(h, p);
+    async (_ports: number[], _ms: number, onOpen: OnOpen, _c?: () => boolean, onHost?: OnHost) => {
+      const byHost = new Map<string, number[]>();
+      for (const [h, p] of hits) {
+        onOpen(h, p);
+        byHost.set(h, [...(byHost.get(h) ?? []), p]);
+      }
+      for (const [h, ps] of byHost) onHost?.(h, ps);
     },
   );
   return { probe } as Pick<TvTransport, 'probe'> & { probe: jest.Mock };
@@ -210,13 +216,40 @@ describe('composite hardening', () => {
   });
 });
 
+describe('composite probe reporting', () => {
+  it('emits a probed host as soon as the transport reports it, before the sweep ends', async () => {
+    const a = fakeBrand('webos', [3000]);
+    let finish: () => void = () => undefined;
+    const transport = {
+      probe: jest.fn(
+        (_p: number[], _m: number, _o: OnOpen, _c?: () => boolean, onHost?: OnHost) => {
+          onHost?.('10.0.0.5', [3000]);
+          return new Promise<void>((r) => (finish = r));
+        },
+      ),
+    } as Pick<TvTransport, 'probe'>;
+    const found: FoundTv[] = [];
+    createCompositeTvSetup({ brands: [a], transport }).discover((t) => found.push(t));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(found.map((f) => f.host)).toEqual(['10.0.0.5']);
+    finish();
+  });
+});
+
 describe('composite with the real webOS brand', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
   it('reports an SSDP host again as secure when the probe saw only 3001', async () => {
     const lan = createFakeLan({
-      tvs: [createFakeTv({ host: '192.168.1.23', mac: 'aa:bb:cc:00:11:22', secure: true })],
+      tvs: [
+        createFakeTv({
+          host: '192.168.1.23',
+          mac: 'aa:bb:cc:00:11:22',
+          secure: true,
+          name: 'Lounge LG',
+        }),
+      ],
     });
     const secrets = {
       get: async () => null,
@@ -232,5 +265,10 @@ describe('composite with the real webOS brand', () => {
     await jest.advanceTimersByTimeAsync(3000);
     expect(found.map((f) => f.secure)).toEqual([false, true]);
     expect(found.every((f) => f.host === '192.168.1.23')).toBe(true);
+    // The secure upgrade keeps the SSDP friendly name and usn.
+    expect(found[0]?.name).toBe('Lounge LG');
+    expect(found[0]?.usn).toBeTruthy();
+    expect(found[1]?.name).toBe('Lounge LG');
+    expect(found[1]?.usn).toBe(found[0]?.usn);
   });
 });

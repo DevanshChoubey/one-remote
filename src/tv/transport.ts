@@ -109,6 +109,9 @@ export interface TvTransport {
     onOpen: (host: string, port: number) => void,
     /** Polled between hosts: once true, the sweep stops. */
     isCancelled?: () => boolean,
+    /** Called once per host, as soon as all its ports are checked, with the ports that were open
+     *  (not called for a host with none). Lets callers act before the whole sweep ends. */
+    onHost?: (host: string, openPorts: number[]) => void,
   ): Promise<void>;
   /** To the subnet broadcast, port 9. */
   sendWol(packet: Uint8Array): Promise<void>;

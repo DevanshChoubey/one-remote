@@ -549,10 +549,10 @@ export function createRnTvTransport(
       stop();
     },
 
-    async probe(ports, perHostMs, onOpen, isCancelled): Promise<void> {
+    async probe(ports, perHostMs, onOpen, isCancelled, onHost): Promise<void> {
       const local = await prefixes();
       const hosts = [...new Set(local.flatMap(subnetHosts))];
-      const tryPort = async (host: string, port: number): Promise<void> => {
+      const tryPort = async (host: string, port: number): Promise<boolean> => {
         try {
           assertLocal(host, local);
           // Only checks that the socket opens (nothing is sent), so TLS is tried as if pairing.
@@ -567,15 +567,26 @@ export function createRnTvTransport(
           );
           sock.close();
           onOpen(host, port);
+          return true;
         } catch {
           // closed, refused or silent: not a TV
+          return false;
         }
       };
       let next = 0;
       const worker = async (): Promise<void> => {
         while (next < hosts.length && !isCancelled?.()) {
           const host = hosts[next++];
-          if (host) await Promise.all(ports.map((p) => tryPort(host, p)));
+          if (!host) continue;
+          const results = await Promise.all(ports.map((p) => tryPort(host, p)));
+          const openPorts = ports.filter((_, i) => results[i]);
+          if (openPorts.length > 0) {
+            try {
+              onHost?.(host, openPorts);
+            } catch {
+              // a listener failing never stops the sweep
+            }
+          }
         }
       };
       await Promise.all(Array.from({ length: Math.min(PROBE_IN_FLIGHT, hosts.length) }, worker));

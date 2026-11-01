@@ -24,7 +24,10 @@ export function createCompositeTvSetup(o: {
 }): TvSetup {
   const { brands, transport, frames } = o;
   const probeMs = o.probeMs ?? 1500;
-  const rank = (kind: string): number => brands.findIndex((b) => b.kind === kind);
+  const rank = (kind: string): number => {
+    const i = brands.findIndex((b) => b.kind === kind);
+    return i < 0 ? Infinity : i;
+  };
 
   return {
     discover(onFound: (tv: FoundTv) => void): Unsubscribe {
@@ -33,13 +36,16 @@ export function createCompositeTvSetup(o: {
       const emit = (tv: FoundTv): void => {
         if (stopped) return;
         const prev = seen.get(tv.host);
+        let upgrade = false;
         if (prev) {
           const earlier = rank(tv.kind) < rank(prev.kind);
-          const upgrade = tv.kind === prev.kind && tv.secure && !prev.secure;
+          upgrade = tv.kind === prev.kind && tv.secure && !prev.secure;
           if (!earlier && !upgrade) return;
         }
-        seen.set(tv.host, tv);
-        onFound(tv);
+        // An upgrade keeps what discovery already learned (SSDP friendly name, usn).
+        const out = upgrade && prev ? { ...tv, ...prev, secure: tv.secure } : tv;
+        seen.set(tv.host, out);
+        onFound(out);
       };
 
       const stops: Unsubscribe[] = [];
@@ -51,37 +57,32 @@ export function createCompositeTvSetup(o: {
         }
       }
 
-      const open = new Map<string, Set<number>>();
       const ports = [...new Set(brands.flatMap((b) => b.probePorts))];
+      const fromHost = (host: string, openPorts: number[]): void => {
+        const hostPorts = new Set(openPorts);
+        for (const brand of brands) {
+          if (stopped) return;
+          const own = new Set(brand.probePorts.filter((p) => hostPorts.has(p)));
+          if (own.size === 0) continue;
+          try {
+            const tv = brand.fromProbe(host, own);
+            if (tv) emit(tv);
+          } catch {
+            // one brand misreading a host never hides the others
+          }
+        }
+      };
       Promise.resolve()
         .then(() =>
           transport.probe(
             ports,
             probeMs,
-            (host, port) => {
-              let set = open.get(host);
-              if (!set) open.set(host, (set = new Set()));
-              set.add(port);
-            },
+            () => undefined,
             () => stopped,
+            fromHost,
           ),
         )
-        .catch(() => undefined)
-        .then(() => {
-          for (const [host, hostPorts] of open) {
-            for (const brand of brands) {
-              if (stopped) return;
-              const own = new Set(brand.probePorts.filter((p) => hostPorts.has(p)));
-              if (own.size === 0) continue;
-              try {
-                const tv = brand.fromProbe(host, own);
-                if (tv) emit(tv);
-              } catch {
-                // one brand misreading a host never hides the others
-              }
-            }
-          }
-        });
+        .catch(() => undefined);
 
       return () => {
         stopped = true;
