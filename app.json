@@ -44,7 +44,14 @@
       ],
       "expo-secure-store",
       "./plugins/withVolumeKeys.js",
-      "./plugins/withLanCleartext.js"
+      "./plugins/withLanCleartext.js",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "One Remote uses the microphone while you hold the mic button, to talk to your TV.",
+          "speechRecognitionPermission": "One Remote turns your speech into text on this phone, to type it on your TV."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

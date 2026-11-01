@@ -5,6 +5,9 @@ import { useTheme } from '@/theme';
 export interface TouchableProps {
   onPress: () => void;
   onLongPress?: () => void;
+  /** For hold-to-talk: the finger went down / came up. `onPress` still fires on a release. */
+  onPressIn?: () => void;
+  onPressOut?: () => void;
   accessibilityLabel: string;
   accessibilityRole?: 'button' | 'link' | 'tab' | 'checkbox' | 'togglebutton' | 'switch';
   disabled?: boolean;
@@ -24,6 +27,8 @@ export function Touchable(props: TouchableProps): ReactElement {
     <Pressable
       onPress={props.onPress}
       onLongPress={props.onLongPress}
+      onPressIn={props.onPressIn}
+      onPressOut={props.onPressOut}
       disabled={props.disabled}
       accessibilityLabel={props.accessibilityLabel}
       accessibilityHint={props.accessibilityHint}

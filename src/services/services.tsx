@@ -2,6 +2,8 @@ import { createContext, useContext } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import type { LinkDriver, TvSetup } from '@/core';
 import type { BrandSetup } from '@/tv/brands';
+import type { Dictation } from '@/voice/dictation';
+import type { Mic } from '@/voice/mic';
 import type { DeviceHub } from '@/device/hub';
 import type { PreferenceStore } from '@/store/preferences';
 import type { HomeStore, SecretStore } from '@/store/types';
@@ -25,6 +27,8 @@ export interface Services {
   tv: TvSetup;
   /** The registered brands, for the brand list, the brand word and the pairing step. */
   tvBrands: readonly TvBrandInfo[];
+  // voice
+  voice: { mic: Mic; dictation: Dictation };
   // ir lane
   // matter lane
 }

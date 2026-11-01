@@ -13,6 +13,7 @@ import { DeviceSettingsButton } from '../device/DeviceSettingsButton';
 import { useKnownDevice } from '../device/useKnownDevice';
 import { DPad } from './DPad';
 import { KeyButton } from './KeyButton';
+import { MicButton } from './MicButton';
 import { InputSheet } from './InputSheet';
 import { KeyboardSheet } from './KeyboardSheet';
 import { pressFeedback } from './pressFeedback';
@@ -237,7 +238,16 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
         <Row gap={3} align="center" justify="between">
           <KeyButton label={t('tv.goBack')} glyph="←" onPress={() => key('back')} />
           <KeyButton label={t('tv.home')} glyph="⌂" big onPress={() => key('home')} />
-          {/* mic: Task 5 */}
+          <MicButton
+            deviceId={deviceId}
+            voice={caps?.voice === true}
+            text={caps?.text !== false}
+            watching={watching}
+            send={(cmd) => hub.send(deviceId, cmd).then(() => undefined)}
+            onProblem={setProblem}
+            errorLine={errorLine}
+            onPress={() => pressFeedback(haptics)}
+          />
         </Row>
       </Column>
     );
