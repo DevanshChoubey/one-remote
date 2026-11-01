@@ -503,6 +503,45 @@ describe('forget', () => {
     o.stop();
   });
 
+  it('during a pending connect leaves no open socket', async () => {
+    const r = rig();
+    r.tv.revokeToken();
+    const p = r.key('up').catch((e: unknown) => e);
+    await advance(10);
+    expect(r.tv.connections()).toBe(1);
+    await r.driver.forget?.(r.dev, r.link);
+    r.tv.allow();
+    await advance(10);
+    await p;
+    expect(r.tv.connections()).toBe(0);
+    expect(r.tv.keys).toEqual([]);
+    // The late token is not written back after the delete.
+    expect(r.secrets.map.has(REF)).toBe(false);
+  });
+
+  it('during a rediscovery does not report a new host', async () => {
+    const r = rig();
+    const o = r.observe();
+    await advance(10);
+    // Hold the candidate check at the new address until after `forget`.
+    const realOpen = r.lan.open.bind(r.lan);
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    r.lan.open = async (url, ms, tls) => {
+      if (url.includes(NEW_HOST)) await gate;
+      return realOpen(url, ms, tls);
+    };
+    r.tv.moveTo(NEW_HOST);
+    await advance(10500);
+    expect(r.lan.probes.length).toBe(1);
+    await r.driver.forget?.(r.dev, r.link);
+    release();
+    await advance(30000);
+    expect(r.onHostChanged).not.toHaveBeenCalled();
+    expect(r.tv.connections()).toBe(0);
+    o.stop();
+  });
+
   it('rethrows a failing delete after the entry is gone', async () => {
     const r = rig();
     await r.key('up');

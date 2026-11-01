@@ -63,6 +63,8 @@ interface Entry {
   rediscovering: boolean;
   lastRediscoverAt: number | undefined;
   playPause: number;
+  /** `forget` ran: a connect or search still in flight must undo itself. */
+  dead: boolean;
 }
 
 function asDeviceError(e: unknown): DeviceError {
@@ -113,6 +115,7 @@ export function createSamsungDriver(o: SamsungDriverOpts): LinkDriver & {
         rediscovering: false,
         lastRediscoverAt: undefined,
         playPause: 0,
+        dead: false,
       };
       entries.set(device.id, e);
     }
@@ -163,7 +166,7 @@ export function createSamsungDriver(o: SamsungDriverOpts): LinkDriver & {
     try {
       // Give up a little before the press budget, so the reason is known when the press ends.
       const issued = await client.ready(Math.max(1, budgetMs - (Date.now() - started) - 10));
-      if (issued !== '' && issued !== token) {
+      if (issued !== '' && issued !== token && !e.dead) {
         // The TV rotated its token: keep the new one.
         await o.secrets.set(link.tokenRef, issued).catch(() => undefined);
       }
@@ -191,6 +194,7 @@ export function createSamsungDriver(o: SamsungDriverOpts): LinkDriver & {
         (client) => {
           e.connecting = undefined;
           install(e, client);
+          if (e.dead) throw new DeviceError('notSent', 'The TV was removed');
           return client;
         },
         (err: unknown) => {
@@ -210,6 +214,10 @@ export function createSamsungDriver(o: SamsungDriverOpts): LinkDriver & {
   }
 
   function install(e: Entry, client: SamsungClient): void {
+    if (e.dead) {
+      client.close();
+      return;
+    }
     e.client = client;
     e.attempt = 0;
     client.onClose(() => {
@@ -293,6 +301,7 @@ export function createSamsungDriver(o: SamsungDriverOpts): LinkDriver & {
 
   /** Saves a new address even if nobody is watching any more. */
   async function adoptHost(e: Entry, host: string): Promise<void> {
+    if (e.dead) return;
     e.host = host;
     e.failedPolls = 0;
     try {
@@ -542,6 +551,7 @@ export function createSamsungDriver(o: SamsungDriverOpts): LinkDriver & {
       if (link.kind !== 'samsung') return;
       const e = entries.get(device.id);
       if (e) {
+        e.dead = true;
         cancelAttempt(e);
         stopPolling(e);
         if (e.idleTimer) clearTimeout(e.idleTimer);
