@@ -12,13 +12,14 @@ const PROBE_MS = 1500;
 /**
  * Finds the TV again after its address changed. Candidates come from SSDP and the subnet probe;
  * a candidate is accepted only when its info page shows `link.mac` AND a wss open with the pinned
- * certificate works (with the stored token, so a TV that knows it does not prompt). At most
+ * certificate works. The check sends no token: the pin is checked in the TLS handshake and the MAC
+ * on the info page, and a token could make the TV show an Allow prompt. At most
  * `maxCandidates` are checked, and the search gives up after `giveUpMs`. Returns the host or null.
  */
 export function rediscoverSamsung(
   t: Pick<TvTransport, 'ssdpSearch' | 'probe' | 'request' | 'open'>,
   link: Extract<TvLink, { kind: 'samsung' }>,
-  opts: { token?: string; maxCandidates?: number; giveUpMs?: number } = {},
+  opts: { maxCandidates?: number; giveUpMs?: number } = {},
 ): Promise<string | null> {
   if (!link.mac) return Promise.resolve(null);
   const wantMac = link.mac.toLowerCase();
@@ -28,7 +29,7 @@ export function rediscoverSamsung(
     try {
       const info = await fetchInfo(t, host, CHECK_MS);
       if (info.mac?.toLowerCase() !== wantMac) return false;
-      const sock = await t.open(socketUrl(host, opts.token ?? ''), CHECK_MS, {
+      const sock = await t.open(socketUrl(host, ''), CHECK_MS, {
         pinSha256: link.pinSha256,
       });
       sock.close();

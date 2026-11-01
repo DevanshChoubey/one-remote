@@ -28,7 +28,7 @@ export function createSamsungBrand(o: {
       if (link.kind !== 'samsung') return null;
       const token = await secrets.get(link.tokenRef);
       if (token === null) return null;
-      return rediscoverSamsung(transport, link, token ? { token } : {});
+      return rediscoverSamsung(transport, link);
     },
   };
 }

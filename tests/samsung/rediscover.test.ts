@@ -33,11 +33,10 @@ describe('rediscoverSamsung', () => {
     const tv = createFakeSamsungTv({ host: HOST, mac: MAC });
     const lan = createFakeSamsungLan([tv]);
     tv.moveTo(NEW_HOST);
-    await expect(run(rediscoverSamsung(lan, link(), { token: '12345678' }))).resolves.toBe(
-      NEW_HOST,
-    );
-    // The check used the stored token and closed its socket.
-    expect(lan.opened).toEqual([expect.stringContaining('token=12345678')]);
+    await expect(run(rediscoverSamsung(lan, link()))).resolves.toBe(NEW_HOST);
+    // The check sent no token (it could pop an Allow prompt) and closed its socket.
+    expect(lan.opened).toHaveLength(1);
+    expect(lan.opened[0]).not.toContain('token=');
     expect(tv.connections()).toBe(0);
   });
 

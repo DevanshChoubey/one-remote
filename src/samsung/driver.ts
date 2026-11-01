@@ -281,8 +281,7 @@ export function createSamsungDriver(o: SamsungDriverOpts): LinkDriver & {
   function search(e: Entry): Promise<string | null> {
     const job = async (): Promise<string | null> => {
       try {
-        const token = await o.secrets.get(e.link.tokenRef);
-        return await rediscoverSamsung(t, { ...e.link, host: e.host }, token ? { token } : {});
+        return await rediscoverSamsung(t, { ...e.link, host: e.host });
       } catch {
         return null;
       }
