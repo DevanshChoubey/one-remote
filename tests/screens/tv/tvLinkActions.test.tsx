@@ -1,4 +1,5 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { PairError } from '@/core';
 import type { Device } from '@/core';
 import { createFakeDriver } from '@/device/testing/fakeDriver';
 import { t } from '@/i18n';
@@ -120,6 +121,27 @@ describe('TvLinkActions', () => {
       atv,
     );
     expect(await screen.findByText(t('addTv.paired'))).toBeTruthy();
+  });
+
+  it('asks for the code when pairing an Android TV link again, and stays quiet on cancel', async () => {
+    const atv = {
+      kind: 'androidtv' as const,
+      host: '10.0.0.5',
+      certRef: 'phone',
+      pinSha256: 'p',
+    };
+    const r = await rig({ ...tvDevice, links: [atv] });
+    const asked: (string | null)[] = [];
+    r.setup.pair.mockImplementationOnce(async (_tv, prompts) => {
+      asked.push(await prompts.askCode(false));
+      throw new PairError('cancelled');
+    });
+    await renderWith(r.s, <TvLinkActions deviceId="tv1" />);
+    await fireEvent.press(await screen.findByLabelText(t('addTv.pairAgain')));
+    await fireEvent.changeText(await screen.findByLabelText(t('addTv.codeTitle')), 'a1b2c3');
+    await fireEvent.press(screen.getByLabelText(t('addTv.codePair')));
+    await waitFor(() => expect(asked).toEqual(['A1B2C3']));
+    expect(screen.queryByText(t('addTv.unreachable'))).toBeNull();
   });
 
   it('renders nothing for a device that is not a TV', async () => {

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
 import { AppState, Linking, Platform } from 'react-native';
 import type { Command, TvKey } from '@/core';
-import { DeviceError } from '@/core';
+import { DeviceError, tvLinkOf } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
 import type { DeviceView } from '@/services';
@@ -20,6 +20,7 @@ import { TouchPad } from './TouchPad';
 import { TvOffPanel } from './TvOffPanel';
 import { tvMode } from './tvMode';
 import { UnreachablePanel } from './UnreachablePanel';
+import { wakeHintKey } from './wakeHint';
 import { usePreferences } from './usePreferences';
 import { useVolumeKeys } from './useVolumeKeys';
 import { VolumeRocker } from './VolumeRocker';
@@ -116,6 +117,9 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     ...(wakeSentAt !== undefined ? { wakeSentAt } : {}),
     now,
   });
+  const caps = view?.capabilities.tv;
+  const canTurnOn = caps?.powerOn !== false;
+  const brandKind = (device ? tvLinkOf(device)?.kind : undefined) ?? 'webos';
   const haptics = preferences?.haptics ?? true;
   // The rocker is only on screen in these modes; elsewhere the phone keeps its own volume.
   useVolumeKeys(deviceId, watching && (mode === 'ready' || mode === 'connecting'));
@@ -135,6 +139,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     send({ kind: 'tv.key', key: k });
   };
   const turnOn = (): void => {
+    if (!canTurnOn) return;
     pressFeedback(haptics);
     setWakeSentAt(nowMs());
     send({ kind: 'tv.powerOn' });
@@ -195,7 +200,14 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
       );
     }
     if (mode === 'off' || mode === 'waking' || mode === 'wakeFailed') {
-      return <TvOffPanel mode={mode} onTurnOn={turnOn} />;
+      return (
+        <TvOffPanel
+          mode={mode}
+          onTurnOn={turnOn}
+          canTurnOn={canTurnOn}
+          wakeHintKey={wakeHintKey(brandKind)}
+        />
+      );
     }
     if (inputsOpen) {
       return (
@@ -239,8 +251,14 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
           <KeyButton label={t('tv.mute')} glyph="🔇" onPress={() => key('mute')} />
         </Row>
         <Row gap={3} justify="center">
-          <KeyButton label={t('tv.keyboard')} glyph="⌨" onPress={() => setKeyboard(true)} />
-          <KeyButton label={t('tv.input')} glyph="⇄" onPress={() => setInputsOpen(true)} />
+          {caps?.text === false ? null : (
+            <KeyButton label={t('tv.keyboard')} glyph="⌨" onPress={() => setKeyboard(true)} />
+          )}
+          <KeyButton
+            label={t('tv.input')}
+            glyph="⇄"
+            onPress={() => (caps?.inputList === false ? key('input') : setInputsOpen(true))}
+          />
           <KeyButton label={t('tv.playPause')} glyph="▶❚❚" onPress={() => key('playPause')} />
         </Row>
       </Column>

@@ -8,6 +8,8 @@ export interface InputProps {
   placeholder?: string;
   onSubmitEditing?: () => void;
   accessibilityLabel: string;
+  autoCapitalize?: 'none' | 'characters';
+  maxLength?: number;
 }
 
 export function Input(props: InputProps): ReactElement {
@@ -20,6 +22,8 @@ export function Input(props: InputProps): ReactElement {
       placeholderTextColor={theme.color.ink2}
       onSubmitEditing={props.onSubmitEditing}
       accessibilityLabel={props.accessibilityLabel}
+      autoCapitalize={props.autoCapitalize}
+      maxLength={props.maxLength}
       style={{
         minHeight: theme.touch.min,
         paddingHorizontal: theme.space(4),

@@ -177,6 +177,11 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
   const hub = deps.hub ?? new DeviceHub({ drivers });
   const prefs = deps.prefs ?? createAsyncStoragePreferenceStore(AsyncStorage);
   syncHub(hub, store);
+  const tvBrands = [
+    createWebosBrand({ transport: tvTransport, secrets }),
+    // androidtv brand
+    // samsung brand
+  ];
   const removeDevice = deps.removeDevice ?? removeDeviceWith(store, secrets, drivers);
   return {
     hub,
@@ -189,17 +194,21 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
     tv: withTvFollowUp(
       deps.tv ??
         createCompositeTvSetup({
-          brands: [
-            createWebosBrand({ transport: tvTransport, secrets }),
-            // androidtv brand
-            // samsung brand
-          ],
+          brands: tvBrands,
           transport: tvTransport,
           frames: tvTap,
         }),
       store,
       drivers,
     ),
+    tvBrands:
+      deps.tvBrands ??
+      tvBrands.map(({ kind, labelKey, pairing, codeLength }) => ({
+        kind,
+        labelKey,
+        pairing,
+        ...(codeLength !== undefined ? { codeLength } : {}),
+      })),
     // ir lane
     // matter lane
   };

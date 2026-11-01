@@ -50,6 +50,14 @@ interface Rig {
   stopped: jest.Mock;
 }
 
+const androidtvBrand = {
+  kind: 'androidtv' as const,
+  labelKey: 'addTv.brandAndroidTv',
+  pairing: 'code' as const,
+};
+const webosBrand = { kind: 'webos' as const, labelKey: 'addTv.brandLg', pairing: 'allow' as const };
+const atv: FoundTv = { kind: 'androidtv', host: '192.168.1.20', name: 'Sony', secure: true };
+
 async function rig(opts: { ir?: boolean } = {}): Promise<Rig> {
   const fake = fakeTvSetup();
   const { setup } = fake;
@@ -68,6 +76,7 @@ async function rig(opts: { ir?: boolean } = {}): Promise<Rig> {
     prefs: createMemoryPreferenceStore(),
     drivers,
     tv: setup,
+    tvBrands: [webosBrand, androidtvBrand],
   });
   await s.store.upsertRoom(room('r1', 'Living room', 0));
   return { s, setup, stopped: fake.stopped, found: (tv) => act(async () => fake.found(tv)) };
@@ -76,7 +85,7 @@ async function rig(opts: { ir?: boolean } = {}): Promise<Rig> {
 const hang = (): Promise<PairedTv> => new Promise(() => undefined);
 
 const toFind = async (): Promise<void> => {
-  await fireEvent.press(screen.getByLabelText(t('addTv.brandLg')));
+  await fireEvent.press(screen.getByLabelText(t('addTv.findMine')));
 };
 
 beforeEach(() => {
@@ -85,15 +94,87 @@ beforeEach(() => {
 });
 
 describe('Add TV flow', () => {
-  it('offers LG and shows the other brands as not yet supported', async () => {
+  it('lists the registered brands and offers the typed address', async () => {
     const r = await rig();
     await renderWith(r.s, <AddTvFlow />);
-    expect(screen.getByText(t('addTv.brandLgNote'))).toBeTruthy();
-    expect(screen.getByText(t('addTv.brandOtherNote'))).toBeTruthy();
-    const other = screen.getByLabelText(t('addTv.brandOther'));
-    expect(other.props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByText(t('addTv.brandLg'))).toBeTruthy();
+    expect(screen.getByText(t('addTv.brandAndroidTv'))).toBeTruthy();
+    expect(screen.getByLabelText(t('addTv.typeAddress'))).toBeTruthy();
+    expect(screen.queryByText('Samsung, Sony, Google TV…')).toBeNull();
     await toFind();
     expect(screen.getByText(t('addTv.findTitle'))).toBeTruthy();
+  });
+
+  it('goes to the manual step from the brand step', async () => {
+    const r = await rig();
+    await renderWith(r.s, <AddTvFlow />);
+    await fireEvent.press(screen.getByLabelText(t('addTv.typeAddress')));
+    expect(screen.getByText(t('addTv.manualTitle'))).toBeTruthy();
+  });
+
+  it('shows the brand word and the same Wi-Fi line on the find step', async () => {
+    const r = await rig();
+    await renderWith(r.s, <AddTvFlow />);
+    await toFind();
+    expect(screen.getByText(t('addTv.sameWifi'))).toBeTruthy();
+    await r.found(atv);
+    expect(screen.getByText('Google TV / Android TV · 192.168.1.20')).toBeTruthy();
+  });
+
+  describe('code pairing', () => {
+    async function toCode(r: Rig, asks: (string | null)[]): Promise<void> {
+      r.setup.pair.mockImplementationOnce(async (_tv, prompts) => {
+        let wrong = false;
+        for (;;) {
+          const code = await prompts.askCode(wrong);
+          asks.push(code);
+          if (code === null) throw new PairError('cancelled');
+          if (code === 'A1B2C3') return paired();
+          wrong = true;
+        }
+      });
+      await renderWith(r.s, <AddTvFlow />);
+      await toFind();
+      await r.found(atv);
+      await fireEvent.press(screen.getByLabelText('Sony, 192.168.1.20'));
+    }
+
+    it('sends the typed code upper-cased and shows the wrong-code line', async () => {
+      const r = await rig();
+      const asks: (string | null)[] = [];
+      await toCode(r, asks);
+      expect(screen.getByText(t('addTv.codeTitle'))).toBeTruthy();
+      const field = screen.getByLabelText(t('addTv.codeTitle'));
+      expect(field.props.maxLength).toBe(6);
+      await fireEvent.changeText(field, 'zzzzzz');
+      await fireEvent.press(screen.getByLabelText(t('addTv.codePair')));
+      expect(await screen.findByText(t('addTv.codeWrong'))).toBeTruthy();
+      await fireEvent.changeText(screen.getByLabelText(t('addTv.codeTitle')), 'a1b2c3');
+      await fireEvent.press(screen.getByLabelText(t('addTv.codePair')));
+      expect(await screen.findByDisplayValue('LG OLED C4')).toBeTruthy();
+      expect(asks).toEqual(['ZZZZZZ', 'A1B2C3']);
+    });
+
+    it('Back resolves null and leaves the step without an error', async () => {
+      const r = await rig();
+      const asks: (string | null)[] = [];
+      await toCode(r, asks);
+      await fireEvent.press(screen.getByLabelText(t('common.back')));
+      await waitFor(() => expect(asks).toEqual([null]));
+      expect(screen.getByText(t('addTv.findTitle'))).toBeTruthy();
+      expect(screen.queryByText(t('addTv.unreachable'))).toBeNull();
+    });
+
+    it('Show a new code starts pairing again', async () => {
+      const r = await rig();
+      const asks: (string | null)[] = [];
+      await toCode(r, asks);
+      r.setup.pair.mockImplementationOnce(hang);
+      await fireEvent.press(screen.getByLabelText(t('addTv.codeNew')));
+      await waitFor(() => expect(r.setup.pair).toHaveBeenCalledTimes(2));
+      expect(asks).toEqual([null]);
+      expect(screen.queryByText(t('addTv.unreachable'))).toBeNull();
+    });
   });
 
   it('lists TVs as they are found and stops looking when the step is left', async () => {

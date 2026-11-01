@@ -36,6 +36,7 @@ export default {
   offBody: 'Tap power to turn it on.',
   turnOn: 'Turn on',
   offHint: 'Uses IR on this phone, or Wi-Fi wake if the TV allows it',
+  cantTurnOn: "This TV can't be turned on from the phone. Use its remote.",
   waking: 'Turning on…',
   wakeFailed:
     "Didn't turn on? On the TV, turn on Settings › General › Devices › TV Management › Turn on via Wi-Fi, or use the TV's remote once.",

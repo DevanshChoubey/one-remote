@@ -62,7 +62,12 @@ export function AddTvFlow(): ReactElement {
 
   switch (step.name) {
     case 'brand':
-      return <TvBrandStep onLg={() => setStep({ name: 'find' })} />;
+      return (
+        <TvBrandStep
+          onFind={() => setStep({ name: 'find' })}
+          onManual={() => setStep({ name: 'manual' })}
+        />
+      );
     case 'find':
       return (
         <FindTvStep

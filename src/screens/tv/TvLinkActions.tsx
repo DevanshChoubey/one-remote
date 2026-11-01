@@ -4,7 +4,7 @@ import type { FoundTv, Link } from '@/core';
 import { isTvLink, PairError, tvLinkOf } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Button, Column, Row, Txt } from '@/ui';
+import { Button, Column, Input, Row, Txt } from '@/ui';
 import { useKnownDevice } from '../device/useKnownDevice';
 
 /**
@@ -12,10 +12,15 @@ import { useKnownDevice } from '../device/useKnownDevice';
  * changed, and pairing again. Renders nothing for any other device or link.
  */
 export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactElement | null {
-  const { tv } = useServices();
+  const { tv, tvBrands } = useServices();
   const device = useKnownDevice(props.deviceId);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Pairing again with a code brand: the TV shows a code and the person types it here.
+  const [ask, setAsk] = useState<{ wrong: boolean; resolve: (c: string | null) => void } | null>(
+    null,
+  );
+  const [code, setCode] = useState('');
   const link: Link | undefined = props.link ?? (device ? tvLinkOf(device) : undefined);
   if (!device || device.kind !== 'tv' || !link || !isTvLink(link)) return null;
 
@@ -29,6 +34,8 @@ export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactEl
       },
       (e: unknown) => {
         setBusy(false);
+        setAsk(null);
+        if (e instanceof PairError && e.code === 'cancelled') return;
         setNote(
           e instanceof PairError && e.code === 'denied'
             ? t('addTv.denied')
@@ -57,11 +64,24 @@ export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactEl
       };
       await tv.pair(
         found,
-        { onAllow: () => setNote(t('addTv.pairAllow')), askCode: () => Promise.resolve(null) },
+        {
+          onAllow: () => setNote(t('addTv.pairAllow')),
+          askCode: (wrong) =>
+            new Promise<string | null>((resolve) => {
+              setCode('');
+              setAsk({ wrong, resolve });
+            }),
+        },
         link,
       );
       return t('addTv.paired');
     });
+
+  const codeLength = tvBrands.find((b) => b.kind === link.kind)?.codeLength ?? 6;
+  const answer = (value: string | null): void => {
+    ask?.resolve(value);
+    setAsk(null);
+  };
 
   return (
     <Column gap={2}>
@@ -85,6 +105,33 @@ export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactEl
           disabled={busy}
         />
       </Row>
+      {ask ? (
+        <Column gap={2}>
+          <Txt variant="caption" color="ink2">
+            {t('addTv.codeTitle')}
+          </Txt>
+          <Input
+            value={code}
+            onChangeText={setCode}
+            accessibilityLabel={t('addTv.codeTitle')}
+            autoCapitalize="characters"
+            maxLength={codeLength}
+          />
+          {ask.wrong ? (
+            <Txt live variant="caption" color="danger">
+              {t('addTv.codeWrong')}
+            </Txt>
+          ) : null}
+          <Row gap={2} wrap>
+            <Button
+              label={t('addTv.codePair')}
+              onPress={() => answer(code.toUpperCase())}
+              disabled={code.length === 0}
+            />
+            <Button label={t('common.cancel')} variant="ghost" onPress={() => answer(null)} />
+          </Row>
+        </Column>
+      ) : null}
       {note ? (
         <Txt live variant="caption" color="ink2">
           {note}

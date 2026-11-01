@@ -15,6 +15,8 @@ export interface BrandSetup {
   /** i18n key of the brand word shown in the brand list and under a found TV, e.g. 'addTv.brandLg'. */
   labelKey: string;
   pairing: 'allow' | 'code';
+  /** Characters in the code the TV shows, for `pairing: 'code'`. Defaults to 6. */
+  codeLength?: number;
   /** Ports the shared subnet probe sweeps for this brand. */
   probePorts: number[];
   /** Multicast discovery only (SSDP / mDNS). Best effort; ends quietly on error. */
