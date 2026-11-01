@@ -44,13 +44,15 @@ async function rig() {
   return { s, setup, clearNotPaired };
 }
 
+const PROMPTS = { onAllow: () => undefined, askCode: () => Promise.resolve(null) };
+
 describe('TV follow-up in services', () => {
   it('releases the driver latch after pairing again', async () => {
     const r = await rig();
     const paired: PairedTv = { link: { ...link, host: '192.168.1.40' }, suggestedName: 'TV' };
     r.setup.pair.mockResolvedValue(paired);
     const upsert = jest.spyOn(r.s.store, 'upsertDevice');
-    await r.s.tv.pair({ host: link.host, name: 'TV', secure: true }, () => undefined, 'key-1');
+    await r.s.tv.pair({ kind: 'webos', host: link.host, name: 'TV', secure: true }, PROMPTS, link);
     expect(upsert.mock.invocationCallOrder[0]).toBeLessThan(
       r.clearNotPaired.mock.invocationCallOrder[0] ?? 0,
     );
@@ -68,7 +70,7 @@ describe('TV follow-up in services', () => {
       link: { ...link, clientKeyRef: 'fresh' },
       suggestedName: 'TV',
     });
-    await r.s.tv.pair({ host: link.host, name: 'TV', secure: true }, () => undefined);
+    await r.s.tv.pair({ kind: 'webos', host: link.host, name: 'TV', secure: true }, PROMPTS);
     expect(r.clearNotPaired).not.toHaveBeenCalled();
   });
 

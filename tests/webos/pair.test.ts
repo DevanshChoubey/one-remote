@@ -1,3 +1,4 @@
+import type { PairPrompts, TvLink } from '@/core';
 import { PairError } from '@/core/tvSetup';
 import { pairTv } from '@/webos/pair';
 import { createFakeLan } from '@/webos/testing/fakeLan';
@@ -23,7 +24,24 @@ function memorySecrets(): TvSecretsWithDelete & { map: Map<string, string> } {
   };
 }
 
-const found = { host: HOST, name: '[LG] webOS TV OLED55C4', secure: false, usn: 'uuid:1234' };
+const prompts = (onAllow: () => void = jest.fn()): PairPrompts => ({
+  onAllow,
+  askCode: () => Promise.resolve(null),
+});
+const reuse = (clientKeyRef: string): TvLink => ({
+  kind: 'webos',
+  host: HOST,
+  secure: false,
+  clientKeyRef,
+});
+
+const found = {
+  kind: 'webos' as const,
+  host: HOST,
+  name: '[LG] webOS TV OLED55C4',
+  secure: false,
+  usn: 'uuid:1234',
+};
 
 describe('pairTv', () => {
   it('pair allows', async () => {
@@ -31,7 +49,7 @@ describe('pairTv', () => {
     const lan = createFakeLan({ tvs: [tv] });
     const secrets = memorySecrets();
     const onPrompt = jest.fn();
-    const paired = await pairTv(lan, secrets, found, onPrompt);
+    const paired = await pairTv(lan, secrets, found, prompts(onPrompt));
     expect(onPrompt).toHaveBeenCalledTimes(1);
     expect(paired.link).toEqual({
       kind: 'webos',
@@ -52,11 +70,12 @@ describe('pairTv', () => {
       createFakeLan({ tvs: [tv] }),
       memorySecrets(),
       {
+        kind: 'webos',
         host: HOST,
         name: '[LG] ',
         secure: false,
       },
-      jest.fn(),
+      prompts(),
     );
     expect(paired.suggestedName).toBe('LG TV');
   });
@@ -65,14 +84,14 @@ describe('pairTv', () => {
     const tv = createFakeTv({ host: HOST, mac: MAC, prompt: 'deny' });
     const secrets = memorySecrets();
     await expect(
-      pairTv(createFakeLan({ tvs: [tv] }), secrets, found, jest.fn()),
+      pairTv(createFakeLan({ tvs: [tv] }), secrets, found, prompts()),
     ).rejects.toMatchObject({ code: 'denied' });
     expect(secrets.map.size).toBe(0);
   });
 
   it('pair unreachable', async () => {
     const lan = createFakeLan({ tvs: [] });
-    const err = await pairTv(lan, memorySecrets(), found, jest.fn()).catch((e: unknown) => e);
+    const err = await pairTv(lan, memorySecrets(), found, prompts()).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(PairError);
     expect((err as PairError).code).toBe('unreachable');
     // The reason for each port that failed is kept, so a hardware run can say why.
@@ -82,9 +101,13 @@ describe('pairTv', () => {
   it('re-pair keeps the ref', async () => {
     const tv = createFakeTv({ host: HOST, mac: MAC });
     const secrets = memorySecrets();
-    const paired = await pairTv(createFakeLan({ tvs: [tv] }), secrets, found, jest.fn(), {
-      clientKeyRef: 'webos:abc',
-    });
+    const paired = await pairTv(
+      createFakeLan({ tvs: [tv] }),
+      secrets,
+      found,
+      prompts(),
+      reuse('webos:abc'),
+    );
     expect(paired.link.clientKeyRef).toBe('webos:abc');
     expect(secrets.map.get('webos:abc')).toBeDefined();
   });
@@ -93,7 +116,7 @@ describe('pairTv', () => {
     const tv = createFakeTv({ host: HOST, mac: MAC, secure: true, certSha256: 'ab12' });
     const lan = createFakeLan({ tvs: [tv] });
     const secrets = memorySecrets();
-    const paired = await pairTv(lan, secrets, { ...found, secure: true }, jest.fn());
+    const paired = await pairTv(lan, secrets, { ...found, secure: true }, prompts());
     expect(paired.link.secure).toBe(true);
     expect(lan.opened[0]).toBe(`wss://${HOST}:3001`);
     expect(lan.tlsOpened[0]).toEqual({ pairing: true });
@@ -105,7 +128,7 @@ describe('pairTv', () => {
   it('stores no certificate for a plain ws TV', async () => {
     const tv = createFakeTv({ host: HOST, mac: MAC });
     const secrets = memorySecrets();
-    const paired = await pairTv(createFakeLan({ tvs: [tv] }), secrets, found, jest.fn());
+    const paired = await pairTv(createFakeLan({ tvs: [tv] }), secrets, found, prompts());
     expect(secrets.map.has(`${paired.link.clientKeyRef}:cert`)).toBe(false);
   });
 
@@ -113,9 +136,7 @@ describe('pairTv', () => {
     const tv = createFakeTv({ host: HOST, mac: MAC });
     const secrets = memorySecrets();
     secrets.map.set('webos:abc:cert', 'old-pin');
-    await pairTv(createFakeLan({ tvs: [tv] }), secrets, found, jest.fn(), {
-      clientKeyRef: 'webos:abc',
-    });
+    await pairTv(createFakeLan({ tvs: [tv] }), secrets, found, prompts(), reuse('webos:abc'));
     expect(secrets.map.has('webos:abc:cert')).toBe(false);
     expect(secrets.map.get('webos:abc')).toMatch(/^fake-key-/);
   });
@@ -129,7 +150,7 @@ describe('pairTv', () => {
       return { send: s.send, close: s.close, onMessage: s.onMessage, onClose: s.onClose };
     };
     const secrets = memorySecrets();
-    const err = await pairTv(lan, secrets, { ...found, secure: true }, jest.fn()).catch(
+    const err = await pairTv(lan, secrets, { ...found, secure: true }, prompts()).catch(
       (e: unknown) => e,
     );
     expect(err).toBeInstanceOf(PairError);
@@ -141,7 +162,7 @@ describe('pairTv', () => {
   it('tries wss 3001 when ws 3000 is refused', async () => {
     const tv = createFakeTv({ host: HOST, mac: MAC, secure: true });
     const lan = createFakeLan({ tvs: [tv] });
-    const paired = await pairTv(lan, memorySecrets(), found, jest.fn());
+    const paired = await pairTv(lan, memorySecrets(), found, prompts());
     expect(paired.link.secure).toBe(true);
     expect(lan.opened).toEqual([`ws://${HOST}:3000`, `wss://${HOST}:3001`]);
   });
@@ -153,7 +174,7 @@ describe('pairTv', () => {
       set: () => Promise.reject(new Error('keystore')),
       delete: () => Promise.resolve(),
     };
-    const err = await pairTv(createFakeLan({ tvs: [tv] }), secrets, found, jest.fn()).catch(
+    const err = await pairTv(createFakeLan({ tvs: [tv] }), secrets, found, prompts()).catch(
       (e: unknown) => e,
     );
     expect(err).toBeInstanceOf(PairError);
@@ -161,7 +182,7 @@ describe('pairTv', () => {
 
   it('omits the mac when the TV does not report one', async () => {
     const tv = createFakeTv({ host: HOST, mac: 'nope' });
-    const paired = await pairTv(createFakeLan({ tvs: [tv] }), memorySecrets(), found, jest.fn());
+    const paired = await pairTv(createFakeLan({ tvs: [tv] }), memorySecrets(), found, prompts());
     expect('mac' in paired.link).toBe(false);
   });
 
@@ -174,7 +195,7 @@ describe('pairTv', () => {
       const lan = createFakeLan({ tvs: [tv] });
       let err: unknown;
       const onPrompt = jest.fn();
-      pairTv(lan, memorySecrets(), found, onPrompt).catch((e: unknown) => (err = e));
+      pairTv(lan, memorySecrets(), found, prompts(onPrompt)).catch((e: unknown) => (err = e));
       await jest.advanceTimersByTimeAsync(59999);
       expect(err).toBeUndefined();
       expect(onPrompt).toHaveBeenCalledTimes(1);
@@ -185,7 +206,7 @@ describe('pairTv', () => {
     it('honours promptMs', async () => {
       const tv = createFakeTv({ host: HOST, mac: MAC, prompt: 'never' });
       let err: unknown;
-      pairTv(createFakeLan({ tvs: [tv] }), memorySecrets(), found, jest.fn(), {
+      pairTv(createFakeLan({ tvs: [tv] }), memorySecrets(), found, prompts(), undefined, {
         promptMs: 1000,
       }).catch((e: unknown) => (err = e));
       await jest.advanceTimersByTimeAsync(1000);

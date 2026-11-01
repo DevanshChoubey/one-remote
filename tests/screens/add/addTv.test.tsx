@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
-import type { FoundTv, PairedTv } from '@/core';
+import type { FoundTv, Link, PairedTv } from '@/core';
 import { DeviceError, PairError } from '@/core';
 import { createFakeDriver } from '@/device/testing/fakeDriver';
 import { t } from '@/i18n';
@@ -29,8 +29,16 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
-const lg: FoundTv = { host: '192.168.1.23', name: 'LG OLED C4', secure: true, usn: 'u1' };
-const paired = (mac = 'AA:BB:CC:DD:EE:FF'): PairedTv => ({
+const lg: FoundTv = {
+  kind: 'webos',
+  host: '192.168.1.23',
+  name: 'LG OLED C4',
+  secure: true,
+  usn: 'u1',
+};
+const paired = (
+  mac = 'AA:BB:CC:DD:EE:FF',
+): PairedTv & { link: Extract<Link, { kind: 'webos' }> } => ({
   link: { kind: 'webos', host: lg.host, mac, secure: true, clientKeyRef: 'key-new' },
   suggestedName: 'LG OLED C4',
 });
@@ -46,8 +54,8 @@ async function rig(opts: { ir?: boolean } = {}): Promise<Rig> {
   const fake = fakeTvSetup();
   const { setup } = fake;
   setup.probeHost.mockResolvedValue(lg);
-  setup.pair.mockImplementation((_tv, onPrompt) => {
-    onPrompt();
+  setup.pair.mockImplementation((_tv, prompts) => {
+    prompts.onAllow();
     return Promise.resolve(paired());
   });
   const drivers = [

@@ -28,6 +28,8 @@ export function AddTvFlow(): ReactElement {
   const onPaired = useCallback(
     (paired: PairedTv): void => {
       const mac = paired.link.mac;
+      // The duplicate check and the unused-key cleanup know only the webOS key layout.
+      const newRef = paired.link.kind === 'webos' ? paired.link.clientKeyRef : undefined;
       store.devices().then(
         (all) => {
           const existing =
@@ -37,11 +39,11 @@ export function AddTvFlow(): ReactElement {
           if (existing) {
             // The pairing made a new key for a TV we already have: drop it, keep the old one.
             const keep = existing.links.some(
-              (l) => l.kind === 'webos' && l.clientKeyRef === paired.link.clientKeyRef,
+              (l) => l.kind === 'webos' && l.clientKeyRef === newRef,
             );
-            if (!keep) {
+            if (!keep && newRef !== undefined) {
               secrets
-                .delete(paired.link.clientKeyRef)
+                .delete(newRef)
                 .catch((e: unknown) => console.error('Could not drop the new key', e));
             }
             setStep({ name: 'duplicate', existing });

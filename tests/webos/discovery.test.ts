@@ -43,6 +43,7 @@ describe('SSDP_SEARCH', () => {
 describe('parseSsdpReply', () => {
   it('reads a C4-style reply', () => {
     expect(parseSsdpReply(C4_REPLY, '192.168.1.23')).toEqual({
+      kind: 'webos',
       host: '192.168.1.23',
       name: 'webOS TV OLED55C4',
       secure: false,
@@ -58,6 +59,7 @@ describe('parseSsdpReply', () => {
     const text =
       'HTTP/1.1 200 OK\r\nusn: uuid:abcd::urn:lge-com:service:webos-second-screen:1\r\n\r\n';
     expect(parseSsdpReply(text, '10.0.0.4')).toEqual({
+      kind: 'webos',
       host: '10.0.0.4',
       name: 'LG TV',
       secure: false,
@@ -74,6 +76,7 @@ describe('parseSsdpReply', () => {
       '',
     ].join('\r\n');
     expect(parseSsdpReply(text, '10.0.0.4')).toEqual({
+      kind: 'webos',
       host: '10.0.0.4',
       name: '%E0%A4%A',
       secure: false,
@@ -84,6 +87,7 @@ describe('parseSsdpReply', () => {
   it('omits usn when the reply has none', () => {
     const text = 'HTTP/1.1 200 OK\r\nST: urn:lge-com:service:webos-second-screen:1\r\n\r\n';
     expect(parseSsdpReply(text, '10.0.0.4')).toEqual({
+      kind: 'webos',
       host: '10.0.0.4',
       name: 'LG TV',
       secure: false,
@@ -102,7 +106,13 @@ describe('discoverTvs', () => {
     discoverTvs(lan, (t) => found.push(t));
     await jest.advanceTimersByTimeAsync(3000);
     expect(found).toEqual([
-      { host: '192.168.1.23', name: 'webOS TV OLED55C4', secure: false, usn: 'uuid:1234' },
+      {
+        kind: 'webos',
+        host: '192.168.1.23',
+        name: 'webOS TV OLED55C4',
+        secure: false,
+        usn: 'uuid:1234',
+      },
     ]);
   });
 
@@ -113,7 +123,7 @@ describe('discoverTvs', () => {
     const found: FoundTv[] = [];
     discoverTvs(lan, (t) => found.push(t));
     await jest.advanceTimersByTimeAsync(3000);
-    expect(found).toEqual([{ host: '192.168.1.23', name: 'LG TV', secure: false }]);
+    expect(found).toEqual([{ kind: 'webos', host: '192.168.1.23', name: 'LG TV', secure: false }]);
   });
 
   it('marks a host secure only when 3000 is closed and 3001 is open', async () => {
@@ -123,7 +133,7 @@ describe('discoverTvs', () => {
     const found: FoundTv[] = [];
     discoverTvs(lan, (t) => found.push(t));
     await jest.advanceTimersByTimeAsync(3000);
-    expect(found).toEqual([{ host: '192.168.1.23', name: 'LG TV', secure: true }]);
+    expect(found).toEqual([{ kind: 'webos', host: '192.168.1.23', name: 'LG TV', secure: true }]);
   });
 
   it('does not mark a host secure when 3000 is open too', async () => {
@@ -138,7 +148,7 @@ describe('discoverTvs', () => {
     };
     discoverTvs(t, (tv) => found.push(tv));
     await jest.advanceTimersByTimeAsync(3000);
-    expect(found).toEqual([{ host: '192.168.1.9', name: 'LG TV', secure: false }]);
+    expect(found).toEqual([{ kind: 'webos', host: '192.168.1.9', name: 'LG TV', secure: false }]);
   });
 
   it('stops reporting after unsubscribe, and reports done when both searches end', async () => {
@@ -188,8 +198,20 @@ describe('discoverTvs: secure upgrade and cancel', () => {
     discoverTvs(lan, (t) => found.push(t));
     await jest.advanceTimersByTimeAsync(3000);
     expect(found).toEqual([
-      { host: '192.168.1.23', name: 'webOS TV OLED55C4', secure: false, usn: 'uuid:1' },
-      { host: '192.168.1.23', name: 'webOS TV OLED55C4', secure: true, usn: 'uuid:1' },
+      {
+        kind: 'webos',
+        host: '192.168.1.23',
+        name: 'webOS TV OLED55C4',
+        secure: false,
+        usn: 'uuid:1',
+      },
+      {
+        kind: 'webos',
+        host: '192.168.1.23',
+        name: 'webOS TV OLED55C4',
+        secure: true,
+        usn: 'uuid:1',
+      },
     ]);
   });
 
@@ -215,6 +237,7 @@ describe('probeHost', () => {
   it('finds a plain TV', async () => {
     const tv = createFakeTv({ host: '192.168.1.23', mac: 'aa:bb:cc:00:11:22' });
     await expect(probeHost(createFakeLan({ tvs: [tv] }), '192.168.1.23')).resolves.toEqual({
+      kind: 'webos',
       host: '192.168.1.23',
       name: 'LG TV',
       secure: false,
@@ -224,6 +247,7 @@ describe('probeHost', () => {
   it('finds a secure-only TV', async () => {
     const tv = createFakeTv({ host: '192.168.1.23', mac: 'aa:bb:cc:00:11:22', secure: true });
     await expect(probeHost(createFakeLan({ tvs: [tv] }), '192.168.1.23')).resolves.toEqual({
+      kind: 'webos',
       host: '192.168.1.23',
       name: 'LG TV',
       secure: true,

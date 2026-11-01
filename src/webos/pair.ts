@@ -1,8 +1,10 @@
-import { DeviceError } from '@/core';
-import { PairError, type FoundTv, type PairedTv } from '@/core/tvSetup';
+import { DeviceError, type Link, type TvLink } from '@/core';
+import { PairError, type FoundTv, type PairedTv, type PairPrompts } from '@/core/tvSetup';
 import { SsapClient } from './client';
 import { parseMac, URI } from './ssap';
 import type { TvSecretsWithDelete, TvTransport } from './transport';
+
+type PairedWebos = PairedTv & { link: Extract<Link, { kind: 'webos' }> };
 
 const CONNECT_MS = 3000;
 const PROMPT_MS = 60000;
@@ -18,9 +20,10 @@ export async function pairTv(
   t: TvTransport,
   secrets: TvSecretsWithDelete,
   tv: FoundTv,
-  onPrompt: () => void,
-  opts: { clientKeyRef?: string; promptMs?: number } = {},
-): Promise<PairedTv> {
+  prompts: PairPrompts,
+  reuse?: TvLink,
+  opts: { promptMs?: number } = {},
+): Promise<PairedWebos> {
   let client: SsapClient | undefined;
   let secure = tv.secure;
   const failures: string[] = [];
@@ -46,13 +49,13 @@ export async function pairTv(
     if (secure && !cert) throw new PairError('unreachable', 'The TV showed no certificate');
     let key: string;
     try {
-      key = await client.register(undefined, onPrompt, opts.promptMs ?? PROMPT_MS);
+      key = await client.register(undefined, () => prompts.onAllow(), opts.promptMs ?? PROMPT_MS);
     } catch (e) {
       if (e instanceof DeviceError && e.code === 'timeout') throw new PairError('timeout');
       if (e instanceof DeviceError && e.code === 'notPaired') throw new PairError('denied');
       throw new PairError('unreachable');
     }
-    const ref = opts.clientKeyRef ?? newRef();
+    const ref = (reuse?.kind === 'webos' ? reuse.clientKeyRef : undefined) ?? newRef();
     try {
       await secrets.set(ref, key);
       if (tv.usn) await secrets.set(`${ref}:usn`, tv.usn);

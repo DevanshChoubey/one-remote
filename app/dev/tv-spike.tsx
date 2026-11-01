@@ -72,7 +72,10 @@ function TvSpike(): ReactElement {
     if (!hit) return add('pair: discover first');
     add(`pairing with ${hit.host}; accept the prompt on the TV`);
     try {
-      const paired = await tv.pair(hit, () => add('prompt is showing on the TV'));
+      const paired = await tv.pair(hit, {
+        onAllow: () => add('prompt is showing on the TV'),
+        askCode: () => Promise.resolve(null),
+      });
       const device: Device = {
         id: DEVICE_ID,
         kind: 'tv',

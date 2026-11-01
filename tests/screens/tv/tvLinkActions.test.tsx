@@ -95,9 +95,9 @@ describe('TvLinkActions', () => {
     await renderWith(r.s, <TvLinkActions deviceId="tv1" />);
     await fireEvent.press(await screen.findByLabelText(t('addTv.pairAgain')));
     expect(r.setup.pair).toHaveBeenCalledWith(
-      expect.objectContaining({ host: '192.168.1.23', secure: true }),
-      expect.any(Function),
-      'key-1',
+      expect.objectContaining({ kind: 'webos', host: '192.168.1.23', secure: true }),
+      expect.objectContaining({ onAllow: expect.any(Function) }),
+      expect.objectContaining({ kind: 'webos', clientKeyRef: 'key-1' }),
     );
     expect(await screen.findByText(t('addTv.paired'))).toBeTruthy();
   });

@@ -1,8 +1,10 @@
 export type DeviceKind = 'tv' | 'ac' | 'fan';
-export type LinkKind = 'webos' | 'matter' | 'ir';
+export type LinkKind = 'webos' | 'androidtv' | 'samsung' | 'matter' | 'ir';
 
 export type Link =
   | { kind: 'webos'; host: string; mac?: string; secure: boolean; clientKeyRef: string }
+  | { kind: 'androidtv'; host: string; mac?: string; certRef: string; pinSha256: string }
+  | { kind: 'samsung'; host: string; mac?: string; tokenRef: string; pinSha256: string }
   | { kind: 'matter'; nodeId: string }
   | { kind: 'ir'; remoteId: string }; // catalogue id, e.g. 'panasonic-ac/dke'
 
@@ -87,6 +89,15 @@ export type Command =
 export type Reported =
   { kind: 'tv'; state: TvState } | { kind: 'ac'; state: AcState; roomTemp?: number };
 
+export interface TvCaps {
+  /** The TV lists its inputs (in-app sheet); false: the Input button sends the `input` key. */
+  inputList: boolean;
+  /** Text can be typed into a TV text field. */
+  text: boolean;
+  /** `tv.powerOn` can work for this TV from this phone. */
+  powerOn: boolean;
+}
+
 export interface Capabilities {
   acModes?: AcMode[];
   acFan?: AcFan[];
@@ -94,6 +105,7 @@ export interface Capabilities {
   swing?: boolean;
   sleep?: boolean;
   fanLight?: boolean;
+  tv?: TvCaps;
 }
 
 const DEFAULT_SETPOINT_MIN = 16;

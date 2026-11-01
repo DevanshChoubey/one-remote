@@ -133,16 +133,20 @@ export function withTvFollowUp(
       }
       return host;
     },
-    async pair(found, onPrompt, clientKeyRef) {
-      const paired = await tv.pair(found, onPrompt, clientKeyRef);
+    async pair(found, prompts, reuse) {
+      const paired = await tv.pair(found, prompts, reuse);
+      const clientKeyRef = reuse?.kind === 'webos' ? reuse.clientKeyRef : undefined;
       const driver = drivers.find(canClearNotPaired);
       if (driver && clientKeyRef !== undefined) {
         try {
           for (const d of await store.devices()) {
             const link = d.links.find(
-              (l) => l.kind === 'webos' && l.clientKeyRef === paired.link.clientKeyRef,
+              (l) =>
+                l.kind === 'webos' &&
+                paired.link.kind === 'webos' &&
+                l.clientKeyRef === paired.link.clientKeyRef,
             );
-            if (link?.kind !== 'webos') continue;
+            if (link?.kind !== 'webos' || paired.link.kind !== 'webos') continue;
             // Save the new address first, then release the driver with that same link, so a
             // stale stored host can never put the old one back.
             const merged = { ...link, ...paired.link };

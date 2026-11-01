@@ -42,6 +42,7 @@ export function parseSsdpReply(text: string, fromHost: string): FoundTv | null {
     .replace(/^\[LG\]\s*/, '')
     .trim();
   return {
+    kind: 'webos',
     host: fromHost,
     name: name || 'LG TV',
     secure: false,
@@ -93,7 +94,7 @@ export function discoverTvs(
         (host, port) => {
           if (port === 3000) {
             plain.add(host);
-            emit({ host, name: 'LG TV', secure: false });
+            emit({ kind: 'webos', host, name: 'LG TV', secure: false });
           } else if (port === 3001) {
             tlsOnly.add(host);
           }
@@ -107,7 +108,7 @@ export function discoverTvs(
         if (plain.has(host) || stopped) continue;
         const prev = seen.get(host);
         if (!prev) {
-          emit({ host, name: 'LG TV', secure: true });
+          emit({ kind: 'webos', host, name: 'LG TV', secure: true });
         } else if (!prev.secure) {
           // SSDP cannot tell; the probe saw only the TLS port. Report the host again, secure.
           const upgraded = { ...prev, secure: true };
@@ -133,7 +134,7 @@ export async function probeHost(t: TvTransport, host: string): Promise<FoundTv |
     try {
       // Only checks that the socket opens (nothing is sent), so the TLS port is tried as if pairing.
       (await t.open(a.url, 1500, a.secure ? { pairing: true } : undefined)).close();
-      return { host, name: 'LG TV', secure: a.secure };
+      return { kind: 'webos', host, name: 'LG TV', secure: a.secure };
     } catch (e) {
       if (e instanceof DeviceError && e.code === 'notLocal') throw e;
     }

@@ -1,4 +1,4 @@
-import type { Device, FoundTv, PairedTv, TvSetup, Unsubscribe } from '@/core';
+import type { Device, FoundTv, PairedTv, PairPrompts, TvLink, TvSetup, Unsubscribe } from '@/core';
 
 export type FakeTvSetup = jest.Mocked<TvSetup>;
 
@@ -16,7 +16,7 @@ export function fakeTvSetup(): {
       return stopped;
     }),
     probeHost: jest.fn((_host: string) => Promise.resolve<FoundTv | null>(null)),
-    pair: jest.fn((_tv: FoundTv, _onPrompt: () => void, _ref?: string) =>
+    pair: jest.fn((_tv: FoundTv, _prompts: PairPrompts, _reuse?: TvLink) =>
       Promise.reject<PairedTv>(new Error('pair not set up')),
     ),
     findAgain: jest.fn((_d: Device) => Promise.resolve<string | null>(null)),

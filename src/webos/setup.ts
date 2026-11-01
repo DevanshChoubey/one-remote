@@ -1,4 +1,4 @@
-import type { Device, FoundTv, PairedTv, TvSetup, Unsubscribe } from '@/core';
+import type { Device, FoundTv, PairedTv, PairPrompts, TvLink, TvSetup, Unsubscribe } from '@/core';
 import { discoverTvs, probeHost } from './discovery';
 import type { FrameTap } from './frameTap';
 import { pairTv } from './pair';
@@ -17,8 +17,8 @@ export function createTvSetup(o: {
   return {
     discover: (onFound: (tv: FoundTv) => void): Unsubscribe => discoverTvs(transport, onFound),
     probeHost: (host: string): Promise<FoundTv | null> => probeHost(transport, host),
-    pair: (tv: FoundTv, onPrompt: () => void, clientKeyRef?: string): Promise<PairedTv> =>
-      pairTv(transport, secrets, tv, onPrompt, clientKeyRef ? { clientKeyRef } : {}),
+    pair: (tv: FoundTv, prompts: PairPrompts, reuse?: TvLink): Promise<PairedTv> =>
+      pairTv(transport, secrets, tv, prompts, reuse),
     async findAgain(device: Device): Promise<string | null> {
       const link = device.links.find((l) => l.kind === 'webos');
       if (!link || link.kind !== 'webos') return null;

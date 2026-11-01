@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactElement } from 'react';
-import type { Link } from '@/core';
+import type { FoundTv, Link } from '@/core';
 import { PairError } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
@@ -52,8 +52,17 @@ export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactEl
 
   const pairAgain = (): void =>
     run(async () => {
-      const found = { host: webos.host, name: device.name, secure: webos.secure };
-      await tv.pair(found, () => setNote(t('addTv.pairAllow')), webos.clientKeyRef);
+      const found: FoundTv = {
+        kind: 'webos',
+        host: webos.host,
+        name: device.name,
+        secure: webos.secure,
+      };
+      await tv.pair(
+        found,
+        { onAllow: () => setNote(t('addTv.pairAllow')), askCode: () => Promise.resolve(null) },
+        webos,
+      );
       return t('addTv.paired');
     });
 

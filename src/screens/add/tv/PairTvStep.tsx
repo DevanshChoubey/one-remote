@@ -36,17 +36,19 @@ export function PairTvStep(props: PairTvStepProps): ReactElement {
 
   useEffect(() => {
     let alive = true;
-    tv.pair(found, () => undefined).then(
+    tv.pair(found, { onAllow: () => undefined, askCode: () => Promise.resolve(null) }).then(
       (paired) => {
         if (alive) {
           onPaired.current(paired);
           return;
         }
         // Pairing cannot be cancelled (pairTv takes no signal), so a late result is dropped and
-        // the key it stored is deleted.
+        // the key it stored is deleted. Only the webOS key layout is known here.
+        if (paired.link.kind !== 'webos') return;
+        const ref = paired.link.clientKeyRef;
         secrets
-          .delete(paired.link.clientKeyRef)
-          .then(() => secrets.delete(`${paired.link.clientKeyRef}:usn`))
+          .delete(ref)
+          .then(() => secrets.delete(`${ref}:usn`))
           .catch((e: unknown) => console.error('Could not drop an unused key', e));
       },
       (e: unknown) => {
