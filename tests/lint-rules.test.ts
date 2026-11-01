@@ -136,6 +136,27 @@ describe('architecture lint rules', () => {
     ).toContain('no-restricted-syntax');
   });
 
+  it('allows the mic-pcm module only in src/voice', () => {
+    const src = "import '../../modules/mic-pcm';\nexport const x = 1;\n";
+    for (const file of [
+      'src/transport/x.ts',
+      'src/webos/x.ts',
+      'src/services/x.ts',
+      'src/screens/x.tsx',
+      'src/ui/x.tsx',
+      'app/x.tsx',
+    ]) {
+      expect(errorsFor(src, file)).toContain('no-restricted-imports');
+    }
+    expect(errorsFor(src, 'src/voice/x.ts')).not.toContain('no-restricted-imports');
+  });
+
+  it('keeps screens from importing src/voice directly', () => {
+    expect(
+      errorsFor("import '@/voice/mic';\nexport const x = 1;\n", 'src/screens/x.tsx'),
+    ).toContain('no-restricted-imports');
+  });
+
   it('bans loading the LanSocket native module by name outside modules/lan-socket', () => {
     const sources = [
       "import { requireNativeModule } from 'expo';\nexport const m = requireNativeModule('LanSocket');\n",
