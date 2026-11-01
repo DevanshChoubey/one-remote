@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import type { FoundTv, Link } from '@/core';
 import { isTvLink, PairError, tvLinkOf } from '@/core';
@@ -17,10 +17,17 @@ export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactEl
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // Pairing again with a code brand: the TV shows a code and the person types it here.
-  const [ask, setAsk] = useState<{ wrong: boolean; resolve: (c: string | null) => void } | null>(
-    null,
-  );
+  const [ask, setAsk] = useState<{ wrong: boolean } | null>(null);
   const [code, setCode] = useState('');
+  const pending = useRef<((c: string | null) => void) | null>(null);
+  // Leaving the screen answers a question the driver is still waiting on.
+  useEffect(
+    () => () => {
+      pending.current?.(null);
+      pending.current = null;
+    },
+    [],
+  );
   const link: Link | undefined = props.link ?? (device ? tvLinkOf(device) : undefined);
   if (!device || device.kind !== 'tv' || !link || !isTvLink(link)) return null;
 
@@ -68,8 +75,10 @@ export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactEl
           onAllow: () => setNote(t('addTv.pairAllow')),
           askCode: (wrong) =>
             new Promise<string | null>((resolve) => {
+              pending.current?.(null);
+              pending.current = resolve;
               setCode('');
-              setAsk({ wrong, resolve });
+              setAsk({ wrong });
             }),
         },
         link,
@@ -79,8 +88,10 @@ export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactEl
 
   const codeLength = tvBrands.find((b) => b.kind === link.kind)?.codeLength ?? 6;
   const answer = (value: string | null): void => {
-    ask?.resolve(value);
+    const resolve = pending.current;
+    pending.current = null;
     setAsk(null);
+    resolve?.(value);
   };
 
   return (

@@ -149,6 +149,7 @@ describe('Add TV flow', () => {
       await fireEvent.changeText(field, 'zzzzzz');
       await fireEvent.press(screen.getByLabelText(t('addTv.codePair')));
       expect(await screen.findByText(t('addTv.codeWrong'))).toBeTruthy();
+      expect(screen.getByLabelText(t('addTv.codeTitle')).props.value).toBe('');
       await fireEvent.changeText(screen.getByLabelText(t('addTv.codeTitle')), 'a1b2c3');
       await fireEvent.press(screen.getByLabelText(t('addTv.codePair')));
       expect(await screen.findByDisplayValue('LG OLED C4')).toBeTruthy();
@@ -170,8 +171,10 @@ describe('Add TV flow', () => {
       const asks: (string | null)[] = [];
       await toCode(r, asks);
       r.setup.pair.mockImplementationOnce(hang);
+      await fireEvent.changeText(screen.getByLabelText(t('addTv.codeTitle')), 'abc');
       await fireEvent.press(screen.getByLabelText(t('addTv.codeNew')));
       await waitFor(() => expect(r.setup.pair).toHaveBeenCalledTimes(2));
+      expect(screen.getByLabelText(t('addTv.codeTitle')).props.value).toBe('');
       expect(asks).toEqual([null]);
       expect(screen.queryByText(t('addTv.unreachable'))).toBeNull();
     });

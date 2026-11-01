@@ -37,7 +37,8 @@ export function PairTvStep(props: PairTvStepProps): ReactElement {
   const brand = tvBrands.find((b) => b.kind === found.kind);
   const byCode = brand?.pairing === 'code';
   // The driver is waiting for a code; `wrong` after a refusal.
-  const [ask, setAsk] = useState<{ wrong: boolean } | null>(null);
+  const [ask, setAsk] = useState<{ wrong: boolean; n: number } | null>(null);
+  const asks = useRef(0);
   const pending = useRef<((code: string | null) => void) | null>(null);
   const answer = (code: string | null): void => {
     const resolve = pending.current;
@@ -55,7 +56,7 @@ export function PairTvStep(props: PairTvStepProps): ReactElement {
           return;
         }
         pending.current = resolve;
-        setAsk({ wrong });
+        setAsk({ wrong, n: ++asks.current });
       });
     tv.pair(found, { onAllow: () => undefined, askCode }).then(
       (paired) => {
@@ -102,6 +103,8 @@ export function PairTvStep(props: PairTvStepProps): ReactElement {
   if (byCode && failure === null) {
     return (
       <PairCodeStep
+        // A new question or a new attempt starts with an empty field.
+        key={`${attempt}-${ask?.n ?? 0}`}
         wrong={ask?.wrong ?? false}
         codeLength={brand?.codeLength ?? 6}
         ready={ask !== null}

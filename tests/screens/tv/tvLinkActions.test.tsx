@@ -144,6 +144,45 @@ describe('TvLinkActions', () => {
     expect(screen.queryByText(t('addTv.unreachable'))).toBeNull();
   });
 
+  describe('code prompt', () => {
+    const atv = {
+      kind: 'androidtv' as const,
+      host: '10.0.0.5',
+      certRef: 'phone',
+      pinSha256: 'p',
+    };
+
+    it('shows the wrong-code line and clears the field when asked again', async () => {
+      const r = await rig({ ...tvDevice, links: [atv] });
+      r.setup.pair.mockImplementationOnce(async (_tv, prompts) => {
+        await prompts.askCode(false);
+        const second = prompts.askCode(true);
+        await second;
+        throw new PairError('cancelled');
+      });
+      await renderWith(r.s, <TvLinkActions deviceId="tv1" />);
+      await fireEvent.press(await screen.findByLabelText(t('addTv.pairAgain')));
+      await fireEvent.changeText(await screen.findByLabelText(t('addTv.codeTitle')), 'zzzzzz');
+      await fireEvent.press(screen.getByLabelText(t('addTv.codePair')));
+      expect(await screen.findByText(t('addTv.codeWrong'))).toBeTruthy();
+      expect(screen.getByLabelText(t('addTv.codeTitle')).props.value).toBe('');
+    });
+
+    it('settles a pending code question when the screen is left', async () => {
+      const r = await rig({ ...tvDevice, links: [atv] });
+      const asked = jest.fn();
+      r.setup.pair.mockImplementationOnce(async (_tv, prompts) => {
+        asked(await prompts.askCode(false));
+        throw new PairError('cancelled');
+      });
+      await renderWith(r.s, <TvLinkActions deviceId="tv1" />);
+      await fireEvent.press(await screen.findByLabelText(t('addTv.pairAgain')));
+      await screen.findByLabelText(t('addTv.codeTitle'));
+      await screen.unmount();
+      await waitFor(() => expect(asked).toHaveBeenCalledWith(null));
+    });
+  });
+
   it('renders nothing for a device that is not a TV', async () => {
     const r = await rig({
       ...tvDevice,
