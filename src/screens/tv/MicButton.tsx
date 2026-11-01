@@ -32,6 +32,10 @@ function isDenied(e: unknown): boolean {
 /** One hold: `stop` ends whatever it started; `released` is set when the finger comes up. */
 interface Hold {
   released: boolean;
+  /** Ended by focus loss, the background or unmount: the result is dropped, not sent. */
+  cancelled: boolean;
+  /** The start (permission, session, mic) has finished, one way or another. */
+  settled: boolean;
   stop?: () => void;
 }
 
@@ -42,6 +46,7 @@ export function MicButton(props: MicButtonProps): ReactElement | null {
   const [dictation, setDictation] = useState(false);
   const [listening, setListening] = useState(false);
   const hold = useRef<Hold | null>(null);
+  const latest = useRef<Hold | null>(null);
 
   // Once per focus: can this phone turn speech into text without the network?
   useEffect(() => {
@@ -56,38 +61,42 @@ export function MicButton(props: MicButtonProps): ReactElement | null {
     };
   }, [watching, engines.dictation]);
 
-  const release = useCallback((): void => {
+  const release = useCallback((cancel = false): void => {
     const h = hold.current;
     if (!h) return;
     hold.current = null;
     h.released = true;
+    h.cancelled = cancel;
     setListening(false);
     h.stop?.();
   }, []);
 
   // Losing focus, the background, or unmount ends the hold.
   useEffect(() => {
-    if (!watching) release();
+    if (!watching) release(true);
   }, [watching, release]);
-  useEffect(() => release, [release]);
+  useEffect(() => () => release(true), [release]);
 
   const dictate = (h: Hold): void => {
     const run = engines.dictation.start();
     h.stop = () => {
       run.stop().then(
         (spoken) => {
-          if (spoken === '') return;
+          if (spoken === '' || h.cancelled) return;
           send({ kind: 'tv.text', text: spoken }).then(
             () => onProblem(null),
             (e: unknown) =>
               onProblem(
-                e instanceof DeviceError && e.code === 'notSent' && /text field/i.test(e.message)
+                e instanceof DeviceError && e.detail === 'noTextField'
                   ? t('tv.voiceNoField')
                   : errorLine(e),
               ),
           );
         },
-        (e: unknown) => onProblem(isDenied(e) ? t('tv.micDenied') : t('tv.errNotSent')),
+        (e: unknown) => {
+          if (h.cancelled) return;
+          onProblem(isDenied(e) ? t('tv.micDenied') : t('tv.errNotSent'));
+        },
       );
     };
   };
@@ -113,20 +122,26 @@ export function MicButton(props: MicButtonProps): ReactElement | null {
       }
       try {
         const live = session;
-        const capture = engines.mic.start(SAMPLE_RATE, (chunk) => {
+        let capture: { stop(): void } | undefined;
+        let failed = false;
+        h.stop = () => {
+          capture?.stop();
+          live.end();
+        };
+        capture = engines.mic.start(SAMPLE_RATE, (chunk) => {
           try {
             live.push(chunk);
           } catch (e) {
             // The session is gone (the TV disconnected): stop listening.
             onProblem(errorLine(e));
+            failed = true;
             if (hold.current === h) release();
           }
         });
-        h.stop = () => {
-          capture.stop();
-          live.end();
-        };
+        // A chunk that arrived before `start` returned could not stop what did not exist yet.
+        if (failed) capture.stop();
       } catch (e) {
+        h.stop = undefined;
         session.end();
         onProblem(errorLine(e));
         if (hold.current === h) release();
@@ -137,25 +152,36 @@ export function MicButton(props: MicButtonProps): ReactElement | null {
   };
 
   const down = (): void => {
-    if (hold.current) return;
-    const h: Hold = { released: false };
+    // A previous hold may still be starting: ignore the press until it settles.
+    if (hold.current || (latest.current && !latest.current.settled)) return;
+    const h: Hold = { released: false, cancelled: false, settled: false };
     hold.current = h;
+    latest.current = h;
     setListening(true);
     onProblem(null);
     engines.mic.requestPermission().then(
       (granted) => {
-        if (h.released) return;
+        if (h.released) {
+          h.settled = true;
+          return;
+        }
         if (!granted) {
+          h.settled = true;
           onProblem(t('tv.micDenied'));
           release();
           return;
         }
-        talk(h).catch((e: unknown) => {
-          onProblem(errorLine(e));
-          if (hold.current === h) release();
-        });
+        talk(h)
+          .catch((e: unknown) => {
+            onProblem(errorLine(e));
+            if (hold.current === h) release();
+          })
+          .finally(() => {
+            h.settled = true;
+          });
       },
       () => {
+        h.settled = true;
         onProblem(t('tv.micDenied'));
         release();
       },
@@ -169,7 +195,7 @@ export function MicButton(props: MicButtonProps): ReactElement | null {
       <Touchable
         onPress={props.onPress ?? (() => undefined)}
         onPressIn={down}
-        onPressOut={release}
+        onPressOut={() => release()}
         accessibilityLabel={t('tv.voice')}
       >
         <Box bg="accent" border="line" radius="pill" px={6} py={5} align="center" justify="center">

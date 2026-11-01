@@ -22,6 +22,8 @@ export interface FakeAtv {
   ping(val1: number): void;
   refusePairing(): void;
   rejectNextSecret(): void;
+  /** The TV opens a voice session on its own (as a late answer to the search key). */
+  beginVoice(sessionId: number): void;
   stopAnswering(): void;
   drop(): void;
   moveTo(host: string): void;
@@ -361,6 +363,15 @@ export function createFakeAtv(o: FakeAtvOpts): FakeAtv {
       pushRemote(
         new ProtoWriter()
           .message(21, new ProtoWriter().varint(1, imeCounter).varint(2, fieldCounter))
+          .finish(),
+      ),
+    beginVoice: (sessionId) =>
+      pushRemote(
+        new ProtoWriter()
+          .message(
+            30,
+            new ProtoWriter().varint(1, sessionId).string(2, 'com.google.android.katniss'),
+          )
           .finish(),
       ),
     ping: (val1) =>

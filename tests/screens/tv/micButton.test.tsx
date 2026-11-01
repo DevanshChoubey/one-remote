@@ -19,6 +19,9 @@ import { createFakeMic } from '@/voice/testing/fakeMic';
 import type { FakeMic } from '@/voice/testing/fakeMic';
 import { renderWith, room } from '../helpers';
 
+/** Runs the cleanup of every focus effect, as leaving the screen does. */
+const mockBlurs: (() => void)[] = [];
+
 jest.mock('react-native-udp');
 jest.mock('@/screens/tv/useVolumeKeys', () => ({ useVolumeKeys: jest.fn() }));
 jest.mock('@react-native-async-storage/async-storage', () =>
@@ -35,7 +38,12 @@ jest.mock('expo-router', () => {
   const { useEffect } = require('react');
   return {
     useRouter: () => ({ push: jest.fn(), back: jest.fn() }),
-    useFocusEffect: (cb: () => void | (() => void)) => useEffect(cb, [cb]),
+    useFocusEffect: (cb: () => void | (() => void)) =>
+      useEffect(() => {
+        const cleanup = cb();
+        mockBlurs.push(() => cleanup?.());
+        return cleanup;
+      }, [cb]),
   };
 });
 
@@ -158,6 +166,7 @@ const showing = (r: Rig): Promise<void> =>
   renderWith(r.s, <TvScreen deviceId="tv1" />).then(settle);
 
 beforeEach(() => {
+  mockBlurs.length = 0;
   Object.defineProperty(AppState, 'currentState', { value: 'active', configurable: true });
   Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
 });
@@ -213,9 +222,11 @@ describe('MicButton: native voice', () => {
     await act(async () => {
       // The app goes to the background.
       Object.defineProperty(AppState, 'currentState', { value: 'background', configurable: true });
-      (AppState.addEventListener as jest.Mock).mock?.calls?.forEach(
-        ([, cb]: [string, (s: string) => void]) => cb('background'),
-      );
+      const listeners = jest
+        .mocked(AppState.addEventListener)
+        .mock.calls.filter(([type]) => type === 'change');
+      expect(listeners.length).toBeGreaterThan(0);
+      listeners.forEach(([, cb]) => cb('background'));
     });
     await settle();
     expect(r.mic.active).toBe(false);
@@ -230,6 +241,49 @@ describe('MicButton: native voice', () => {
     await screen.unmount();
     expect(r.mic.active).toBe(false);
     expect(r.session.ended).toBe(1);
+  });
+
+  it('a chunk that arrives inside mic.start and fails still stops the capture', async () => {
+    const r = await rig({ voice: true });
+    r.session.gone = true;
+    let stopped = 0;
+    r.mic.start = (_rate, cb) => {
+      cb(new Uint8Array([1]));
+      return {
+        stop: () => {
+          stopped += 1;
+        },
+      };
+    };
+    await showing(r);
+    await hold();
+    expect(stopped).toBe(1);
+    expect(r.session.ended).toBe(1);
+    expect(screen.getByText(t('tv.errNotSent'))).toBeTruthy();
+    expect(screen.queryByText(t('tv.listening'))).toBeNull();
+  });
+
+  it('a new press while the previous start is unsettled is ignored', async () => {
+    const r = await rig({ voice: true }, { deferred: true });
+    await showing(r);
+    await hold();
+    await letGo();
+    await hold();
+    expect(r.startVoice).toHaveBeenCalledTimes(1);
+    r.begin();
+    await settle();
+    expect(r.startVoice).toHaveBeenCalledTimes(1);
+    expect(r.session.ended).toBe(1);
+    expect(screen.queryByText(t('tv.errNotSent'))).toBeNull();
+    expect(screen.queryByText(t('tv.listening'))).toBeNull();
+  });
+
+  it('a double press starts one session', async () => {
+    const r = await rig({ voice: true }, { deferred: true });
+    await showing(r);
+    await hold();
+    await hold();
+    expect(r.startVoice).toHaveBeenCalledTimes(1);
   });
 
   it('a TV that drops mid-hold stops the mic and shows one error line', async () => {
@@ -317,11 +371,22 @@ describe('MicButton: dictation', () => {
     const r = await rig({ voice: false }, { dictation: true });
     r.dictation.text = 'hi';
     r.driver.send = () =>
-      Promise.reject(new DeviceError('notSent', 'No text field is open on the TV'));
+      Promise.reject(new DeviceError('notSent', 'No field here', 'noTextField'));
     await showing(r);
     await hold();
     await letGo();
     expect(screen.getByText(t('tv.voiceNoField'))).toBeTruthy();
+  });
+
+  it('a plain notSent error does not claim there is no text field', async () => {
+    const r = await rig({ voice: false }, { dictation: true });
+    r.dictation.text = 'hi';
+    r.driver.send = () => Promise.reject(new DeviceError('notSent', 'No text field is open'));
+    await showing(r);
+    await hold();
+    await letGo();
+    expect(screen.queryByText(t('tv.voiceNoField'))).toBeNull();
+    expect(screen.getByText(t('tv.errNotSent'))).toBeTruthy();
   });
 
   it('other send errors use the usual error line', async () => {
@@ -350,6 +415,19 @@ describe('MicButton: dictation', () => {
     await hold();
     await letGo();
     expect(screen.getByText(t('tv.micDenied'))).toBeTruthy();
+  });
+
+  it('blurring mid-hold drops the dictated text', async () => {
+    const r = await rig({ voice: false }, { dictation: true });
+    r.dictation.text = 'netflix';
+    await showing(r);
+    await hold();
+    await act(async () => {
+      mockBlurs.forEach((b) => b());
+    });
+    await settle();
+    expect(r.dictation.stops).toBe(1);
+    expect(r.driver.sent).toEqual([]);
   });
 
   it('unmounting mid-hold stops listening', async () => {

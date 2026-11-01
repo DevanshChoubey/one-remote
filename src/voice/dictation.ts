@@ -17,6 +17,8 @@ export class DictationDeniedError extends Error {
   }
 }
 
+/** How long `stop()` waits for the recognizer's `end` event before aborting it. */
+const STOP_TIMEOUT_MS = 3000;
 const FALLBACK_LOCALE = 'en-US';
 
 function deviceLocale(): string {
@@ -100,10 +102,18 @@ export function createNativeDictation(): Dictation {
             await begin.catch(() => undefined);
             if (!ended) {
               ExpoSpeechRecognitionModule.stop();
-              await new Promise<void>((resolve) => {
-                wake = resolve;
-                if (ended) resolve();
-              });
+              let timer: ReturnType<typeof setTimeout> | undefined;
+              const timedOut = await Promise.race([
+                new Promise<false>((resolve) => {
+                  wake = () => resolve(false);
+                  if (ended) resolve(false);
+                }),
+                new Promise<true>((resolve) => {
+                  timer = setTimeout(() => resolve(true), STOP_TIMEOUT_MS);
+                }),
+              ]);
+              clearTimeout(timer);
+              if (timedOut) ExpoSpeechRecognitionModule.abort();
             }
           } finally {
             release();

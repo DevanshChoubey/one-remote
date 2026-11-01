@@ -12,6 +12,7 @@ const mockModule = {
   requestPermissionsAsync: jest.fn<Promise<{ granted: boolean }>, []>(),
   start: jest.fn<void, [Record<string, unknown>]>(),
   stop: jest.fn<void, []>(),
+  abort: jest.fn<void, []>(),
   addListener: jest.fn((event: string, cb: Listener) => {
     listeners.set(event, cb);
     return { remove: () => listeners.delete(event) };
@@ -38,6 +39,7 @@ beforeEach(() => {
     .mockResolvedValue({ locales: ['en-US'], installedLocales: ['en-US'] });
   mockModule.requestPermissionsAsync.mockReset().mockResolvedValue({ granted: true });
   mockModule.start.mockReset();
+  mockModule.abort.mockReset();
   mockModule.stop.mockReset().mockImplementation(() => emit('end'));
 });
 
@@ -82,6 +84,30 @@ describe('start', () => {
     emit('result', { isFinal: true, results: [{ transcript: ' netflix ' }] });
     await expect(run.stop()).resolves.toBe('netflix');
     expect(listeners.size).toBe(0);
+  });
+
+  it('aborts after 3000 ms when the end event never comes, keeping the text heard', async () => {
+    jest.useFakeTimers();
+    try {
+      mockModule.stop.mockImplementation(() => undefined);
+      const run = createNativeDictation().start();
+      await flush();
+      emit('result', { isFinal: false, results: [{ transcript: 'hello' }] });
+      const done = jest.fn();
+      const p = run.stop().then(done);
+      await flush();
+      jest.advanceTimersByTime(2999);
+      await flush();
+      expect(done).not.toHaveBeenCalled();
+      expect(mockModule.abort).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(1);
+      await p;
+      expect(done).toHaveBeenCalledWith('hello');
+      expect(mockModule.abort).toHaveBeenCalledTimes(1);
+      expect(listeners.size).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('resolves with empty text when nothing was heard', async () => {

@@ -299,6 +299,17 @@ describe('voice', () => {
     expect(() => r.sendVoice(7, new Uint8Array(1))).toThrow();
   });
 
+  it('a late voiceBegin with nobody waiting is closed with a voiceEnd', async () => {
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    tv.beginVoice(9);
+    await settle();
+    expect(tv.voice.ends).toEqual([9]);
+    expect(tv.voice.begins).toEqual([]);
+    // The slot stays free.
+    await expect(r.startVoice()).resolves.toBe(7);
+  });
+
   it('is unsupported when the TV lacks the voice bit', async () => {
     const tv = createFakeAtv({ host: HOST, features: 103 });
     const lan = createFakeAtvLan({ tvs: [tv] });

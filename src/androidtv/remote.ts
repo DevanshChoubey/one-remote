@@ -115,7 +115,7 @@ export class AtvRemote {
   /** Types into the field that is open on the TV. Throws `notSent` when none was seen. */
   text(value: string): void {
     if (this.closed) throw new DeviceError('notSent', 'The connection is closed');
-    if (!this.ime) throw new DeviceError('notSent', NO_FIELD);
+    if (!this.ime) throw new DeviceError('notSent', NO_FIELD, 'noTextField');
     this.write(encodeRemote({ kind: 'imeText', ...this.ime, text: value }));
   }
 
@@ -304,7 +304,11 @@ export class AtvRemote {
         return;
       case 'voiceBegin': {
         const wait = this.voiceWait;
-        if (!wait) return;
+        if (!wait) {
+          // Too late (we gave up waiting): close it so the TV's assistant is not left open.
+          this.send({ kind: 'voiceEnd', sessionId: m.sessionId });
+          return;
+        }
         this.voiceWait = undefined;
         clearTimeout(wait.timer);
         this.voiceId = m.sessionId;
