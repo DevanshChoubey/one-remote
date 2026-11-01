@@ -177,3 +177,30 @@ test('pairing mode accepts any certificate and reports its pin', async () => {
   expect(r.certSha256).toBe(tv.certSha256);
   expect(lan.streams[0]?.tls).toEqual({ identity: link.certRef, pairing: true });
 });
+
+test('a failed write closes the stream', async () => {
+  const { tv, lan } = await trusted();
+  const real = lan.openStream.bind(lan);
+  const closes = jest.fn();
+  let failNext = false;
+  lan.openStream = async (...a) => {
+    const s = await real(...a);
+    const close = s.close.bind(s);
+    return {
+      ...s,
+      write: (bytes: Uint8Array) => {
+        if (failNext) throw new Error('boom');
+        s.write(bytes);
+      },
+      close: () => {
+        closes();
+        close();
+      },
+    };
+  };
+  const r = await open(lan, tv);
+  failNext = true;
+  expect(() => r.key(19)).toThrow(expect.objectContaining({ code: 'notSent' }));
+  expect(closes).toHaveBeenCalledTimes(1);
+  expect(tv.connections(6466)).toBe(0);
+});

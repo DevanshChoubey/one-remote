@@ -129,6 +129,7 @@ export class AtvRemote {
       this.stream.write(frame(msg));
     } catch (e) {
       this.finish();
+      this.stream.close();
       throw e instanceof DeviceError ? e : new DeviceError('notSent', 'The write failed');
     }
   }
