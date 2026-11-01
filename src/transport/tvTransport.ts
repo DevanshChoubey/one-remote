@@ -32,6 +32,7 @@ const SSDP_ADDRESS = '239.255.255.250';
 const SSDP_PORT = 1900;
 const WOL_PORT = 9;
 const PROBE_IN_FLIGHT = 32;
+const MAX_RESPONSE_BYTES = 64 * 1024 * 1024;
 
 interface Datagram {
   on(event: 'message', cb: (msg: unknown, rinfo: { address: string }) => void): unknown;
@@ -291,7 +292,10 @@ function openLan(
           onClose: (cb) => {
             closeCbs.push(cb);
             // The native close may have arrived before this promise resolved.
-            if (ended && !closedByUs) void Promise.resolve().then(cb);
+            if (ended && !closedByUs)
+              void Promise.resolve().then(() => {
+                if (!closedByUs) cb();
+              });
           },
         };
         resolve(sock);
@@ -396,7 +400,10 @@ function openLanStream(
           onClose: (cb) => {
             closeCbs.push(cb);
             // The native close may have arrived before this promise resolved.
-            if (ended && !closedByUs) void Promise.resolve().then(cb);
+            if (ended && !closedByUs)
+              void Promise.resolve().then(() => {
+                if (!closedByUs) cb();
+              });
           },
         });
       },
@@ -453,6 +460,13 @@ export function createRnTvTransport(
       if (secure && !req.pinSha256 && !req.pairing) {
         // Never connect unpinned outside pairing.
         throw new DeviceError('notPaired', `No pinned certificate for ${req.url}`);
+      }
+      const max = req.maxBytes;
+      if (max !== undefined && !(Number.isInteger(max) && max >= 1 && max <= MAX_RESPONSE_BYTES)) {
+        throw new DeviceError(
+          'notSent',
+          `maxBytes must be an integer from 1 to ${String(MAX_RESPONSE_BYTES)}`,
+        );
       }
       try {
         return await lan().request(req);

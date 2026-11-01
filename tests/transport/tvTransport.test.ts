@@ -513,6 +513,23 @@ describe('request', () => {
     }
   });
 
+  it('rejects an invalid maxBytes without calling native', async () => {
+    const t = createRnTvTransport({ prefixes: lan });
+    for (const maxBytes of [NaN, 0, 1.5, Infinity, 64 * 1024 * 1024 + 1]) {
+      await expect(
+        t.request({ method: 'GET', url: 'http://192.168.1.23/', timeoutMs: 1500, maxBytes }),
+      ).rejects.toMatchObject({ code: 'notSent' });
+    }
+    mockNative.behaveRequest = (r) => r.resolve(RESPONSE);
+    await t.request({
+      method: 'GET',
+      url: 'http://192.168.1.23/',
+      timeoutMs: 1500,
+      maxBytes: 64 * 1024 * 1024,
+    });
+    expect(mockNative.requests).toHaveLength(1);
+  });
+
   it('rejects notSent when the native module throws', async () => {
     mockNative.request = () => {
       throw new Error('native module missing');
@@ -574,6 +591,52 @@ describe('late close and failed writes', () => {
     expect(cb).not.toHaveBeenCalled();
     await flush();
     expect(cb).toHaveBeenCalledTimes(1);
+  });
+
+  it('stream: onClose then close() in the same tick never calls the callback', async () => {
+    const t = createRnTvTransport({ prefixes: lan });
+    let resolveOpen: ((r: object) => void) | undefined;
+    mockNative.behaveStream = (o) => (resolveOpen = o.resolve);
+    const p = t.openStream('192.168.1.23', 6467, 1500, { pairing: true });
+    await flush();
+    mockNative.emit('close', { id: mockNative.streamOpens[0]?.id as string, error: 'reset' });
+    resolveOpen?.(STREAM_INFO);
+    const s = await p;
+    const cb = jest.fn();
+    s.onClose(cb);
+    s.close();
+    await flush();
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('socket: onClose then close() in the same tick never calls the callback', async () => {
+    const t = createRnTvTransport({ prefixes: lan });
+    let resolveOpen: ((r: object) => void) | undefined;
+    mockNative.behave = (o) => (resolveOpen = o.resolve);
+    const p = t.open('ws://192.168.1.23:3000', 1500);
+    await flush();
+    mockNative.emit('close', { id: mockNative.opens[0]?.id as string, error: 'reset' });
+    resolveOpen?.({});
+    const s = await p;
+    const cb = jest.fn();
+    s.onClose(cb);
+    s.close();
+    await flush();
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('socket send: a native error becomes notSent', async () => {
+    mockNative.behave = (o) => o.resolve({});
+    const s = await createRnTvTransport({ prefixes: lan }).open('ws://192.168.1.23:3000', 1500);
+    mockNative.sendError = nativeError('ERR_LAN_OPEN_FAILED', 'The socket is not open');
+    let err: unknown;
+    try {
+      s.send('x');
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(DeviceError);
+    expect(err).toMatchObject({ code: 'notSent' });
   });
 
   it('stream write: a native error becomes notSent', async () => {

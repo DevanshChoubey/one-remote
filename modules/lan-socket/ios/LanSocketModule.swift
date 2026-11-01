@@ -477,6 +477,8 @@ private final class LanHttpRequest: NSObject, URLSessionDataDelegate {
     config.waitsForConnectivity = false
     config.urlCache = nil
     config.httpCookieStorage = nil
+    // A 401/407 comes back as a response; no stored credential is ever applied.
+    config.urlCredentialStorage = nil
     config.httpCookieAcceptPolicy = .never
     config.httpShouldSetCookies = false
     // No proxy: TV traffic never leaves the LAN through a system or MDM proxy.
@@ -509,9 +511,11 @@ private final class LanHttpRequest: NSObject, URLSessionDataDelegate {
     _ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge,
     completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
   ) {
+    // Not a server-trust challenge (HTTP auth): default handling, with no credential, returns the
+    // 401/407 response as it is.
     guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust
     else {
-      completionHandler(.cancelAuthenticationChallenge, nil)
+      completionHandler(.performDefaultHandling, nil)
       return
     }
     guard secure, let trust = challenge.protectionSpace.serverTrust,

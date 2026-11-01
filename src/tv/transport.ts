@@ -46,7 +46,7 @@ export interface TvHttpRequest {
   pinSha256?: string;
   pairing?: boolean;
   timeoutMs: number;
-  /** Default 262144; a larger response body fails. */
+  /** Default 262144; a larger response body fails. An integer from 1 to 64 MiB, else 'notSent'. */
   maxBytes?: number;
 }
 
@@ -71,7 +71,7 @@ export interface TvTransport {
     timeoutMs: number,
     tls: TvTls & { identity?: string },
   ): Promise<TvStream>;
-  /** One HTTP(S) request. Redirects are not followed (a 3xx is returned), no proxy, no cookies.
+  /** One HTTP(S) request. `timeoutMs` is capped at 60 s. Redirects are not followed (a 3xx is returned), no proxy, no cookies.
    *  The errors are those of `open`; 'notSent' also for a body over `maxBytes`. */
   request(req: TvHttpRequest): Promise<TvHttpResponse>;
   ssdpSearch(

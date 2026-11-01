@@ -72,6 +72,16 @@ class LanRequestTest {
   }
 
   @Test
+  fun authChallengeIsReturnedAsAResponse() {
+    start()
+    server.enqueue(MockResponse().setResponseCode(401).addHeader("WWW-Authenticate", "Basic realm=\"tv\""))
+    val r = get(url())
+    assertEquals(401, r.status)
+    assertEquals("Basic realm=\"tv\"", r.headers["www-authenticate"])
+    assertEquals(1, server.requestCount)
+  }
+
+  @Test
   fun redirectIsReturnedNotFollowed() {
     start()
     server.enqueue(MockResponse().setResponseCode(302).addHeader("Location", "http://8.8.8.8/x"))

@@ -71,6 +71,7 @@ internal class LanRequestClient(private val base: OkHttpClient = OkHttpClient())
         throw LanOpenError(ERR_OPEN_FAILED, "Not a valid request: ${e.message}")
       }
 
+    val limit = maxBytes.coerceIn(0L, MAX_BODY_BYTES)
     val ms = timeoutMs.coerceIn(1L, 60_000L)
     val builder =
       base
@@ -99,7 +100,7 @@ internal class LanRequestClient(private val base: OkHttpClient = OkHttpClient())
       builder.build().newCall(request).execute().use { response ->
         val source = response.body!!.source()
         // Read one byte past the limit to tell "exactly maxBytes" from "too large".
-        if (source.request(maxBytes + 1)) throw LanOpenError(ERR_OPEN_FAILED, "The response is larger than $maxBytes bytes")
+        if (source.request(limit + 1)) throw LanOpenError(ERR_OPEN_FAILED, "The response is larger than $limit bytes")
         val text = source.readUtf8()
         val out = linkedMapOf<String, String>()
         for (name in response.headers.names()) {
@@ -115,3 +116,6 @@ internal class LanRequestClient(private val base: OkHttpClient = OkHttpClient())
     }
   }
 }
+
+/** The most `maxBytes` may ask for; the same limit as iOS and the JS check. */
+internal const val MAX_BODY_BYTES = 64L * 1024 * 1024
