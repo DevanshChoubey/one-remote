@@ -1,4 +1,4 @@
-import { magicPacket } from '@/webos/wol';
+import { magicPacket } from '@/tv/wol';
 
 describe('magicPacket', () => {
   it('is 6 x 0xff then the MAC 16 times', () => {

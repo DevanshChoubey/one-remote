@@ -24,7 +24,7 @@ const DEV_SPIKE_FILES = [
   // matter lane
 ];
 
-const SERVICE_MODULES = ['device', 'store', 'transport', 'ir', 'webos', 'matter'];
+const SERVICE_MODULES = ['device', 'store', 'transport', 'ir', 'tv', 'webos', 'matter'];
 // `services` is the composition root (useServices); it is layered like a domain module but is not pure.
 const DOMAIN_FOLDERS = [
   'core',
@@ -32,11 +32,12 @@ const DOMAIN_FOLDERS = [
   'store',
   'transport',
   'ir',
+  'tv',
   'webos',
   'matter',
   'services',
 ];
-const PURE_FOLDERS = ['core', 'device', 'ir', 'webos', 'matter'];
+const PURE_FOLDERS = ['core', 'device', 'ir', 'tv', 'webos', 'matter'];
 
 const NETWORK_MESSAGE =
   'All networking lives in src/transport and goes through assertLocal(). fetch and XMLHttpRequest are banned.';
@@ -233,7 +234,7 @@ module.exports = [
       ],
     },
   },
-  // Core, device, ir, webos and matter stay pure TypeScript so they run in plain Jest and Node.
+  // Core, device, ir, tv, webos and matter stay pure TypeScript so they run in plain Jest and Node.
   // src/matter/native holds the native module adapter, so it may import React Native.
   {
     files: PURE_FOLDERS.map((d) => `src/${d}/**`),
@@ -257,7 +258,7 @@ module.exports = [
                 '@react-native-async-storage/*',
               ],
               message:
-                'src/core, src/device, src/ir, src/webos and src/matter (except src/matter/native) must stay free of React Native and Expo.',
+                'src/core, src/device, src/ir, src/tv, src/webos and src/matter (except src/matter/native) must stay free of React Native and Expo.',
             },
           ],
         },

@@ -1,9 +1,9 @@
 import type { Device, FoundTv, PairedTv, PairPrompts, TvLink, TvSetup, Unsubscribe } from '@/core';
+import type { TvSecretsWithDelete, TvTransport } from '@/tv/transport';
 import { discoverTvs, probeHost } from './discovery';
 import type { FrameTap } from './frameTap';
 import { pairTv } from './pair';
 import { rediscover } from './rediscover';
-import type { TvSecretsWithDelete, TvTransport } from './transport';
 
 /** The Add TV flow's view of the webOS code. Builds without touching the network. */
 export function createTvSetup(o: {

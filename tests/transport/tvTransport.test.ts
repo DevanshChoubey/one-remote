@@ -3,7 +3,7 @@ import dgram from 'react-native-udp';
 import { DeviceError } from '@/core';
 import type { Prefix } from '@/transport/localOnly';
 import { createRnTvTransport } from '@/transport/tvTransport';
-import { magicPacket } from '@/webos/wol';
+import { magicPacket } from '@/tv/wol';
 import { lanSocket } from '../../modules/lan-socket';
 
 jest.mock('react-native-udp', () => ({ __esModule: true, default: { createSocket: jest.fn() } }));

@@ -5,10 +5,11 @@ import { createAsyncStorageStore } from '@/store/asyncStorageStore';
 import { createAsyncStoragePreferenceStore } from '@/store/preferences';
 import { createSecureSecretStore } from '@/store/secrets';
 import { createRnTvTransport } from '@/transport/tvTransport';
+import { tvHostChanged } from '@/tv/hostChanged';
 import { createWebosDriver } from '@/webos/driver';
 import { createFrameTap } from '@/webos/frameTap';
 import { createTvSetup } from '@/webos/setup';
-import type { TvTransport } from '@/webos/transport';
+import type { TvTransport } from '@/tv/transport';
 import type { Services } from './services';
 
 /** Keeps the hub's device list equal to the store's; applies the newest read that succeeded. */
@@ -83,25 +84,11 @@ function laneDrivers(ctx: LaneContext): LinkDriver[] {
     createWebosDriver({
       transport: ctx.tvTransport,
       secrets: ctx.secrets,
-      onHostChanged: webosHostChanged(ctx.store),
+      onHostChanged: tvHostChanged(ctx.store),
     }),
     // ir lane
     // matter lane
   ];
-}
-
-/** The TV was found at a new address: store it on the device's webos link. A gone device is ignored. */
-export function webosHostChanged(
-  store: Services['store'],
-): (id: string, host: string) => Promise<void> {
-  return async (id, host) => {
-    const device = (await store.devices()).find((d) => d.id === id);
-    if (!device) return;
-    await store.upsertDevice({
-      ...device,
-      links: device.links.map((l) => (l.kind === 'webos' ? { ...l, host } : l)),
-    });
-  };
 }
 
 type ClearsNotPaired = LinkDriver & {
@@ -122,7 +109,7 @@ export function withTvFollowUp(
   store: Services['store'],
   drivers: Services['drivers'],
 ): TvSetup {
-  const hostChanged = webosHostChanged(store);
+  const hostChanged = tvHostChanged(store);
   return {
     ...tv,
     async findAgain(device) {

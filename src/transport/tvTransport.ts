@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import dgram from 'react-native-udp';
 import { DeviceError } from '@/core';
-import type { TvSocket, TvTls, TvTransport } from '@/webos/transport';
+import type { TvSocket, TvTls, TvTransport } from '@/tv/transport';
 import { parseSocketUrl } from '@/webos/url';
 import {
   assertLocal,

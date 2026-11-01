@@ -1,9 +1,9 @@
 import type { Link, Unsubscribe } from '@/core';
 import type { FoundTv } from '@/core/tvSetup';
+import type { TvSecrets, TvTransport } from '@/tv/transport';
 import { SsapClient } from './client';
 import { discoverTvs } from './discovery';
 import { parseMac, URI } from './ssap';
-import type { TvSecrets, TvTransport } from './transport';
 
 const CHECK_MS = 1500;
 const GIVE_UP_MS = 20000;

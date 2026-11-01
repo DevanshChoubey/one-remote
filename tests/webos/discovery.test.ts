@@ -3,7 +3,7 @@ import type { FoundTv } from '@/core/tvSetup';
 import { discoverTvs, parseSsdpReply, probeHost, SSDP_SEARCH } from '@/webos/discovery';
 import { createFakeLan } from '@/webos/testing/fakeLan';
 import { createFakeTv } from '@/webos/testing/fakeTv';
-import type { TvTransport } from '@/webos/transport';
+import type { TvTransport } from '@/tv/transport';
 
 const C4_REPLY = [
   'HTTP/1.1 200 OK',

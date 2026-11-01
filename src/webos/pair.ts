@@ -1,8 +1,8 @@
 import { DeviceError, type Link, type TvLink } from '@/core';
 import { PairError, type FoundTv, type PairedTv, type PairPrompts } from '@/core/tvSetup';
+import type { TvSecretsWithDelete, TvTransport } from '@/tv/transport';
 import { SsapClient } from './client';
 import { parseMac, URI } from './ssap';
-import type { TvSecretsWithDelete, TvTransport } from './transport';
 
 type PairedWebos = PairedTv & { link: Extract<Link, { kind: 'webos' }> };
 

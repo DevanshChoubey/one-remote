@@ -3,7 +3,7 @@ import { PairError } from '@/core/tvSetup';
 import { pairTv } from '@/webos/pair';
 import { createFakeLan } from '@/webos/testing/fakeLan';
 import { createFakeTv } from '@/webos/testing/fakeTv';
-import type { TvSecretsWithDelete } from '@/webos/transport';
+import type { TvSecretsWithDelete } from '@/tv/transport';
 
 const HOST = '192.168.1.23';
 const MAC = 'aa:bb:cc:00:11:22';

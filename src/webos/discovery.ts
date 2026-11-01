@@ -1,6 +1,6 @@
 import { DeviceError, type Unsubscribe } from '@/core';
 import type { FoundTv } from '@/core/tvSetup';
-import type { TvTransport } from './transport';
+import type { TvTransport } from '@/tv/transport';
 
 const ST = 'urn:lge-com:service:webos-second-screen:1';
 

@@ -1,6 +1,6 @@
 import { DeviceError } from '@/core';
+import type { TvSocket, TvTls, TvTransport } from '@/tv/transport';
 import type { FakeTv } from './fakeTv';
-import type { TvSocket, TvTls, TvTransport } from '../transport';
 
 export type FakeLan = TvTransport & {
   wolPackets: Uint8Array[];
