@@ -86,6 +86,22 @@
   .chip { padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: 13px; }
   .chip.sel { border-color: var(--accent); color: var(--accent); font-weight: 600; }
   .via { font-size: 11px; color: var(--ink-2); text-align: center; }
+  .pad .dot { width: 44px; height: 44px; border-radius: 50%; background: var(--surface); border: 1px solid var(--line);
+    box-shadow: 0 2px 8px rgba(0,0,0,.12); margin: 0 auto 12px; }
+  .ring-wrap { flex: 1; display: grid; place-items: center; min-width: 0; }
+  .ring { width: 100%; max-width: 260px; aspect-ratio: 1; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--line);
+    position: relative; display: grid; place-items: center; }
+  .ring .ok { width: 42%; aspect-ratio: 1; border-radius: 50%; background: var(--surface); border: 1px solid var(--line);
+    box-shadow: 0 2px 8px rgba(0,0,0,.10); display: grid; place-items: center; font-weight: 700; color: var(--ink-2); }
+  .ring .ar { position: absolute; font-size: 22px; color: var(--ink-2); }
+  .ring .up { top: 22px; } .ring .dn { bottom: 22px; } .ring .lf { left: 26px; } .ring .rt { right: 26px; }
+  .main3 { display: flex; align-items: center; justify-content: space-between; padding: 0 6px; }
+  .main3 span { display: grid; place-items: center; border-radius: 50%; background: var(--surface);
+    border: 1px solid var(--line); width: 64px; height: 64px; font-size: 22px; }
+  .main3 span.big { width: 84px; height: 84px; font-size: 26px; }
+  .mini { display: flex; justify-content: space-between; gap: 6px; }
+  .mini span { flex: 1; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 15px;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); }
   .notes { max-width: 1240px; margin: 0 auto; padding: 0 16px 32px; color: var(--ink-2); font-size: 13px; }
   .notes li { margin: 4px 0; }
 </style>
@@ -93,7 +109,7 @@
 <body>
 <header>
   <h1>One Remote: first mockup</h1>
-  <p>Four screens: the device list, the TV, the AC and a fan. Rough wireframes to react to, not final
+  <p>Five screens: the device list, the TV (touchpad and D-pad), the AC and a fan. Rough wireframes to react to, not final
   visuals. The TV screen follows the Google TV phone remote: a big touchpad and a handful of buttons.</p>
   <div class="toggle" role="group" aria-label="Theme">
     <button onclick="document.documentElement.dataset.theme='light'">Light</button>
@@ -117,19 +133,31 @@
     <figcaption><b>Home.</b> Every device on one screen, grouped by room. A quick on/off on each card, and a tap opens its remote. No account, no tabs, no store.</figcaption>
   </figure>
 
-  <!-- 2. TV -->
+  <!-- 2a. TV, touchpad -->
   <figure>
     <div class="phone">
       <div class="bar"><div class="icon">‹</div><div style="text-align:center"><h2>LG OLED C4</h2><div class="sub">Wi-Fi · connected</div></div><div class="icon power">⏻</div></div>
       <div class="seg"><span class="sel">Touchpad</span><span>D-pad</span></div>
-      <div class="row" style="flex:1; align-items:stretch">
-        <div class="pad"><div class="hint">Swipe to move<br>Tap to select<br>Two-finger drag: Magic Remote cursor</div></div>
-        <div class="rocker" style="align-self:center"><span>＋</span><span style="font-size:11px;color:var(--ink-2)">VOL</span><span>－</span></div>
-      </div>
-      <div class="row"><div class="btn">↩ Back</div><div class="btn">⌂ Home</div><div class="btn">🔇</div></div>
-      <div class="row"><div class="btn">⌨ Keyboard</div><div class="btn">⇄ Input</div><div class="btn">▶❚❚</div></div>
+      <div class="pad"><div><div class="dot"></div><div class="hint">Swipe to move<br>Tap to select</div></div></div>
+      <div class="main3"><span>↩</span><span class="big">⌂</span><span>⌨</span></div>
+      <div class="mini"><span>－</span><span>＋</span><span>🔇</span><span>⇄</span><span>▶❚❚</span></div>
     </div>
-    <figcaption><b>TV.</b> Modelled on the Google TV remote: touchpad by default, D-pad one tap away. The phone's volume keys also control the TV. Keyboard for search boxes. No ads, no channel guide, no "ThinQ" extras.</figcaption>
+    <figcaption><b>TV, touchpad.</b> The pad fills the screen, as on the Google TV phone remote; a dot follows the finger. Back, Home and Keyboard as big round buttons under it. Volume, mute, input and play/pause in one small row; the phone's volume keys also work.</figcaption>
+  </figure>
+
+  <!-- 2b. TV, D-pad -->
+  <figure>
+    <div class="phone">
+      <div class="bar"><div class="icon">‹</div><div style="text-align:center"><h2>LG OLED C4</h2><div class="sub">Wi-Fi · connected</div></div><div class="icon power">⏻</div></div>
+      <div class="seg"><span>Touchpad</span><span class="sel">D-pad</span></div>
+      <div class="ring-wrap"><div class="ring">
+        <span class="ar up">︿</span><span class="ar dn">﹀</span><span class="ar lf">‹</span><span class="ar rt">›</span>
+        <div class="ok">OK</div>
+      </div></div>
+      <div class="main3"><span>↩</span><span class="big">⌂</span><span>⌨</span></div>
+      <div class="mini"><span>－</span><span>＋</span><span>🔇</span><span>⇄</span><span>▶❚❚</span></div>
+    </div>
+    <figcaption><b>TV, D-pad.</b> One big ring: press an edge to move, the large centre button selects. Same bottom rows as the touchpad, so switching modes only swaps the top half. The choice is remembered per TV.</figcaption>
   </figure>
 
   <!-- 3. AC -->
