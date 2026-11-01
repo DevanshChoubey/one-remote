@@ -1,4 +1,4 @@
-import { PairError, type FoundTv, type PairPrompts } from '@/core';
+import { DeviceError, PairError, type FoundTv, type PairPrompts } from '@/core';
 import { pairAndroidTv } from '@/androidtv/pair';
 import { createFakeAtv } from '@/androidtv/testing/fakeAtv';
 import { createFakeAtvLan } from '@/androidtv/testing/fakeAtvLan';
@@ -165,4 +165,59 @@ test('pairing again keeps the stored certRef', async () => {
   };
   const paired = await pairAndroidTv(lan, found(), prompts(() => tv.shownCode()).p, { reuse });
   expect(paired.link).toMatchObject({ certRef: 'androidtv:old' });
+});
+
+test('a certificate without an RSA key is unreachable, not a wrong code', async () => {
+  const { tv, lan } = setup();
+  const real = lan.openStream.bind(lan);
+  lan.openStream = async (...a) => ({ ...(await real(...a)), serverModulusHex: '' });
+  const { p, calls } = prompts(() => tv.shownCode());
+  await expect(pairAndroidTv(lan, found(), p)).rejects.toMatchObject({ code: 'unreachable' });
+  expect(calls).toEqual([]);
+});
+
+describe('the remote port right after pairing', () => {
+  /** Fails the first `failures` openStream calls to 6466. */
+  function flaky(lan: ReturnType<typeof setup>['lan'], failures: number) {
+    const real = lan.openStream.bind(lan);
+    const times: number[] = [];
+    let left = failures;
+    lan.openStream = (host, port, ms, tls) => {
+      if (port === 6466) {
+        times.push(Date.now());
+        if (left-- > 0) return Promise.reject(new DeviceError('notSent', 'not yet'));
+      }
+      return real(host, port, ms, tls);
+    };
+    return times;
+  }
+  async function run<T>(p: Promise<T>): Promise<void> {
+    for (let i = 0; i < 40; i++) {
+      for (let j = 0; j < 25; j++) await Promise.resolve();
+      jest.advanceTimersByTime(50);
+    }
+    void p.catch(() => undefined);
+  }
+
+  test('is tried once more after about 500 ms', async () => {
+    jest.useFakeTimers();
+    const { tv, lan } = setup();
+    const times = flaky(lan, 1);
+    const p = pairAndroidTv(lan, found(), prompts(() => tv.shownCode()).p);
+    await run(p);
+    await expect(p).resolves.toMatchObject({ link: { host: HOST } });
+    expect(times).toHaveLength(2);
+    expect(times[1]! - times[0]!).toBeGreaterThanOrEqual(500);
+  });
+
+  test('is unreachable when the second try fails too', async () => {
+    jest.useFakeTimers();
+    const { tv, lan } = setup();
+    const times = flaky(lan, 2);
+    const p = pairAndroidTv(lan, found(), prompts(() => tv.shownCode()).p);
+    const assertion = expect(p).rejects.toMatchObject({ code: 'unreachable' });
+    await run(p);
+    await assertion;
+    expect(times).toHaveLength(2);
+  });
 });

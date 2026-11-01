@@ -100,6 +100,8 @@ class Channel {
   }
 }
 
+const RETRY_REMOTE_MS = 500;
+
 /** Pairs with an Android TV: the TV shows a code, the user types it. */
 export async function pairAndroidTv(
   t: Pick<AtvTransport, 'openStream' | 'ensureIdentity'>,
@@ -163,12 +165,16 @@ export async function pairAndroidTv(
     let session = await handshake();
     let wrong = false;
     for (;;) {
-      const typed = await prompts.askCode(wrong);
-      if (typed === null) throw new PairError('cancelled');
       const server = {
         modulusHex: session.chan.stream.serverModulusHex,
         exponentHex: session.chan.stream.serverExponentHex,
       };
+      if (server.modulusHex === '') {
+        // Not an RSA certificate: no code can ever match, so do not ask again and again.
+        throw new PairError('unreachable', 'The TV certificate has no RSA key');
+      }
+      const typed = await prompts.askCode(wrong);
+      if (typed === null) throw new PairError('cancelled');
       const code = normaliseCode(typed);
       const secret = code ? pairingSecret(client, server, code) : null;
       if (!secret) {
@@ -188,16 +194,22 @@ export async function pairAndroidTv(
     const subjectMac = macFromSubject(stream.serverSubject);
     session.chan.close();
 
-    try {
-      remote = await AtvRemote.connect(t, { host: tv.host, certRef: CERT_REF }, connectMs, {
-        pairing: true,
-      });
-    } catch (e) {
-      if (e instanceof DeviceError && e.code === 'notLocal') throw e;
-      throw new PairError(
-        'unreachable',
-        `The TV paired but did not open the remote on port ${String(REMOTE_PORT)}`,
-      );
+    // The TV may need a moment to open the remote port after pairing: one more try after 500 ms.
+    for (let attempt = 1; !remote; attempt++) {
+      try {
+        remote = await AtvRemote.connect(t, { host: tv.host, certRef: CERT_REF }, connectMs, {
+          pairing: true,
+        });
+      } catch (e) {
+        if (e instanceof DeviceError && e.code === 'notLocal') throw e;
+        if (attempt >= 2) {
+          throw new PairError(
+            'unreachable',
+            `The TV paired but did not open the remote on port ${String(REMOTE_PORT)}`,
+          );
+        }
+        await new Promise<void>((resolve) => setTimeout(resolve, RETRY_REMOTE_MS));
+      }
     }
     const vendorModel = `${remote.vendor ?? ''} ${remote.model ?? ''}`.trim();
     const suggestedName =
