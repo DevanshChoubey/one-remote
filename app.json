@@ -42,7 +42,8 @@
         }
       ],
       "expo-secure-store",
-      "./plugins/withVolumeKeys.js"
+      "./plugins/withVolumeKeys.js",
+      "./plugins/withLanCleartext.js"
     ],
     "experiments": {
       "typedRoutes": true
