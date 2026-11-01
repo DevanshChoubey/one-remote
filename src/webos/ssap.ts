@@ -1,4 +1,4 @@
-import type { TvKey } from '@/core';
+import type { TvInput, TvKey } from '@/core';
 
 export type SsapOut =
   | {
@@ -66,6 +66,8 @@ export const URI = {
   power: 'ssap://com.webos.service.tvpower/power/getPowerState',
   netInfo: 'ssap://com.webos.service.connectionmanager/getinfo',
   launch: 'ssap://system.launcher/launch',
+  inputs: 'ssap://tv/getExternalInputList',
+  switchInput: 'ssap://tv/switchInput',
 } as const;
 
 /** A frame for the pointer input socket. */
@@ -124,4 +126,16 @@ export function parseMac(p: Record<string, unknown>): string | undefined {
   const connected = (v: unknown): boolean => isRecord(v) && v.state === 'connected';
   if (wired && wifi) return connected(p.wired) && !connected(p.wifi) ? wired : wifi;
   return wifi ?? wired;
+}
+
+/** The TV's external inputs from `getExternalInputList`; malformed entries are skipped. */
+export function parseInputs(p: Record<string, unknown>): TvInput[] {
+  if (!Array.isArray(p.devices)) return [];
+  const out: TvInput[] = [];
+  for (const d of p.devices as unknown[]) {
+    if (!isRecord(d) || typeof d.id !== 'string' || d.id === '') continue;
+    const label = typeof d.label === 'string' && d.label !== '' ? d.label : d.id;
+    out.push({ id: d.id, label, connected: d.connected === true });
+  }
+  return out;
 }

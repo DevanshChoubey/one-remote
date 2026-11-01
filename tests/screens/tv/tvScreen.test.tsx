@@ -169,6 +169,40 @@ describe('TvScreen', () => {
     expect(screen.getByText(t('tv.touchpadHint'))).toBeTruthy();
   });
 
+  it('lists the TV inputs and switches to the one picked', async () => {
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await act(async () => {
+      r.webos.emit('tv1', {
+        kind: 'tv',
+        state: {
+          power: true,
+          inputs: [
+            { id: 'HDMI_1', label: 'HDMI 1', connected: true },
+            { id: 'HDMI_2', label: 'PlayStation', connected: false },
+          ],
+        },
+      });
+    });
+    await fireEvent.press(screen.getByLabelText(t('tv.input')));
+    expect(screen.getByText(t('tv.inputsTitle'))).toBeTruthy();
+    expect(screen.getByLabelText(t('tv.inputEmpty', { label: 'PlayStation' }))).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('HDMI 1'));
+    expect(r.sent()).toEqual([{ kind: 'tv.input', inputId: 'HDMI_1' }]);
+    expect(screen.getByText(t('tv.touchpadHint'))).toBeTruthy();
+  });
+
+  it('says so when the TV has not listed its inputs, and closes on Done', async () => {
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await on(r);
+    await fireEvent.press(screen.getByLabelText(t('tv.input')));
+    expect(screen.getByText(t('tv.inputsNone'))).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText(t('tv.inputsDone')));
+    expect(r.sent()).toEqual([]);
+    expect(screen.getByText(t('tv.touchpadHint'))).toBeTruthy();
+  });
+
   it('shows the off panel, wakes the TV, and explains a failed wake after 20 s', async () => {
     const r = await rig();
     await renderWith(r.s, <TvScreen deviceId="tv1" />);

@@ -71,6 +71,11 @@ const LAUNCH_POINTS = [
   { id: 'com.webos.app.home', title: 'Home' },
 ];
 
+const INPUTS = [
+  { id: 'HDMI_1', label: 'HDMI 1', port: 1, appId: 'com.webos.app.hdmi1', connected: true },
+  { id: 'HDMI_2', label: 'PlayStation', port: 2, appId: 'com.webos.app.hdmi2', connected: false },
+];
+
 function decodeOut(text: string): SsapOut | null {
   try {
     const m: unknown = JSON.parse(text);
@@ -127,6 +132,7 @@ export function createFakeTv(opts: FakeTvOpts): FakeTv {
           socketPath: `${secure ? 'wss' : 'ws'}://${opts.socketHost ?? host}:${secure ? 3001 : 3000}/resources/fake/netinput.pointer.sock`,
         };
       case URI.turnOff:
+      case URI.switchInput:
       case URI.insertText:
       case URI.launch:
         return { returnValue: true };
@@ -134,6 +140,8 @@ export function createFakeTv(opts: FakeTvOpts): FakeTv {
         return volumePayload();
       case URI.foreground:
         return foregroundPayload();
+      case URI.inputs:
+        return { returnValue: true, devices: INPUTS };
       case URI.launchPoints:
         return { returnValue: true, launchPoints: LAUNCH_POINTS };
       case URI.power:

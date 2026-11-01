@@ -11,7 +11,7 @@ import {
 } from '@/core';
 import { SsapClient, SsapReplyError } from './client';
 import { rediscover } from './rediscover';
-import { isPoweredOn, KEY_BUTTON, parseVolume, URI } from './ssap';
+import { isPoweredOn, KEY_BUTTON, parseInputs, parseVolume, URI } from './ssap';
 import type { TvSecretsWithDelete, TvTransport } from './transport';
 import { magicPacket } from './wol';
 
@@ -484,6 +484,14 @@ export function createWebosDriver(
         if (s.appId !== undefined) update(e, s, { app: appTitle() });
       })
       .catch(() => undefined);
+    client
+      .request(URI.inputs)
+      .then((r) => {
+        if (s.stopped) return;
+        const inputs = parseInputs(r);
+        if (inputs.length > 0) update(e, s, { inputs });
+      })
+      .catch(() => undefined);
 
     // Older firmware may not answer the power subscription: a connected TV is on.
     later(POWER_FALLBACK_MS, () => {
@@ -567,7 +575,7 @@ export function createWebosDriver(
 
   async function sendOverSsap(
     e: Entry,
-    cmd: Extract<Command, { kind: 'tv.key' | 'tv.text' }>,
+    cmd: Extract<Command, { kind: 'tv.key' | 'tv.text' | 'tv.input' }>,
     signal?: AbortSignal,
   ): Promise<void> {
     const started = Date.now();
@@ -577,6 +585,10 @@ export function createWebosDriver(
     if (left <= 0) throw new DeviceError('notSent', 'connect timed out');
     if (cmd.kind === 'tv.text') {
       await client.request(URI.insertText, { text: cmd.text, replace: true }, left);
+      return;
+    }
+    if (cmd.kind === 'tv.input') {
+      await client.request(URI.switchInput, { inputId: cmd.inputId }, left);
       return;
     }
     switch (cmd.key) {
@@ -625,7 +637,7 @@ export function createWebosDriver(
 
     supports(device: Device, link: Link, cmd: Command): boolean {
       if (link.kind !== 'webos') return false;
-      if (cmd.kind === 'tv.key' || cmd.kind === 'tv.text') return true;
+      if (cmd.kind === 'tv.key' || cmd.kind === 'tv.text' || cmd.kind === 'tv.input') return true;
       // With IR on the phone, power-on goes over IR, the reliable path.
       if (cmd.kind === 'tv.powerOn')
         return !!link.mac && !device.links.some((l) => l.kind === 'ir');
@@ -644,7 +656,9 @@ export function createWebosDriver(
         }
         return;
       }
-      if (cmd.kind !== 'tv.key' && cmd.kind !== 'tv.text') throw new DeviceError('unsupported');
+      if (cmd.kind !== 'tv.key' && cmd.kind !== 'tv.text' && cmd.kind !== 'tv.input') {
+        throw new DeviceError('unsupported');
+      }
       const e = entryFor(device, link);
       if (e.notPaired) throw new DeviceError('notPaired', 'The TV asked to pair again');
       try {

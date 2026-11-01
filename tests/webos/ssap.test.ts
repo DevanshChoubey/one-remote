@@ -1,4 +1,5 @@
 import {
+  parseInputs,
   buttonFrame,
   decodeSsap,
   encodeSsap,
@@ -61,6 +62,8 @@ describe('constants', () => {
       power: 'ssap://com.webos.service.tvpower/power/getPowerState',
       netInfo: 'ssap://com.webos.service.connectionmanager/getinfo',
       launch: 'ssap://system.launcher/launch',
+      inputs: 'ssap://tv/getExternalInputList',
+      switchInput: 'ssap://tv/switchInput',
     });
   });
 
@@ -132,5 +135,28 @@ describe('parseMac', () => {
   it('is undefined without a valid MAC', () => {
     expect(parseMac({})).toBeUndefined();
     expect(parseMac({ wifiInfo: { macAddress: 'nope' } })).toBeUndefined();
+  });
+});
+
+describe('parseInputs', () => {
+  it('keeps id, label and connected, and skips malformed entries', () => {
+    expect(
+      parseInputs({
+        returnValue: true,
+        devices: [
+          { id: 'HDMI_1', label: 'HDMI1', connected: true, appId: 'com.webos.app.hdmi1' },
+          { id: 'HDMI_2', label: '', connected: 'yes' },
+          { label: 'no id' },
+          null,
+        ],
+      }),
+    ).toEqual([
+      { id: 'HDMI_1', label: 'HDMI1', connected: true },
+      { id: 'HDMI_2', label: 'HDMI_2', connected: false },
+    ]);
+  });
+
+  it('is empty without a device list', () => {
+    expect(parseInputs({ returnValue: true })).toEqual([]);
   });
 });

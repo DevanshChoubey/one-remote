@@ -170,6 +170,20 @@ describe('webos driver: basics', () => {
     });
   });
 
+  it('tv.input switches to that input', async () => {
+    const r = rig();
+    expect(r.driver.supports(r.dev, r.link, { kind: 'tv.input', inputId: 'HDMI_2' })).toBe(true);
+    await r.send({ kind: 'tv.input', inputId: 'HDMI_2' });
+    expect(r.tv.requests).toContainEqual({ uri: URI.switchInput, payload: { inputId: 'HDMI_2' } });
+  });
+
+  it('tv.input the TV refuses is notSent', async () => {
+    const r = rig({ tvs: [tvAt({ failUris: [URI.switchInput] })] });
+    await expect(r.send({ kind: 'tv.input', inputId: 'HDMI_9' })).rejects.toMatchObject({
+      code: 'notSent',
+    });
+  });
+
   it('playPause alternates PAUSE, PLAY', async () => {
     const r = rig();
     await r.key('playPause');
@@ -271,8 +285,36 @@ describe('webos driver: observe', () => {
     await advance(0);
     expect(reports[reports.length - 1]).toEqual({
       kind: 'tv',
-      state: { power: true, app: 'Netflix', volume: 18, muted: false },
+      state: {
+        power: true,
+        app: 'Netflix',
+        volume: 18,
+        muted: false,
+        inputs: expect.any(Array) as unknown,
+      },
     });
+  });
+
+  it('reports the TV inputs, connected ones flagged', async () => {
+    const r = rig();
+    const { reports } = r.observe();
+    await advance(0);
+    expect(reports[reports.length - 1]).toMatchObject({
+      state: {
+        inputs: [
+          { id: 'HDMI_1', label: 'HDMI 1', connected: true },
+          { id: 'HDMI_2', label: 'PlayStation', connected: false },
+        ],
+      },
+    });
+  });
+
+  it('reports no inputs when the TV refuses the list', async () => {
+    const r = rig({ tvs: [tvAt({ failUris: [URI.inputs] })] });
+    const { reports } = r.observe();
+    await advance(0);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[reports.length - 1]?.state).not.toHaveProperty('inputs');
   });
 
   it('names system apps that have no launch point, and leaves out unknown ids', async () => {

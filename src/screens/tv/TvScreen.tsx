@@ -13,6 +13,7 @@ import { DeviceSettingsButton } from '../device/DeviceSettingsButton';
 import { useKnownDevice } from '../device/useKnownDevice';
 import { DPad } from './DPad';
 import { KeyButton } from './KeyButton';
+import { InputSheet } from './InputSheet';
 import { KeyboardSheet } from './KeyboardSheet';
 import { pressFeedback } from './pressFeedback';
 import { TouchPad } from './TouchPad';
@@ -72,6 +73,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   const [view, setView] = useState<DeviceView | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [keyboard, setKeyboard] = useState(false);
+  const [inputsOpen, setInputsOpen] = useState(false);
   const [finding, setFinding] = useState(false);
   const [findNote, setFindNote] = useState<string | null>(null);
   const [pickedPad, setPickedPad] = useState<Pad | null>(null);
@@ -195,6 +197,18 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     if (mode === 'off' || mode === 'waking' || mode === 'wakeFailed') {
       return <TvOffPanel mode={mode} onTurnOn={turnOn} />;
     }
+    if (inputsOpen) {
+      return (
+        <InputSheet
+          inputs={view?.state?.kind === 'tv' ? view.state.state.inputs : undefined}
+          onPick={(inputId) => {
+            pressFeedback(haptics);
+            send({ kind: 'tv.input', inputId });
+          }}
+          onDone={() => setInputsOpen(false)}
+        />
+      );
+    }
     if (keyboard) {
       return (
         <KeyboardSheet
@@ -226,7 +240,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
         </Row>
         <Row gap={3} justify="center">
           <KeyButton label={t('tv.keyboard')} glyph="⌨" onPress={() => setKeyboard(true)} />
-          <KeyButton label={t('tv.input')} glyph="⇄" onPress={() => key('input')} />
+          <KeyButton label={t('tv.input')} glyph="⇄" onPress={() => setInputsOpen(true)} />
           <KeyButton label={t('tv.playPause')} glyph="▶❚❚" onPress={() => key('playPause')} />
         </Row>
       </Column>
