@@ -52,6 +52,7 @@ class LanSocketModule : Module() {
   private val connector: LanConnector by lazy { LanConnector() }
   private val streamConnector: LanStreamConnector by lazy { LanStreamConnector() }
   private val requestClient: LanRequestClient by lazy { LanRequestClient() }
+  private val identities: LanIdentities by lazy { LanIdentities(AndroidKeyStoreIdentityStore()) }
 
   /** One-shot requests block until the response is read, so they run off the module thread. */
   private val requestPool by lazy { Executors.newCachedThreadPool() }
@@ -89,6 +90,24 @@ class LanSocketModule : Module() {
         }
       if (streams[id]?.write(bytes) != true) {
         throw LanException(ERR_OPEN_FAILED, "The stream is not open")
+      }
+    }
+
+    // Key generation can take seconds; AsyncFunction bodies run off the main thread.
+    AsyncFunction("ensureIdentity") { ref: String, commonName: String ->
+      try {
+        val id = identities.ensure(ref, commonName)
+        mapOf("modulusHex" to id.modulusHex, "exponentHex" to id.exponentHex)
+      } catch (e: LanOpenError) {
+        throw LanException(e.code, e.message ?: e.code)
+      }
+    }
+
+    AsyncFunction("deleteIdentity") { ref: String ->
+      try {
+        identities.delete(ref)
+      } catch (e: LanOpenError) {
+        throw LanException(e.code, e.message ?: e.code)
       }
     }
 

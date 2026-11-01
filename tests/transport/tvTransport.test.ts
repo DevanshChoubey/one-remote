@@ -51,6 +51,20 @@ class FakeNative {
   behaveRequest: ((r: FakeRequest) => void) | undefined;
   writeError: Error | undefined;
   sendError: Error | undefined;
+  identityCalls: [string, string?][] = [];
+  identityResult: object | Error = { modulusHex: 'C0FFEE', exponentHex: '10001' };
+  ensureIdentity(ref: string, commonName: string): Promise<object> {
+    this.identityCalls.push([ref, commonName]);
+    return this.identityResult instanceof Error
+      ? Promise.reject(this.identityResult)
+      : Promise.resolve(this.identityResult);
+  }
+  deleteIdentity(ref: string): Promise<void> {
+    this.identityCalls.push([ref]);
+    return this.identityResult instanceof Error
+      ? Promise.reject(this.identityResult)
+      : Promise.resolve();
+  }
   request(req: FakeRequest['req']): Promise<object> {
     return new Promise((resolve, reject) => {
       const r: FakeRequest = { req, resolve, reject };
@@ -942,5 +956,43 @@ describe('mdnsBrowse', () => {
     await jest.advanceTimersByTimeAsync(100);
     await done;
     expect(seen).toEqual(['192.168.1.50']);
+  });
+});
+
+describe('client identity', () => {
+  it('ensureIdentity passes the ref and common name through and returns the public key', async () => {
+    const t = createRnTvTransport({ prefixes: lan });
+    await expect(t.ensureIdentity('androidtv:tv1', 'one-remote')).resolves.toEqual({
+      modulusHex: 'C0FFEE',
+      exponentHex: '10001',
+    });
+    expect(mockNative.identityCalls).toEqual([['androidtv:tv1', 'one-remote']]);
+  });
+
+  it('deleteIdentity passes the ref through', async () => {
+    const t = createRnTvTransport({ prefixes: lan });
+    await expect(t.deleteIdentity('androidtv:tv1')).resolves.toBeUndefined();
+    expect(mockNative.identityCalls).toEqual([['androidtv:tv1']]);
+  });
+
+  it('maps native failures to DeviceError and keeps the native text', async () => {
+    const t = createRnTvTransport({ prefixes: lan });
+    mockNative.identityResult = nativeError('ERR_LAN_OPEN_FAILED', 'Keystore is locked');
+    await expect(t.ensureIdentity('a', 'cn')).rejects.toMatchObject({
+      name: 'DeviceError',
+      code: 'notSent',
+      message: expect.stringContaining('Keystore is locked'),
+    });
+    await expect(t.deleteIdentity('a')).rejects.toMatchObject({ code: 'notSent' });
+  });
+
+  it('maps a missing native module to notSent', async () => {
+    const t = createRnTvTransport({
+      prefixes: lan,
+      lan: () => {
+        throw new Error('native module missing');
+      },
+    });
+    await expect(t.ensureIdentity('a', 'cn')).rejects.toMatchObject({ code: 'notSent' });
   });
 });

@@ -68,14 +68,19 @@ class LanStreamTest {
   }
 
   /** A TLS server on 127.0.0.1 with the self-signed [cert]; `serve` runs on each accepted socket. */
-  private fun startServer(serve: (SSLSocket) -> Unit): Int {
-    val handshake = HandshakeCertificates.Builder().heldCertificate(cert).build()
+  private fun startServer(clientCa: HeldCertificate? = null, serve: (SSLSocket) -> Unit): Int {
+    val handshake =
+      HandshakeCertificates.Builder()
+        .heldCertificate(cert)
+        .apply { clientCa?.let { addTrustedCertificate(it.certificate) } }
+        .build()
     val s =
       handshake.sslContext().serverSocketFactory.createServerSocket(
         0,
         8,
         InetAddress.getByName("127.0.0.1"),
       ) as SSLServerSocket
+    if (clientCa != null) s.needClientAuth = true
     server = s
     Thread {
         try {
@@ -127,7 +132,7 @@ class LanStreamTest {
 
   @Test
   fun pairingReportsTheLeafSha256AndItsRsaKeyAndSubject() {
-    val port = startServer(echo)
+    val port = startServer(serve = echo)
     val (handle, r) = open(port, pairing = true)
     r.await()
     assertNull(r.error?.message, r.error)
@@ -143,7 +148,7 @@ class LanStreamTest {
 
   @Test
   fun aMatchingPinIsAccepted() {
-    val port = startServer(echo)
+    val port = startServer(serve = echo)
     val (handle, r) = open(port, pin = certSha.uppercase())
     r.await()
     assertEquals(certSha, r.info?.certSha256)
@@ -152,7 +157,7 @@ class LanStreamTest {
 
   @Test
   fun aWrongPinIsRefusedWithPinMismatch() {
-    val port = startServer(echo)
+    val port = startServer(serve = echo)
     val (_, r) = open(port, pin = "00".repeat(32))
     r.await()
     assertNull(r.info)
@@ -161,7 +166,7 @@ class LanStreamTest {
 
   @Test
   fun bytesRoundTripInOrder() {
-    val port = startServer(echo)
+    val port = startServer(serve = echo)
     val (handle, r) = open(port, pairing = true)
     r.await()
     val sent = ByteArray(50_000) { (it % 251).toByte() }
@@ -233,6 +238,49 @@ class LanStreamTest {
     assertEquals(ERR_OPEN_FAILED, real.code)
     Thread.sleep(100)
     assertEquals(0, accepted.get())
+  }
+
+  @Test
+  fun theStoredClientIdentityIsPresentedToAServerThatRequiresOne() {
+    // The identity comes from the same code `ensureIdentity` uses, over an in-memory key store.
+    val keys = FakeIdentityKeyStore()
+    val made = LanIdentities(keys).ensure("androidtv:tv1", "one-remote")
+    val held = keys.entries.getValue("lan-identity:androidtv:tv1").held
+    val withIdentity =
+      LanStreamConnector(
+        identities = { ref ->
+          keys.entries[IDENTITY_PREFIX + ref]?.let {
+            arrayOf(SingleIdentity(IDENTITY_PREFIX + ref, it.held.keyPair.private, arrayOf(it.held.certificate)))
+          }
+        }
+      )
+    val presented = CountDownLatch(1)
+    var seen: java.security.cert.X509Certificate? = null
+    val port =
+      startServer(clientCa = held) { c ->
+        c.startHandshake()
+        seen = c.session.peerCertificates[0] as java.security.cert.X509Certificate
+        presented.countDown()
+        echo(c)
+      }
+    val (handle, r) = open(port, pairing = true, identity = "androidtv:tv1", c = withIdentity)
+    r.await()
+    assertNull(r.error?.message, r.error)
+    assertTrue("server saw no client certificate", presented.await(5, TimeUnit.SECONDS))
+    val key = seen!!.publicKey as RSAPublicKey
+    assertEquals(made.modulusHex, LanIdentities.hex(key.modulus))
+    assertEquals(made.exponentHex, LanIdentities.hex(key.publicExponent))
+    handle.write("ping".toByteArray())
+    handle.close()
+  }
+
+  @Test
+  fun withoutAnIdentityAServerThatRequiresOneRefusesTheStream() {
+    val port = startServer(clientCa = HeldCertificate.Builder().rsa2048().build()) { it.startHandshake() }
+    val (_, r) = open(port, pairing = true)
+    r.await()
+    // Depending on the TLS version the failure shows at open or on the first read.
+    assertTrue(r.closed.await(5, TimeUnit.SECONDS) || r.error != null)
   }
 
   @Test

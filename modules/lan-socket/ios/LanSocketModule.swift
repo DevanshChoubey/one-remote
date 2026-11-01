@@ -15,7 +15,7 @@ struct OpenOptions: Record {
 struct StreamOptions: Record {
   @Field var pinSha256: String? = nil
   @Field var pairing: Bool = false
-  /// Ref of a client identity; the Keychain identity tagged `lan-identity:<ref>` is presented.
+  /// Ref of a client identity (see `LanIdentityStore`) presented as the TLS client certificate.
   @Field var identity: String? = nil
   @Field var timeoutMs: Double = 3000
 }
@@ -77,6 +77,23 @@ public final class LanSocketModule: Module {
         throw lanError(errOpenFailed, "The stream is not open")
       }
       stream.write(bytes)
+    }
+
+    // Key generation can take seconds; AsyncFunction bodies run off the main thread.
+    AsyncFunction("ensureIdentity") { (ref: String, commonName: String) throws -> [String: String] in
+      do {
+        return try LanIdentityStore.ensure(ref: ref, commonName: commonName)
+      } catch {
+        throw lanError(errOpenFailed, LanIdentityStore.message(error))
+      }
+    }
+
+    AsyncFunction("deleteIdentity") { (ref: String) throws in
+      do {
+        try LanIdentityStore.delete(ref: ref)
+      } catch {
+        throw lanError(errOpenFailed, LanIdentityStore.message(error))
+      }
     }
 
     AsyncFunction("request") { (opts: RequestOptions, promise: Promise) in
@@ -178,7 +195,7 @@ public final class LanSocketModule: Module {
     }
     var identity: SecIdentity?
     if let ref = opts.identity {
-      guard let found = LanStream.identity(ref: ref) else {
+      guard let found = LanIdentityStore.identity(ref: ref) else {
         promise.reject(lanError(errOpenFailed, "No client identity '\(ref)'"))
         return
       }
@@ -732,28 +749,19 @@ private final class LanStream {
     queue.setSpecific(key: LanStream.queueKey, value: true)
   }
 
-  /// The Keychain identity tagged `lan-identity:<ref>`, or nil.
-  static func identity(ref: String) -> SecIdentity? {
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassIdentity,
-      kSecAttrApplicationTag as String: Data("lan-identity:\(ref)".utf8),
-      kSecReturnRef as String: true,
-      kSecMatchLimit as String: kSecMatchLimitOne,
-    ]
-    var item: CFTypeRef?
-    guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess, let item,
-      CFGetTypeID(item) == SecIdentityGetTypeID()
-    else { return nil }
-    // swiftlint:disable:next force_cast
-    return (item as! SecIdentity)
-  }
-
   func start(
     host: NWEndpoint.Host, port: NWEndpoint.Port, identity: SecIdentity?, timeout: TimeInterval
   ) {
     let tls = NWProtocolTLS.Options()
     let sec = tls.securityProtocolOptions
-    if let identity, let secIdentity = sec_identity_create(identity) {
+    if let identity {
+      guard let secIdentity = sec_identity_create(identity) else {
+        // Never connect without the client certificate that was asked for.
+        queue.async { [weak self] in
+          self?.finish(event: nil, why: "Cannot use the client identity")
+        }
+        return
+      }
       sec_protocol_options_set_local_identity(sec, secIdentity)
     }
     sec_protocol_options_set_verify_block(

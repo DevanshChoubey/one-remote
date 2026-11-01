@@ -4,6 +4,7 @@ import { DeviceError } from '@/core';
 import type {
   TvHttpRequest,
   TvHttpResponse,
+  TvIdentity,
   TvSocket,
   TvStream,
   TvTls,
@@ -450,6 +451,23 @@ export function createRnTvTransport(
         throw new DeviceError('notPaired', `No pinned certificate for ${host}:${String(port)}`);
       }
       return openLanStream(lan, router, host, port, timeoutMs, tls);
+    },
+
+    async ensureIdentity(ref, commonName): Promise<TvIdentity> {
+      try {
+        const { modulusHex, exponentHex } = await lan().ensureIdentity(ref, commonName);
+        return { modulusHex, exponentHex };
+      } catch (e) {
+        throw openError(`client identity '${ref}'`, e);
+      }
+    },
+
+    async deleteIdentity(ref): Promise<void> {
+      try {
+        await lan().deleteIdentity(ref);
+      } catch (e) {
+        throw openError(`client identity '${ref}'`, e);
+      }
     },
 
     async request(req: TvHttpRequest): Promise<TvHttpResponse> {

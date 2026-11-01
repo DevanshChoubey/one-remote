@@ -1,5 +1,12 @@
 import { DeviceError } from '@/core';
-import type { TvHttpResponse, TvSocket, TvStream, TvTls, TvTransport } from '@/tv/transport';
+import type {
+  TvHttpResponse,
+  TvIdentity,
+  TvSocket,
+  TvStream,
+  TvTls,
+  TvTransport,
+} from '@/tv/transport';
 import type { FakeTv } from './fakeTv';
 
 export type FakeLan = TvTransport & {
@@ -65,6 +72,12 @@ export function createFakeLan(opts: { tvs: FakeTv[]; wifi?: boolean; hang?: stri
     },
     openStream(host, port): Promise<TvStream> {
       return Promise.reject(new DeviceError('notSent', `cannot open ${host}:${String(port)}`));
+    },
+    ensureIdentity(ref): Promise<TvIdentity> {
+      return Promise.reject(new DeviceError('notSent', `no client identity '${ref}'`));
+    },
+    deleteIdentity(): Promise<void> {
+      return Promise.resolve();
     },
     request(req): Promise<TvHttpResponse> {
       return Promise.reject(new DeviceError('notSent', `cannot request ${req.url}`));

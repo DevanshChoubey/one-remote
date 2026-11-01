@@ -59,6 +59,12 @@ export interface TvHttpResponse {
   certSha256?: string;
 }
 
+/** The public half of a client identity: RSA modulus and exponent, upper-case hex, no leading zeros. */
+export interface TvIdentity {
+  modulusHex: string;
+  exponentHex: string;
+}
+
 export interface TvTransport {
   /** Rejects DeviceError('notSent') on refusal or after timeoutMs; 'notLocal' from assertLocal;
    *  'notPaired' for a `wss://` certificate that is not the pinned one, or no pin outside pairing. */
@@ -71,6 +77,12 @@ export interface TvTransport {
     timeoutMs: number,
     tls: TvTls & { identity?: string },
   ): Promise<TvStream>;
+  /** Makes this phone's TLS client identity `ref` (RSA-2048 key and self-signed certificate with CN
+   *  `commonName`) in secure storage, or returns the existing one unchanged. The private key never
+   *  leaves the device's key store. Rejects 'notSent' when it cannot be made. */
+  ensureIdentity(ref: string, commonName: string): Promise<TvIdentity>;
+  /** Removes client identity `ref`. Idempotent. Rejects 'notSent' when the key store fails. */
+  deleteIdentity(ref: string): Promise<void>;
   /** One HTTP(S) request. `timeoutMs` is capped at 60 s. Redirects are not followed (a 3xx is returned), no proxy, no cookies.
    *  The errors are those of `open`; 'notSent' also for a body over `maxBytes`. */
   request(req: TvHttpRequest): Promise<TvHttpResponse>;

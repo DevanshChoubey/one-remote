@@ -21,6 +21,8 @@ import { requireNativeModule, type EventSubscription } from 'expo';
  * base64 and arrive as `data` events, in order. A stream shares the id space, `close(id)` and the
  * `close` event with WebSockets.
  *
+ * `ensureIdentity` / `deleteIdentity` manage the client identities `openStream` can present.
+ *
  * `browse` looks for mDNS/Bonjour services of one type (e.g. `_androidtvremote2._tcp`) until
  * `stopBrowse(id)`, emitting a `service` event per resolved service. It never rejects: a platform
  * failure just ends the browse with nothing found. It shares no id space with sockets.
@@ -46,7 +48,7 @@ export interface LanOpenResult {
 export interface LanStreamOptions {
   pinSha256?: string;
   pairing?: boolean;
-  /** Ref of a client identity made by `ensureIdentity` (Task 8); presented as the TLS client cert. */
+  /** Ref of a client identity made by `ensureIdentity`; presented as the TLS client cert. */
   identity?: string;
   timeoutMs: number;
 }
@@ -58,6 +60,12 @@ export interface LanStreamOpenResult {
   serverExponentHex: string;
   /** Server leaf certificate subject, RFC 2253 form (Android TV puts its MAC in the CN). */
   serverSubject: string;
+}
+
+/** The public key of a client identity, upper-case hex without leading zeros (exponent `10001`). */
+export interface LanIdentity {
+  modulusHex: string;
+  exponentHex: string;
 }
 
 export interface LanRequest {
@@ -138,6 +146,15 @@ export interface LanSocketNative {
     port: number,
     opts: LanStreamOptions,
   ): Promise<LanStreamOpenResult>;
+  /**
+   * Makes the phone's TLS client identity `ref` (RSA-2048 key pair plus a self-signed certificate
+   * with CN `commonName`, valid 10 years) in the Android Keystore / iOS Keychain, or returns the
+   * existing one unchanged. The private key never leaves secure storage. Rejects with
+   * `ERR_LAN_OPEN_FAILED` when it cannot be made.
+   */
+  ensureIdentity(ref: string, commonName: string): Promise<LanIdentity>;
+  /** Removes identity `ref`. Idempotent: an unknown ref is fine. */
+  deleteIdentity(ref: string): Promise<void>;
   /** Queues the bytes on a stream. Throws when the stream is not open. */
   write(id: string, base64: string): void;
   /** One-shot HTTP(S) request; rejects with a `LAN_ERRORS` code. */

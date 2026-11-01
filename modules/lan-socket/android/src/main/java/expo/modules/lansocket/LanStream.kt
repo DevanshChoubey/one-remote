@@ -276,7 +276,7 @@ internal fun androidKeyStoreIdentity(ref: String): Array<KeyManager>? {
 }
 
 /** Presents one client identity, whatever the server asks for. */
-private class SingleIdentity(
+internal class SingleIdentity(
   private val alias: String,
   private val key: PrivateKey,
   private val chain: Array<X509Certificate>,
