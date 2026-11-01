@@ -72,6 +72,15 @@ class MicPcmModule : Module() {
     Events("chunk")
 
     AsyncFunction("requestPermission") { promise: Promise ->
+      // Asking again when already granted still flashes the system dialog, which sends the app to
+      // the background and so ends the hold that asked (seen on the RMX1901, Android 11).
+      val ctx = appContext.reactContext
+      if (ctx != null &&
+        ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+      ) {
+        promise.resolve(true)
+        return@AsyncFunction
+      }
       val perms = appContext.permissions
       if (perms == null) {
         promise.resolve(false)

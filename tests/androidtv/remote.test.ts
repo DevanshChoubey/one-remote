@@ -229,11 +229,33 @@ describe('voice', () => {
     expect(joined).toEqual([...pcm]);
   });
 
-  it('pads a message under 8192 bytes with zeros', async () => {
+  it('collects 100 ms pieces into 8192-byte messages instead of padding each one', async () => {
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    const id = await r.startVoice();
+    // The phone's mic gives about 1600 bytes (100 ms) at a time; padding each to 8192 bytes put
+    // 400 ms of silence after every 100 ms of speech, and the Airtel box understood nothing.
+    for (let i = 0; i < 6; i++) r.sendVoice(id, new Uint8Array(1600).fill(i + 1));
+    await settle();
+    expect(tv.voice.payloads.map((p) => p.samples.length)).toEqual([9600]);
+    r.sendVoice(id, new Uint8Array(1600).fill(7));
+    r.endVoice(id);
+    await settle();
+    expect(tv.voice.payloads.map((p) => p.samples.length)).toEqual([9600, 8192]);
+    const tail = tv.voice.payloads[1]!.samples;
+    expect([...tail.subarray(0, 1600)].every((b) => b === 7)).toBe(true);
+    expect([...tail.subarray(1600)].every((b) => b === 0)).toBe(true);
+    expect(tv.voice.ends).toEqual([7]);
+  });
+
+  it('pads the last short message, sent on endVoice, with zeros', async () => {
     const { tv, lan } = await trusted();
     const r = await open(lan, tv);
     const id = await r.startVoice();
     r.sendVoice(id, new Uint8Array(1000).fill(9));
+    await settle();
+    expect(tv.voice.payloads).toHaveLength(0);
+    r.endVoice(id);
     await settle();
     const [only] = tv.voice.payloads;
     expect(tv.voice.payloads).toHaveLength(1);

@@ -54,6 +54,7 @@ export class AtvRemote {
   private ime: { imeCounter: number; fieldCounter: number } | undefined;
   private voiceWait: VoiceWait | undefined;
   private voiceId: number | undefined;
+  private voiceBuf = new Uint8Array(0);
   private silent: ReturnType<typeof setTimeout> | undefined;
   private liveCbs = new Set<(l: AtvLive) => void>();
   private closeCbs: (() => void)[] = [];
@@ -151,12 +152,44 @@ export class AtvRemote {
     });
   }
 
-  /** Sends PCM16 LE mono 8 kHz audio of session `sessionId`, in messages of at most 20480 bytes
-   *  (a short one is zero-padded to 8192). The samples are never logged. Throws `notSent` when
-   *  that session is not open. */
+  /** Sends PCM16 LE mono 8 kHz audio of session `sessionId`, in messages of 8192 to 20480 bytes.
+   *  Audio is held until 8192 bytes have gathered, since a short message is zero-padded and the
+   *  padding is heard as silence; `endVoice` sends what is left. The samples are never logged.
+   *  Throws `notSent` when that session is not open. */
   sendVoice(sessionId: number, pcm: Uint8Array): void {
     if (this.closed) throw new DeviceError('notSent', 'The connection is closed');
     if (this.voiceId !== sessionId) throw new DeviceError('notSent', 'The voice session is over');
+    if (pcm.length === 0) return;
+    const held = new Uint8Array(this.voiceBuf.length + pcm.length);
+    held.set(this.voiceBuf);
+    held.set(pcm, this.voiceBuf.length);
+    if (held.length < VOICE_CHUNK_MIN) {
+      this.voiceBuf = held;
+      return;
+    }
+    this.voiceBuf = new Uint8Array(0);
+    this.writeVoice(sessionId, held);
+  }
+
+  /** Sends the held audio, then ends the voice session. Idempotent; a session that is not open is
+   *  ignored. */
+  endVoice(sessionId: number): void {
+    if (this.voiceId !== sessionId) return;
+    this.voiceId = undefined;
+    const rest = this.voiceBuf;
+    this.voiceBuf = new Uint8Array(0);
+    if (rest.length > 0) {
+      try {
+        this.writeVoice(sessionId, rest);
+      } catch {
+        return; // the stream ended; finish() already ran
+      }
+    }
+    this.send({ kind: 'voiceEnd', sessionId });
+  }
+
+  /** Writes `pcm` in messages of at most 20480 bytes, zero-padding a short last one to 8192. */
+  private writeVoice(sessionId: number, pcm: Uint8Array): void {
     for (let i = 0; i < pcm.length; i += VOICE_CHUNK_MAX) {
       let samples = pcm.slice(i, i + VOICE_CHUNK_MAX);
       if (samples.length < VOICE_CHUNK_MIN) {
@@ -166,13 +199,6 @@ export class AtvRemote {
       }
       this.write(encodeRemote({ kind: 'voicePayload', sessionId, samples }));
     }
-  }
-
-  /** Ends the voice session. Idempotent; a session that is not open is ignored. */
-  endVoice(sessionId: number): void {
-    if (this.voiceId !== sessionId) return;
-    this.voiceId = undefined;
-    this.send({ kind: 'voiceEnd', sessionId });
   }
 
   onLive(cb: (l: AtvLive) => void): Unsubscribe {
@@ -230,6 +256,7 @@ export class AtvRemote {
     this.endCb?.();
     this.endCb = undefined;
     this.voiceId = undefined;
+    this.voiceBuf = new Uint8Array(0);
     if (this.voiceWait) {
       clearTimeout(this.voiceWait.timer);
       this.voiceWait.reject(new DeviceError('notSent', 'The TV closed the connection'));
