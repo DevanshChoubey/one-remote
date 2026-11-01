@@ -32,6 +32,7 @@ const SERVICE_MODULES = [
   'tv',
   'webos',
   'androidtv',
+  'samsung',
   'matter',
 ];
 // `services` is the composition root (useServices); it is layered like a domain module but is not pure.
@@ -44,10 +45,11 @@ const DOMAIN_FOLDERS = [
   'tv',
   'webos',
   'androidtv',
+  'samsung',
   'matter',
   'services',
 ];
-const PURE_FOLDERS = ['core', 'device', 'ir', 'tv', 'webos', 'androidtv', 'matter'];
+const PURE_FOLDERS = ['core', 'device', 'ir', 'tv', 'webos', 'androidtv', 'samsung', 'matter'];
 
 const NETWORK_MESSAGE =
   'All networking lives in src/transport and goes through assertLocal(). fetch and XMLHttpRequest are banned.';
@@ -268,7 +270,7 @@ module.exports = [
                 '@react-native-async-storage/*',
               ],
               message:
-                'src/core, src/device, src/ir, src/tv, src/webos, src/androidtv and src/matter (except src/matter/native) must stay free of React Native and Expo.',
+                'src/core, src/device, src/ir, src/tv, src/webos, src/androidtv, src/samsung and src/matter (except src/matter/native) must stay free of React Native and Expo.',
             },
           ],
         },
