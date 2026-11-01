@@ -13,6 +13,8 @@ export interface ScreenProps {
   onBack?: () => void;
   /** Stays pinned below the content, within thumb reach. */
   footer?: ReactNode;
+  /** No title or back button: the screen draws its own bar and fills the height (no scrolling). */
+  bare?: boolean;
 }
 
 const ONE_PAGE = [0];
@@ -20,7 +22,7 @@ const ONE_PAGE = [0];
 export function Screen(props: ScreenProps): ReactElement {
   const theme = useTheme();
   const title = props.title ? <Txt variant="title">{props.title}</Txt> : null;
-  const header = props.onBack ? (
+  const header = props.bare ? null : props.onBack ? (
     <Row gap={2} align="center">
       <Touchable onPress={props.onBack} accessibilityLabel={t('common.back')}>
         <Box bg="surface2" radius="pill" align="center" justify="center" testID="screen-back">
@@ -36,7 +38,11 @@ export function Screen(props: ScreenProps): ReactElement {
   ) : (
     title
   );
-  const content = (
+  const content = props.bare ? (
+    <Column flex={1} gap={4} px={5} py={4}>
+      {props.children}
+    </Column>
+  ) : (
     <Column gap={4} px={5} py={4}>
       {header}
       {props.children}

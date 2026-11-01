@@ -29,11 +29,12 @@ jest.mock('expo-network', () => ({
   NetworkStateType: { WIFI: 'WIFI' },
   useNetworkState: () => ({ type: mockNetType }),
 }));
+const mockPush = jest.fn();
 jest.mock('expo-router', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { useEffect } = require('react');
   return {
-    useRouter: () => ({ push: jest.fn(), back: jest.fn() }),
+    useRouter: () => ({ push: mockPush, back: jest.fn() }),
     useFocusEffect: (cb: () => void | (() => void)) => useEffect(cb, [cb]),
   };
 });
@@ -308,6 +309,29 @@ describe('TvScreen', () => {
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
     expect(screen.getByLabelText(t('tv.keyboard'))).toBeTruthy();
     expect(screen.getByLabelText(t('tv.more'))).toBeTruthy();
+  });
+
+  it('opens the device settings from the ⋮ menu', async () => {
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    expect(screen.queryByLabelText(t('device.open'))).toBeNull();
+    await fireEvent.press(screen.getByLabelText(t('tv.more')));
+    await fireEvent.press(screen.getByLabelText(t('device.open')));
+    expect(mockPush).toHaveBeenCalledWith('/device-sheet/tv1');
+    expect(screen.queryByLabelText(t('device.open'))).toBeNull();
+  });
+
+  it('keeps ⋮ with only the device settings when the TV is off', async () => {
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await act(async () => {
+      r.webos.emit('tv1', { kind: 'tv', state: { power: false } });
+    });
+    expect(screen.getByText(t('tv.offTitle'))).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText(t('tv.more')));
+    expect(screen.getByLabelText(t('device.open'))).toBeTruthy();
+    expect(screen.queryByLabelText(t('tv.dpad'))).toBeNull();
+    expect(screen.queryByLabelText(t('tv.input'))).toBeNull();
   });
 
   it('has no volume, mute or play/pause buttons', async () => {

@@ -8,9 +8,9 @@ import { DeviceError, tvLinkOf } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
 import type { DeviceView } from '@/services';
-import { Box, Column, Row, Screen, Touchable, Txt } from '@/ui';
-import { DeviceSettingsButton } from '../device/DeviceSettingsButton';
+import { Column, Row, Screen, Txt } from '@/ui';
 import { useKnownDevice } from '../device/useKnownDevice';
+import { BarButton } from './BarButton';
 import { DPad } from './DPad';
 import { KeyButton } from './KeyButton';
 import { MicButton } from './MicButton';
@@ -18,6 +18,7 @@ import { InputSheet } from './InputSheet';
 import { KeyboardSheet } from './KeyboardSheet';
 import { pressFeedback } from './pressFeedback';
 import { TouchPad } from './TouchPad';
+import { TvBar } from './TvBar';
 import { TvMenu } from './TvMenu';
 import type { Pad } from './TvMenu';
 import { TvOffPanel } from './TvOffPanel';
@@ -233,11 +234,11 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
       );
     }
     return (
-      <Column gap={4}>
+      <Column flex={1} gap={4}>
         {pad === 'touchpad' ? <TouchPad onKey={key} /> : <DPad onKey={key} />}
-        <Row gap={3} align="center" justify="between">
-          <KeyButton label={t('tv.goBack')} glyph="←" onPress={() => key('back')} />
-          <KeyButton label={t('tv.home')} glyph="⌂" big onPress={() => key('home')} />
+        <Row px={1} align="center" justify="between">
+          <KeyButton label={t('tv.goBack')} glyph="←" circle={64} onPress={() => key('back')} />
+          <KeyButton label={t('tv.home')} glyph="⌂" circle={84} onPress={() => key('home')} />
           <MicButton
             deviceId={deviceId}
             voice={caps?.voice === true}
@@ -254,48 +255,45 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   })();
 
   return (
-    <Screen title={device?.name ?? t('common.appName')} onBack={() => router.back()}>
-      <Column gap={4} testID="tv-screen">
-        <Row align="center" justify="between">
-          <Box flex={1}>
-            {status ? (
-              <Txt variant="caption" color="ink2" live>
-                {status}
-              </Txt>
-            ) : null}
-          </Box>
-          <Touchable
+    <Screen bare>
+      <Column flex={1} gap={4} testID="tv-screen">
+        <TvBar
+          name={device?.name ?? t('common.appName')}
+          status={status}
+          onBack={() => router.back()}
+        >
+          <BarButton
+            glyph="⏻"
+            label={t('tv.power')}
+            color="danger"
             onPress={() => (live ? key('power') : turnOn())}
-            accessibilityLabel={t('tv.power')}
-          >
-            <Box px={3}>
-              <Txt variant="heading">{t('tv.power')}</Txt>
-            </Box>
-          </Touchable>
+          />
           {live && caps?.text !== false ? (
-            <Touchable
+            <BarButton
+              glyph="⌨"
+              label={t('tv.keyboard')}
               onPress={() => {
                 setMenuOpen(false);
                 setKeyboard(true);
               }}
-              accessibilityLabel={t('tv.keyboard')}
-            >
-              <Box px={3}>
-                <Txt variant="heading">⌨</Txt>
-              </Box>
-            </Touchable>
+            />
           ) : null}
-          {live ? (
-            <Touchable onPress={() => setMenuOpen((o) => !o)} accessibilityLabel={t('tv.more')}>
-              <Box px={3}>
-                <Txt variant="heading">⋮</Txt>
-              </Box>
-            </Touchable>
-          ) : null}
-          <DeviceSettingsButton deviceId={deviceId} />
-        </Row>
-        {live && menuOpen ? (
+          <BarButton
+            glyph="⋮"
+            label={t('tv.more')}
+            expanded={menuOpen}
+            onPress={() => setMenuOpen((o) => !o)}
+          />
+        </TvBar>
+        {body}
+        {problem ? (
+          <Txt live color="ink2">
+            {problem}
+          </Txt>
+        ) : null}
+        {menuOpen ? (
           <TvMenu
+            live={live}
             pad={pad}
             onPad={(next) => {
               setMenuOpen(false);
@@ -306,13 +304,11 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
               if (caps?.inputList === false) key('input');
               else setInputsOpen(true);
             }}
+            onSettings={() => {
+              setMenuOpen(false);
+              router.push(`/device-sheet/${deviceId}`);
+            }}
           />
-        ) : null}
-        {body}
-        {problem ? (
-          <Txt live color="ink2">
-            {problem}
-          </Txt>
         ) : null}
       </Column>
     </Screen>

@@ -24,6 +24,17 @@ export interface MicButtonProps {
   onPress?: () => void;
 }
 
+/** A microphone drawn from boxes in the background colour: a glyph or emoji would not tint. */
+function MicGlyph(): ReactElement {
+  return (
+    <Column align="center" gap={0}>
+      <Box w={12} h={20} bg="bg" radius="pill" />
+      <Box w={2} h={5} bg="bg" />
+      <Box w={12} h={2} bg="bg" radius="pill" />
+    </Column>
+  );
+}
+
 /** Dictation names its refusal error (screens may not import the voice module). */
 function isDenied(e: unknown): boolean {
   return e instanceof Error && e.name === 'DictationDeniedError';
@@ -198,10 +209,8 @@ export function MicButton(props: MicButtonProps): ReactElement | null {
         onPressOut={() => release()}
         accessibilityLabel={t('tv.voice')}
       >
-        <Box bg="accent" border="line" radius="pill" px={6} py={5} align="center" justify="center">
-          <Txt variant="heading" color="accentInk">
-            🎙
-          </Txt>
+        <Box w={64} h={64} bg="ink" radius="pill" align="center" justify="center">
+          <MicGlyph />
         </Box>
       </Touchable>
       {listening ? (
