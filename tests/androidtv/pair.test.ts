@@ -127,14 +127,6 @@ test('an unknown host is unreachable; a public address is notLocal', async () =>
   await expect(
     pairAndroidTv(lan, found({ host: '192.168.1.99' }), prompts(() => null).p),
   ).rejects.toMatchObject({ code: 'unreachable' });
-  const real = lan.openStream.bind(lan);
-  lan.openStream = (h, ...a) => {
-    if (h === '8.8.8.8') {
-      const { DeviceError } = jest.requireActual<typeof import('@/core')>('@/core');
-      return Promise.reject(new DeviceError('notLocal', 'not local'));
-    }
-    return real(h, ...a);
-  };
   await expect(
     pairAndroidTv(lan, found({ host: '8.8.8.8' }), prompts(() => null).p),
   ).rejects.toMatchObject({ code: 'notLocal' });

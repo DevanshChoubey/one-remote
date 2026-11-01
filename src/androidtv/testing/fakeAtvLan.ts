@@ -6,6 +6,21 @@ import type { AtvTransport } from '../constants';
 import type { RsaPublic } from '../secret';
 import type { FakeAtv } from './fakeAtv';
 
+/** The private, link-local and loopback IPv4 literals the real transport allows. */
+function isLocalLiteral(host: string): boolean {
+  const m = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(host);
+  if (!m) return false;
+  const a = Number(m[1]);
+  const b = Number(m[2]);
+  return (
+    a === 10 ||
+    a === 127 ||
+    (a === 192 && b === 168) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 169 && b === 254)
+  );
+}
+
 export type FakeAtvLan = AtvTransport & {
   wifi: boolean;
   mdnsEnabled: boolean;
@@ -44,6 +59,9 @@ export function createFakeAtvLan(o: {
     deleted,
     openStream(host, port, timeoutMs, tls): Promise<TvStream> {
       streams.push({ host, port, tls });
+      if (!isLocalLiteral(host)) {
+        return Promise.reject(new DeviceError('notLocal', `${host} is not a local address`));
+      }
       if (!tls.pinSha256 && !tls.pairing) {
         return Promise.reject(new DeviceError('notPaired', `No pinned certificate for ${host}`));
       }
