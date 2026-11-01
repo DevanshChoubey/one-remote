@@ -9,11 +9,11 @@ import {
   type TvState,
   type Unsubscribe,
 } from '@/core';
+import type { TvSecretsWithDelete, TvTransport } from '@/tv/transport';
+import { magicPacket } from '@/tv/wol';
 import { SsapClient, SsapReplyError } from './client';
 import { rediscover } from './rediscover';
 import { isPoweredOn, KEY_BUTTON, parseInputs, parseVolume, URI } from './ssap';
-import type { TvSecretsWithDelete, TvTransport } from './transport';
-import { magicPacket } from './wol';
 
 type WebosLink = Extract<Link, { kind: 'webos' }>;
 
@@ -633,7 +633,13 @@ export function createWebosDriver(
       if (e.observers.size > 0 && !e.client) scheduleAttempt(e, 0);
     },
     available: () => true,
-    capabilities: (): Capabilities => ({}),
+    capabilities: (device: Device, link: Link): Capabilities => ({
+      tv: {
+        inputList: true,
+        text: true,
+        powerOn: (link.kind === 'webos' && !!link.mac) || device.links.some((l) => l.kind === 'ir'),
+      },
+    }),
 
     supports(device: Device, link: Link, cmd: Command): boolean {
       if (link.kind !== 'webos') return false;

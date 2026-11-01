@@ -1,7 +1,7 @@
 import 'react-native-gesture-handler/jestSetup';
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { AppState, Linking, Platform } from 'react-native';
-import type { Device, TvSetup } from '@/core';
+import type { Capabilities, Device, TvSetup } from '@/core';
 import type { FakeDriver } from '@/device/testing/fakeDriver';
 import { createFakeDriver } from '@/device/testing/fakeDriver';
 import { t } from '@/i18n';
@@ -54,8 +54,8 @@ interface Rig {
   sent: () => unknown[];
 }
 
-async function rig(): Promise<Rig> {
-  const webos = createFakeDriver('webos');
+async function rig(capabilities?: Capabilities): Promise<Rig> {
+  const webos = createFakeDriver('webos', capabilities ? { capabilities } : {});
   const findAgain = jest.fn(() => Promise.resolve<string | null>(null));
   const tv: TvSetup = {
     discover: () => () => undefined,
@@ -216,6 +216,33 @@ describe('TvScreen', () => {
     expect(screen.getByText(t('tv.waking'))).toBeTruthy();
     await advance(20000);
     expect(screen.getByText(/Turn on via Wi-Fi/)).toBeTruthy();
+  });
+
+  it('sends the Input key when the TV cannot list its inputs', async () => {
+    const r = await rig({ tv: { inputList: false, text: true, powerOn: true } });
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await on(r);
+    await fireEvent.press(screen.getByLabelText(t('tv.input')));
+    await advance(0);
+    expect(r.sent()).toEqual([{ kind: 'tv.key', key: 'input' }]);
+    expect(screen.queryByText(t('tv.inputsTitle'))).toBeNull();
+  });
+
+  it('hides the Keyboard button when the TV takes no text', async () => {
+    const r = await rig({ tv: { inputList: true, text: false, powerOn: true } });
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    expect(screen.queryByLabelText(t('tv.keyboard'))).toBeNull();
+    expect(screen.getByLabelText(t('tv.input'))).toBeTruthy();
+  });
+
+  it('says the TV cannot be turned on from the phone, with no Turn on button', async () => {
+    const r = await rig({ tv: { inputList: true, text: true, powerOn: false } });
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await act(async () => {
+      r.webos.emit('tv1', { kind: 'tv', state: { power: false } });
+    });
+    expect(screen.getByText(t('tv.cantTurnOn'))).toBeTruthy();
+    expect(screen.queryByLabelText(t('tv.turnOn'))).toBeNull();
   });
 
   it('shows the pad again once the TV reports on', async () => {

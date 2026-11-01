@@ -4,8 +4,8 @@ import { rediscover } from '@/webos/rediscover';
 import { KEY_BUTTON, URI } from '@/webos/ssap';
 import { createFakeLan, type FakeLan } from '@/webos/testing/fakeLan';
 import { createFakeTv, type FakeTv } from '@/webos/testing/fakeTv';
-import type { TvSecretsWithDelete } from '@/webos/transport';
-import { magicPacket } from '@/webos/wol';
+import type { TvSecretsWithDelete } from '@/tv/transport';
+import { magicPacket } from '@/tv/wol';
 
 const HOST = '192.168.1.23';
 const MAC = 'aa:bb:cc:00:11:22';
@@ -104,11 +104,24 @@ beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
 
 describe('webos driver: basics', () => {
-  it('is available with no capabilities', () => {
-    const { driver, dev, link } = rig();
+  it('is available', () => {
+    const { driver } = rig();
     expect(driver.kind).toBe('webos');
     expect(driver.available()).toBe(true);
-    expect(driver.capabilities(dev, link)).toEqual({});
+  });
+
+  it('capabilities report inputList, text and powerOn from the MAC', () => {
+    const { driver, dev, link } = rig();
+    expect(driver.capabilities(dev, link)).toEqual({
+      tv: { inputList: true, text: true, powerOn: true },
+    });
+    const noMac = webos({ mac: undefined });
+    expect(driver.capabilities(device([noMac]), noMac)).toEqual({
+      tv: { inputList: true, text: true, powerOn: false },
+    });
+    expect(driver.capabilities(device([noMac, { kind: 'ir', remoteId: 'a/b' }]), noMac)).toEqual({
+      tv: { inputList: true, text: true, powerOn: true },
+    });
   });
 
   it('supports keys and text, and rejects the rest', async () => {

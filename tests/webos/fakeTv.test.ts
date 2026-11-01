@@ -2,7 +2,7 @@ import { DeviceError } from '@/core';
 import { buttonFrame, decodeSsap, encodeSsap, URI, type SsapIn } from '@/webos/ssap';
 import { createFakeLan } from '@/webos/testing/fakeLan';
 import { createFakeTv } from '@/webos/testing/fakeTv';
-import type { TvSocket } from '@/webos/transport';
+import type { TvSocket } from '@/tv/transport';
 
 const MAC = 'aa:bb:cc:00:11:22';
 

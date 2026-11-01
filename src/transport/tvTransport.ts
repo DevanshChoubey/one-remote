@@ -1,7 +1,15 @@
 import { Platform } from 'react-native';
 import dgram from 'react-native-udp';
 import { DeviceError } from '@/core';
-import type { TvSocket, TvTls, TvTransport } from '@/webos/transport';
+import type {
+  TvHttpRequest,
+  TvHttpResponse,
+  TvIdentity,
+  TvSocket,
+  TvStream,
+  TvTls,
+  TvTransport,
+} from '@/tv/transport';
 import { parseSocketUrl } from '@/webos/url';
 import {
   assertLocal,
@@ -15,14 +23,20 @@ import {
   LAN_ERRORS,
   lanSocket,
   type LanCloseEvent,
+  type LanDataEvent,
   type LanMessageEvent,
+  type LanServiceEvent,
   type LanSocketNative,
+  type LanStreamOpenResult,
 } from '../../modules/lan-socket';
 
 const SSDP_ADDRESS = '239.255.255.250';
 const SSDP_PORT = 1900;
 const WOL_PORT = 9;
+const LG_WS_PORT = 3000;
+const LG_WSS_PORT = 3001;
 const PROBE_IN_FLIGHT = 32;
+const MAX_RESPONSE_BYTES = 64 * 1024 * 1024;
 
 interface Datagram {
   on(event: 'message', cb: (msg: unknown, rinfo: { address: string }) => void): unknown;
@@ -91,21 +105,69 @@ function withSocket<T>(
   });
 }
 
-/** Routes the native module's events to the socket they belong to. Subscribes on first use. */
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const B64_INDEX = new Map([...B64].map((c, i) => [c, i]));
+
+function toBase64(bytes: Uint8Array): string {
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i] ?? 0;
+    const b = bytes[i + 1] ?? 0;
+    const c = bytes[i + 2] ?? 0;
+    const n = (a << 16) | (b << 8) | c;
+    out += B64[(n >> 18) & 63];
+    out += B64[(n >> 12) & 63];
+    out += i + 1 < bytes.length ? B64[(n >> 6) & 63] : '=';
+    out += i + 2 < bytes.length ? B64[n & 63] : '=';
+  }
+  return out;
+}
+
+/** Standard base64 as the native module sends it; characters outside the alphabet are skipped. */
+function fromBase64(text: string): Uint8Array {
+  const out: number[] = [];
+  let acc = 0;
+  let bits = 0;
+  for (const ch of text) {
+    const v = B64_INDEX.get(ch);
+    if (v === undefined) continue;
+    acc = ((acc << 6) | v) & 0xffffff;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      out.push((acc >> bits) & 0xff);
+    }
+  }
+  return Uint8Array.from(out);
+}
+
+interface Handler {
+  message?(text: string): void;
+  data?(base64: string): void;
+  service?(e: LanServiceEvent): void;
+  close(why: string): void;
+}
+
+/** Routes the native module's events to the socket or stream they belong to. Subscribes on first
+ *  use. */
 interface Router {
-  add(id: string, h: { message(text: string): void; close(why: string): void }): void;
+  add(id: string, h: Handler): void;
   remove(id: string): void;
 }
 
 function createRouter(lan: () => LanSocketNative): Router {
-  const handlers = new Map<string, { message(text: string): void; close(why: string): void }>();
+  const handlers = new Map<string, Handler>();
   let subscribed = false;
   return {
     add(id, h) {
       if (!subscribed) {
         subscribed = true;
         const native = lan();
-        native.addListener('message', (e: LanMessageEvent) => handlers.get(e.id)?.message(e.data));
+        native.addListener('message', (e: LanMessageEvent) =>
+          handlers.get(e.id)?.message?.(e.data),
+        );
+        native.addListener('data', (e: LanDataEvent) => handlers.get(e.id)?.data?.(e.base64));
+        native.addListener('service', (e: LanServiceEvent) => handlers.get(e.id)?.service?.(e));
         native.addListener('close', (e: LanCloseEvent) => {
           const h2 = handlers.get(e.id);
           handlers.delete(e.id);
@@ -133,8 +195,8 @@ function errorCode(e: unknown): string | undefined {
 }
 
 /** Maps a native open rejection to a DeviceError that keeps the native text. */
-function openError(url: string, e: unknown): DeviceError {
-  const why = `cannot open ${url}: ${errorText(e)}`;
+function openError(target: string, e: unknown): DeviceError {
+  const why = `cannot open ${target}: ${errorText(e)}`;
   switch (errorCode(e)) {
     case LAN_ERRORS.pinMismatch:
     case LAN_ERRORS.noTrust:
@@ -218,7 +280,11 @@ function openLan(
           ...(r.certSha256 ? { certSha256: r.certSha256 } : {}),
           send: (t) => {
             if (ended) throw new DeviceError('notSent', 'socket closed');
-            native.send(id, t);
+            try {
+              native.send(id, t);
+            } catch (e) {
+              throw notSent(e);
+            }
           },
           close: () => {
             if (closedByUs) return;
@@ -231,6 +297,11 @@ function openLan(
           },
           onClose: (cb) => {
             closeCbs.push(cb);
+            // The native close may have arrived before this promise resolved.
+            if (ended && !closedByUs)
+              void Promise.resolve().then(() => {
+                if (!closedByUs) cb();
+              });
           },
         };
         resolve(sock);
@@ -241,6 +312,113 @@ function openLan(
         settled = true;
         clearTimeout(timer);
         reject(openError(url, e));
+      },
+    );
+  });
+}
+
+/** Opens one native TLS stream. Rejects after `timeoutMs` (cancelling the native open). */
+function openLanStream(
+  lan: () => LanSocketNative,
+  router: Router,
+  host: string,
+  port: number,
+  timeoutMs: number,
+  tls: TvTls & { identity?: string },
+): Promise<TvStream> {
+  const target = `${host.includes(':') ? `[${host}]` : host}:${String(port)}`;
+  return new Promise<TvStream>((resolve, reject) => {
+    const id = newId();
+    let settled = false;
+    let closedByUs = false;
+    let ended = false;
+    let onData: ((b: Uint8Array) => void) | undefined;
+    const backlog: Uint8Array[] = [];
+    const closeCbs: (() => void)[] = [];
+    const native = lan();
+    const cancel = (): void => {
+      router.remove(id);
+      try {
+        native.close(id);
+      } catch {
+        // already gone
+      }
+    };
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cancel();
+      reject(new DeviceError('notSent', `timed out opening ${target}`));
+    }, timeoutMs);
+    router.add(id, {
+      data: (base64) => {
+        const bytes = fromBase64(base64);
+        if (onData) onData(bytes);
+        else backlog.push(bytes);
+      },
+      close: () => {
+        ended = true;
+        if (settled && !closedByUs) closeCbs.forEach((cb) => cb());
+      },
+    });
+    const opts = {
+      timeoutMs,
+      ...(tls.pinSha256 ? { pinSha256: tls.pinSha256 } : {}),
+      ...(tls.pairing ? { pairing: true } : {}),
+      ...(tls.identity ? { identity: tls.identity } : {}),
+    };
+    let opening: Promise<LanStreamOpenResult>;
+    try {
+      opening = native.openStream(id, host, port, opts);
+    } catch (e) {
+      opening = Promise.reject(e);
+    }
+    opening.then(
+      (r) => {
+        if (settled) {
+          cancel();
+          return;
+        }
+        settled = true;
+        clearTimeout(timer);
+        resolve({
+          certSha256: r.certSha256,
+          serverModulusHex: r.serverModulusHex,
+          serverExponentHex: r.serverExponentHex,
+          serverSubject: r.serverSubject,
+          write: (bytes) => {
+            if (ended || closedByUs) throw new DeviceError('notSent', 'stream closed');
+            try {
+              native.write(id, toBase64(bytes));
+            } catch (e) {
+              throw notSent(e);
+            }
+          },
+          close: () => {
+            if (closedByUs) return;
+            closedByUs = true;
+            cancel();
+          },
+          onData: (cb) => {
+            onData = cb;
+            backlog.splice(0).forEach(cb);
+          },
+          onClose: (cb) => {
+            closeCbs.push(cb);
+            // The native close may have arrived before this promise resolved.
+            if (ended && !closedByUs)
+              void Promise.resolve().then(() => {
+                if (!closedByUs) cb();
+              });
+          },
+        });
+      },
+      (e: unknown) => {
+        router.remove(id);
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(openError(target, e));
       },
     );
   });
@@ -268,6 +446,58 @@ export function createRnTvTransport(
       return openLan(lan, router, url, timeoutMs, tls);
     },
 
+    async openStream(host, port, timeoutMs, tls): Promise<TvStream> {
+      assertLocal(host, await prefixes());
+      if (!tls.pinSha256 && !tls.pairing) {
+        // Never connect unpinned outside pairing.
+        throw new DeviceError('notPaired', `No pinned certificate for ${host}:${String(port)}`);
+      }
+      return openLanStream(lan, router, host, port, timeoutMs, tls);
+    },
+
+    async ensureIdentity(ref, commonName): Promise<TvIdentity> {
+      try {
+        const { modulusHex, exponentHex } = await lan().ensureIdentity(ref, commonName);
+        return { modulusHex, exponentHex };
+      } catch (e) {
+        throw openError(`client identity '${ref}'`, e);
+      }
+    },
+
+    async deleteIdentity(ref): Promise<void> {
+      try {
+        await lan().deleteIdentity(ref);
+      } catch (e) {
+        throw openError(`client identity '${ref}'`, e);
+      }
+    },
+
+    async request(req: TvHttpRequest): Promise<TvHttpResponse> {
+      const secure = req.url.startsWith('https:');
+      if (!secure && !req.url.startsWith('http:')) {
+        throw new DeviceError('notLocal', 'Not a plain http:// or https:// address');
+      }
+      const parsed = parseSocketUrl(req.url.replace(/^http/, 'ws'));
+      if (!parsed) throw new DeviceError('notLocal', 'Not a plain http:// or https:// address');
+      assertLocal(parsed.host, await prefixes());
+      if (secure && !req.pinSha256 && !req.pairing) {
+        // Never connect unpinned outside pairing.
+        throw new DeviceError('notPaired', `No pinned certificate for ${req.url}`);
+      }
+      const max = req.maxBytes;
+      if (max !== undefined && !(Number.isInteger(max) && max >= 1 && max <= MAX_RESPONSE_BYTES)) {
+        throw new DeviceError(
+          'notSent',
+          `maxBytes must be an integer from 1 to ${String(MAX_RESPONSE_BYTES)}`,
+        );
+      }
+      try {
+        return await lan().request(req);
+      } catch (e) {
+        throw openError(req.url, e);
+      }
+    },
+
     async ssdpSearch(message, windowMs, onReply): Promise<void> {
       // iOS needs the multicast entitlement for SSDP; it uses the subnet probe only.
       if (Platform.OS === 'ios') return;
@@ -286,33 +516,84 @@ export function createRnTvTransport(
       });
     },
 
-    async probe(ports, perHostMs, onOpen, isCancelled): Promise<void> {
+    async mdnsBrowse(serviceType, windowMs, onService): Promise<void> {
+      const id = newId();
+      let stopped = false;
+      let native: LanSocketNative | undefined;
+      const stop = (): void => {
+        if (stopped) return;
+        stopped = true;
+        router.remove(id);
+        try {
+          native?.stopBrowse(id);
+        } catch {
+          // already gone
+        }
+      };
+      try {
+        const local = await prefixes();
+        native = lan();
+        router.add(id, {
+          // Defence in depth: native already drops non-local hosts.
+          service: (e) => {
+            if (isLocalAddress(e.host, local)) {
+              onService({ name: e.name, host: e.host, port: e.port, txt: e.txt });
+            }
+          },
+          close: () => undefined,
+        });
+        native.browse(id, serviceType);
+      } catch (e) {
+        stop();
+        throw notSent(e);
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, windowMs));
+      stop();
+    },
+
+    async probe(ports, perHostMs, onOpen, isCancelled, onHost): Promise<void> {
       const local = await prefixes();
       const hosts = [...new Set(local.flatMap(subnetHosts))];
-      const tryPort = async (host: string, port: number): Promise<void> => {
+      const tryPort = async (host: string, port: number): Promise<boolean> => {
         try {
           assertLocal(host, local);
-          // Only checks that the socket opens (nothing is sent), so TLS is tried as if pairing.
-          const secure = port === 3001;
-          const sock = await openLan(
-            lan,
-            router,
-            `${secure ? 'wss' : 'ws'}://${host}:${port}`,
-            perHostMs,
-            secure ? { pairing: true } : {},
-            true,
-          );
-          sock.close();
+          if (port === LG_WS_PORT || port === LG_WSS_PORT) {
+            // LG ports: a real WebSocket open (nothing is sent), so another service on 3000 is not
+            // taken for a TV. TLS is tried as if pairing.
+            const secure = port === LG_WSS_PORT;
+            const sock = await openLan(
+              lan,
+              router,
+              `${secure ? 'wss' : 'ws'}://${host}:${port}`,
+              perHostMs,
+              secure ? { pairing: true } : {},
+              true,
+            );
+            sock.close();
+          } else if (!(await lan().probeTcp(host, port, perHostMs))) {
+            return false;
+          }
           onOpen(host, port);
+          return true;
         } catch {
           // closed, refused or silent: not a TV
+          return false;
         }
       };
       let next = 0;
       const worker = async (): Promise<void> => {
         while (next < hosts.length && !isCancelled?.()) {
           const host = hosts[next++];
-          if (host) await Promise.all(ports.map((p) => tryPort(host, p)));
+          if (!host) continue;
+          const results = await Promise.all(ports.map((p) => tryPort(host, p)));
+          const openPorts = ports.filter((_, i) => results[i]);
+          if (openPorts.length > 0) {
+            try {
+              onHost?.(host, openPorts);
+            } catch {
+              // a listener failing never stops the sweep
+            }
+          }
         }
       };
       await Promise.all(Array.from({ length: Math.min(PROBE_IN_FLIGHT, hosts.length) }, worker));

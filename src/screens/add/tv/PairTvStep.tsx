@@ -5,6 +5,7 @@ import { PairError } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
 import { Button, Column, Screen, Touchable, Txt } from '@/ui';
+import { PairCodeStep } from './PairCodeStep';
 
 const PAIR_SECONDS = 60;
 
@@ -24,7 +25,7 @@ function failureText(e: unknown): string {
 
 /** Starts pairing on entry; the user accepts the prompt on the TV. */
 export function PairTvStep(props: PairTvStepProps): ReactElement {
-  const { tv, secrets } = useServices();
+  const { tv, secrets, tvBrands } = useServices();
   const onPaired = useRef(props.onPaired);
   useEffect(() => {
     onPaired.current = props.onPaired;
@@ -33,48 +34,99 @@ export function PairTvStep(props: PairTvStepProps): ReactElement {
   const [attempt, setAttempt] = useState(0);
   const [failure, setFailure] = useState<string | null>(null);
   const [left, setLeft] = useState(PAIR_SECONDS);
+  const brand = tvBrands.find((b) => b.kind === found.kind);
+  const byCode = brand?.pairing === 'code';
+  // The driver is waiting for a code; `wrong` after a refusal.
+  const [ask, setAsk] = useState<{ wrong: boolean; n: number } | null>(null);
+  const asks = useRef(0);
+  const pending = useRef<((code: string | null) => void) | null>(null);
+  const answer = (code: string | null): void => {
+    const resolve = pending.current;
+    pending.current = null;
+    setAsk(null);
+    resolve?.(code);
+  };
 
   useEffect(() => {
     let alive = true;
-    tv.pair(found, () => undefined).then(
+    const askCode = (wrong: boolean): Promise<string | null> =>
+      new Promise((resolve) => {
+        if (!alive) {
+          resolve(null);
+          return;
+        }
+        pending.current = resolve;
+        setAsk({ wrong, n: ++asks.current });
+      });
+    tv.pair(found, { onAllow: () => undefined, askCode }).then(
       (paired) => {
         if (alive) {
           onPaired.current(paired);
           return;
         }
         // Pairing cannot be cancelled (pairTv takes no signal), so a late result is dropped and
-        // the key it stored is deleted.
+        // the key it stored is deleted. Only the webOS key layout is known here.
+        if (paired.link.kind !== 'webos') return;
+        const ref = paired.link.clientKeyRef;
         secrets
-          .delete(paired.link.clientKeyRef)
-          .then(() => secrets.delete(`${paired.link.clientKeyRef}:usn`))
+          .delete(ref)
+          .then(() => secrets.delete(`${ref}:usn`))
           .catch((e: unknown) => console.error('Could not drop an unused key', e));
       },
       (e: unknown) => {
+        // Back or a new code resolved the question with null: leave quietly.
+        if (e instanceof PairError && e.code === 'cancelled') return;
         if (alive) setFailure(failureText(e));
       },
     );
     return () => {
       alive = false;
+      const resolve = pending.current;
+      pending.current = null;
+      resolve?.(null);
     };
   }, [tv, secrets, found, attempt]);
 
   useEffect(() => {
-    if (failure !== null) return;
+    if (failure !== null || byCode) return;
     const id = setInterval(() => setLeft((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(id);
-  }, [failure, attempt]);
+  }, [failure, attempt, byCode]);
 
   const retry = (): void => {
+    setAsk(null);
     setFailure(null);
     setLeft(PAIR_SECONDS);
     setAttempt((n) => n + 1);
   };
 
+  if (byCode && failure === null) {
+    return (
+      <PairCodeStep
+        // A new question or a new attempt starts with an empty field.
+        key={`${attempt}-${ask?.n ?? 0}`}
+        wrong={ask?.wrong ?? false}
+        codeLength={brand?.codeLength ?? 6}
+        ready={ask !== null}
+        onSubmit={answer}
+        onNewCode={retry}
+        onBack={() => {
+          answer(null);
+          props.onBack();
+        }}
+      />
+    );
+  }
+
   return (
     <Screen title={t('addTv.pairTitle')} onBack={props.onBack} scroll>
       <Column gap={4}>
-        <Txt variant="heading">{t('addTv.pairAllow')}</Txt>
-        <Txt color="ink2">{t('addTv.pairBody')}</Txt>
+        {byCode ? null : (
+          <>
+            <Txt variant="heading">{t('addTv.pairAllow')}</Txt>
+            <Txt color="ink2">{t('addTv.pairBody')}</Txt>
+          </>
+        )}
         {failure === null ? (
           <>
             <Txt live>{t('addTv.waiting', { seconds: left })}</Txt>

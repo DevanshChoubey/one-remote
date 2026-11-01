@@ -5,6 +5,7 @@ import { ScrollView } from 'react-native';
 import type { Command, Device, FoundTv, TvKey } from '@/core';
 import { Button, Column, Input, Row, Screen, Txt } from '@/ui';
 import { useServices } from '@/services';
+import { createRnTvTransport } from '@/transport/tvTransport';
 
 const DEVICE_ID = 'spike-tv';
 const ROOM_ID = 'spike-room';
@@ -67,12 +68,30 @@ function TvSpike(): ReactElement {
     }, 15000);
   };
 
+  const browseMdns = async (): Promise<void> => {
+    add('mDNS browse _androidtvremote2._tcp for 5 s');
+    const at = now();
+    let n = 0;
+    try {
+      await createRnTvTransport().mdnsBrowse('_androidtvremote2._tcp', 5000, (s) => {
+        n++;
+        add(`mdns +${now() - at} ms ${s.name} ${s.host}:${s.port} txt=${JSON.stringify(s.txt)}`);
+      });
+      add(`mDNS browse done: ${n} result(s)`);
+    } catch (e) {
+      add(`mDNS browse FAILED: ${String(e)}`);
+    }
+  };
+
   const pair = async (): Promise<void> => {
     const hit = found.current[found.current.length - 1];
     if (!hit) return add('pair: discover first');
     add(`pairing with ${hit.host}; accept the prompt on the TV`);
     try {
-      const paired = await tv.pair(hit, () => add('prompt is showing on the TV'));
+      const paired = await tv.pair(hit, {
+        onAllow: () => add('prompt is showing on the TV'),
+        askCode: () => Promise.resolve(null),
+      });
       const device: Device = {
         id: DEVICE_ID,
         kind: 'tv',
@@ -131,6 +150,7 @@ function TvSpike(): ReactElement {
             {h}
           </Txt>
         ))}
+        <Button label="Browse mDNS" variant="secondary" onPress={() => void browseMdns()} />
         <Button label="Pair with last hit" onPress={() => void pair()} />
         <Row gap={2}>
           {keys.map((k) => (

@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import type { FoundTv } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
+import type { Services } from '@/services';
 import { Box, Column, Screen, Touchable, Txt } from '@/ui';
 
 export interface FindTvStepProps {
@@ -11,9 +12,14 @@ export interface FindTvStepProps {
   onBack: () => void;
 }
 
+function brandWord(brands: Services['tvBrands'], kind: FoundTv['kind']): string {
+  const b = brands.find((x) => x.kind === kind);
+  return b ? t(b.labelKey) : kind;
+}
+
 /** Lists TVs as discovery finds them; discovery stops when the step is left. */
 export function FindTvStep(props: FindTvStepProps): ReactElement {
-  const { tv } = useServices();
+  const { tv, tvBrands } = useServices();
   const [found, setFound] = useState<FoundTv[]>([]);
   useEffect(() => {
     const stop = tv.discover((hit) =>
@@ -37,12 +43,15 @@ export function FindTvStep(props: FindTvStepProps): ReactElement {
               <Column gap={1}>
                 <Txt variant="bodyBold">{f.name}</Txt>
                 <Txt variant="caption" color="ink2">
-                  {f.host}
+                  {`${brandWord(tvBrands, f.kind)} · ${f.host}`}
                 </Txt>
               </Column>
             </Box>
           </Touchable>
         ))}
+        <Txt variant="caption" color="ink2">
+          {t('addTv.sameWifi')}
+        </Txt>
         <Txt color="ink2" live>
           {t('addTv.stillLooking')}
         </Txt>

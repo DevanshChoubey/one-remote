@@ -10,7 +10,8 @@
     "ios": {
       "bundleIdentifier": "com.devanshchoubey.oneremote",
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "One Remote finds and controls your TV on your home Wi-Fi."
+        "NSLocalNetworkUsageDescription": "One Remote finds and controls your TV on your home Wi-Fi.",
+        "NSBonjourServices": ["_androidtvremote2._tcp"]
       }
     },
     "android": {
@@ -41,7 +42,8 @@
         }
       ],
       "expo-secure-store",
-      "./plugins/withVolumeKeys.js"
+      "./plugins/withVolumeKeys.js",
+      "./plugins/withLanCleartext.js"
     ],
     "experiments": {
       "typedRoutes": true

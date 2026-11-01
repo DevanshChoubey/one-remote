@@ -1,6 +1,6 @@
 import { DeviceError, type Unsubscribe } from '@/core';
 import type { FoundTv } from '@/core/tvSetup';
-import type { TvTransport } from './transport';
+import type { TvTransport } from '@/tv/transport';
 
 const ST = 'urn:lge-com:service:webos-second-screen:1';
 
@@ -42,10 +42,36 @@ export function parseSsdpReply(text: string, fromHost: string): FoundTv | null {
     .replace(/^\[LG\]\s*/, '')
     .trim();
   return {
+    kind: 'webos',
     host: fromHost,
     name: name || 'LG TV',
     secure: false,
     ...(usn ? { usn } : {}),
+  };
+}
+
+/** SSDP only: reports each webOS reply once per host. Best effort: a transport error ends the
+ *  search quietly. Stops reporting after unsubscribe. */
+export function ssdpDiscover(
+  t: TvTransport,
+  onFound: (tv: FoundTv) => void,
+  ms: number,
+): Unsubscribe {
+  let stopped = false;
+  const seen = new Set<string>();
+  Promise.resolve()
+    .then(() =>
+      t.ssdpSearch(SSDP_SEARCH, ms, (text, from) => {
+        if (stopped) return;
+        const tv = parseSsdpReply(text, from);
+        if (!tv || seen.has(tv.host)) return;
+        seen.add(tv.host);
+        onFound(tv);
+      }),
+    )
+    .catch(() => undefined);
+  return () => {
+    stopped = true;
   };
 }
 
@@ -93,7 +119,7 @@ export function discoverTvs(
         (host, port) => {
           if (port === 3000) {
             plain.add(host);
-            emit({ host, name: 'LG TV', secure: false });
+            emit({ kind: 'webos', host, name: 'LG TV', secure: false });
           } else if (port === 3001) {
             tlsOnly.add(host);
           }
@@ -107,7 +133,7 @@ export function discoverTvs(
         if (plain.has(host) || stopped) continue;
         const prev = seen.get(host);
         if (!prev) {
-          emit({ host, name: 'LG TV', secure: true });
+          emit({ kind: 'webos', host, name: 'LG TV', secure: true });
         } else if (!prev.secure) {
           // SSDP cannot tell; the probe saw only the TLS port. Report the host again, secure.
           const upgraded = { ...prev, secure: true };
@@ -133,7 +159,7 @@ export async function probeHost(t: TvTransport, host: string): Promise<FoundTv |
     try {
       // Only checks that the socket opens (nothing is sent), so the TLS port is tried as if pairing.
       (await t.open(a.url, 1500, a.secure ? { pairing: true } : undefined)).close();
-      return { host, name: 'LG TV', secure: a.secure };
+      return { kind: 'webos', host, name: 'LG TV', secure: a.secure };
     } catch (e) {
       if (e instanceof DeviceError && e.code === 'notLocal') throw e;
     }

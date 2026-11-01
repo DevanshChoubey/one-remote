@@ -1,6 +1,13 @@
 import { DeviceError } from '@/core';
+import type {
+  TvHttpResponse,
+  TvIdentity,
+  TvSocket,
+  TvStream,
+  TvTls,
+  TvTransport,
+} from '@/tv/transport';
 import type { FakeTv } from './fakeTv';
-import type { TvSocket, TvTls, TvTransport } from '../transport';
 
 export type FakeLan = TvTransport & {
   wolPackets: Uint8Array[];
@@ -18,7 +25,8 @@ function hostOf(url: string): string {
 
 /** A fake LAN. `open` routes by host, rejects `notSent` for unknown hosts at once and for `hang`
  *  hosts after `timeoutMs`. Like the real transport, a `wss://` open needs `pairing` or the TV's
- *  pinned certificate, else it rejects `notPaired`; it reports the TV's `certSha256`. */
+ *  pinned certificate, else it rejects `notPaired`; it reports the TV's `certSha256`.
+ *  `openStream` rejects `notSent`: no fake TV speaks a raw TLS stream. */
 export function createFakeLan(opts: { tvs: FakeTv[]; wifi?: boolean; hang?: string[] }): FakeLan {
   const wolPackets: Uint8Array[] = [];
   const opened: string[] = [];
@@ -62,6 +70,18 @@ export function createFakeLan(opts: { tvs: FakeTv[]; wifi?: boolean; hang?: stri
       }
       return Promise.reject(new DeviceError('notSent', `cannot open ${url}`));
     },
+    openStream(host, port): Promise<TvStream> {
+      return Promise.reject(new DeviceError('notSent', `cannot open ${host}:${String(port)}`));
+    },
+    ensureIdentity(ref): Promise<TvIdentity> {
+      return Promise.reject(new DeviceError('notSent', `no client identity '${ref}'`));
+    },
+    deleteIdentity(): Promise<void> {
+      return Promise.resolve();
+    },
+    request(req): Promise<TvHttpResponse> {
+      return Promise.reject(new DeviceError('notSent', `cannot request ${req.url}`));
+    },
     ssdpSearch(_message, windowMs, onReply): Promise<void> {
       if (lan.ssdpEnabled && lan.wifi) {
         for (const tv of opts.tvs) {
@@ -71,12 +91,20 @@ export function createFakeLan(opts: { tvs: FakeTv[]; wifi?: boolean; hang?: stri
       }
       return new Promise((resolve) => setTimeout(resolve, windowMs));
     },
-    probe(ports, perHostMs, onOpen, isCancelled): Promise<void> {
+    mdnsBrowse(_serviceType, windowMs): Promise<void> {
+      return new Promise((resolve) => setTimeout(resolve, windowMs));
+    },
+    probe(ports, perHostMs, onOpen, isCancelled, onHost): Promise<void> {
       if (isCancelled?.()) return Promise.resolve();
       for (const tv of lan.wifi ? opts.tvs : []) {
         if (!tv.isUp() || hang.includes(tv.host)) continue;
         const port = tv.port();
-        if (ports.includes(port)) void Promise.resolve().then(() => onOpen(tv.host, port));
+        if (ports.includes(port)) {
+          void Promise.resolve().then(() => {
+            onOpen(tv.host, port);
+            onHost?.(tv.host, [port]);
+          });
+        }
       }
       return new Promise((resolve) => setTimeout(resolve, perHostMs));
     },

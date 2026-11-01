@@ -1,8 +1,8 @@
 import { DeviceError, type Unsubscribe } from '@/core';
+import type { TvSocket, TvTls, TvTransport } from '@/tv/transport';
 import { manifest, unsignedManifest } from './manifest';
 import { parseSocketUrl } from './url';
 import { buttonFrame, decodeSsap, encodeSsap, URI, type SsapIn, type SsapOut } from './ssap';
-import type { TvSocket, TvTls, TvTransport } from './transport';
 
 const REQUEST_MS = 1500;
 

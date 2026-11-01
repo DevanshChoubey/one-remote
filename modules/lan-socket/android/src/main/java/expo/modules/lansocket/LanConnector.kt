@@ -181,7 +181,7 @@ internal class LanConnector(base: OkHttpClient = OkHttpClient()) {
   }
 
   /** DNS that can only answer with the address that passed the local check. */
-  private class OnlyAddress(private val target: InetAddress) : Dns {
+  internal class OnlyAddress(private val target: InetAddress) : Dns {
     override fun lookup(hostname: String): List<InetAddress> {
       val asked = LocalHost.parseLiteral(hostname)
       if (asked == target) return listOf(target)

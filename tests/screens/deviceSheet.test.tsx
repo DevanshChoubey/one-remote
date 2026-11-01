@@ -139,6 +139,20 @@ describe('DeviceSheet', () => {
     expect(mockPush).toHaveBeenCalledWith('/device-sheet/d1');
   });
 
+  it('shows Wi-Fi and the host for an Android TV link', async () => {
+    const s = makeServices();
+    await s.store.upsertRoom(room('r1', 'Bedroom', 0));
+    await s.store.upsertDevice(
+      device('d9', 'r1', 0, {
+        kind: 'tv',
+        links: [{ kind: 'androidtv', host: '10.0.0.9', certRef: 'c', pinSha256: 'p' }],
+      }),
+    );
+    await renderWith(s, <DeviceSheet deviceId="d9" />);
+    expect(await screen.findByText('Wi-Fi')).toBeTruthy();
+    expect(screen.getAllByText('10.0.0.9').length).toBeGreaterThan(0);
+  });
+
   it('lists the links, the first as main and the others as backup', async () => {
     const s = await seeded();
     await renderWith(s, <DeviceSheet deviceId="d1" />);

@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
+import { isTvLink } from '@/core';
 import type { Device, Link } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
@@ -10,13 +11,15 @@ import { DEVICE_ACTIONS, LINK_ACTIONS } from './linkActions';
 import type { DeviceActionRenderer, LinkActionRenderer } from './linkActions';
 
 const LINK_LABEL: Record<Link['kind'], string> = {
-  webos: 'device.linkWebos',
+  webos: 'device.linkWifi',
+  androidtv: 'device.linkWifi',
+  samsung: 'device.linkWifi',
   matter: 'device.linkMatter',
   ir: 'device.linkIr',
 };
 
 function linkDetail(link: Link): string | null {
-  return link.kind === 'webos' ? link.host : null;
+  return isTvLink(link) ? link.host : null;
 }
 
 export interface DeviceSheetProps {

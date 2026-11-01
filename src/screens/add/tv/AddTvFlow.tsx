@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import type { ReactElement } from 'react';
+import { isTvLink } from '@/core';
 import type { Device, FoundTv, PairedTv } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
@@ -28,20 +29,23 @@ export function AddTvFlow(): ReactElement {
   const onPaired = useCallback(
     (paired: PairedTv): void => {
       const mac = paired.link.mac;
+      // The unused-key cleanup knows only the webOS key layout; other brands clean up in their
+      // own pairing flow.
+      const newRef = paired.link.kind === 'webos' ? paired.link.clientKeyRef : undefined;
       store.devices().then(
         (all) => {
           const existing =
             mac === undefined
               ? undefined
-              : all.find((d) => d.links.some((l) => l.kind === 'webos' && l.mac === mac));
+              : all.find((d) => d.links.some((l) => isTvLink(l) && l.mac === mac));
           if (existing) {
             // The pairing made a new key for a TV we already have: drop it, keep the old one.
             const keep = existing.links.some(
-              (l) => l.kind === 'webos' && l.clientKeyRef === paired.link.clientKeyRef,
+              (l) => l.kind === 'webos' && l.clientKeyRef === newRef,
             );
-            if (!keep) {
+            if (!keep && newRef !== undefined) {
               secrets
-                .delete(paired.link.clientKeyRef)
+                .delete(newRef)
                 .catch((e: unknown) => console.error('Could not drop the new key', e));
             }
             setStep({ name: 'duplicate', existing });
@@ -58,7 +62,12 @@ export function AddTvFlow(): ReactElement {
 
   switch (step.name) {
     case 'brand':
-      return <TvBrandStep onLg={() => setStep({ name: 'find' })} />;
+      return (
+        <TvBrandStep
+          onFind={() => setStep({ name: 'find' })}
+          onManual={() => setStep({ name: 'manual' })}
+        />
+      );
     case 'find':
       return (
         <FindTvStep
@@ -100,9 +109,11 @@ export function AddTvFlow(): ReactElement {
         <NameRoomStep
           draft={{
             kind: 'tv',
-            links: step.withIr
-              ? [step.paired.link, { kind: 'ir', remoteId: 'lg-tv/nec' }]
-              : [step.paired.link],
+            // Only LG has a known IR remote to offer as the backup.
+            links:
+              step.withIr && step.paired.link.kind === 'webos'
+                ? [step.paired.link, { kind: 'ir', remoteId: 'lg-tv/nec' }]
+                : [step.paired.link],
           }}
           suggestedName={step.paired.suggestedName}
           onDone={() => router.dismissAll()}

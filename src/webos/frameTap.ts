@@ -1,5 +1,5 @@
 import type { TvFrame, Unsubscribe } from '@/core';
-import type { TvSocket, TvTransport } from './transport';
+import type { TvSocket, TvTransport } from '@/tv/transport';
 
 /** Dev-only debug hook: sees every frame the webOS code sends and receives, changing nothing. */
 export interface FrameTap {

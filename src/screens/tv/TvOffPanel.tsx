@@ -5,6 +5,9 @@ import { Button, Column, Txt } from '@/ui';
 export function TvOffPanel(props: {
   mode: 'off' | 'waking' | 'wakeFailed';
   onTurnOn: () => void;
+  /** False when the phone cannot wake this TV (no MAC, no IR). */
+  canTurnOn: boolean;
+  wakeHintKey: string;
 }): ReactElement {
   return (
     <Column gap={3} align="center" testID="tv-off">
@@ -13,6 +16,8 @@ export function TvOffPanel(props: {
         <Txt live color="ink2">
           {t('tv.waking')}
         </Txt>
+      ) : !props.canTurnOn ? (
+        <Txt color="ink2">{t('tv.cantTurnOn')}</Txt>
       ) : (
         <>
           <Txt color="ink2">{t('tv.offBody')}</Txt>
@@ -22,7 +27,7 @@ export function TvOffPanel(props: {
           </Txt>
           {props.mode === 'wakeFailed' ? (
             <Txt live color="ink2">
-              {t('tv.wakeFailed')}
+              {t(props.wakeHintKey)}
             </Txt>
           ) : null}
         </>

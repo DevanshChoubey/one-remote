@@ -1,5 +1,5 @@
+import type { TvSocket } from '@/tv/transport';
 import { URI, type SsapIn, type SsapOut } from '../ssap';
-import type { TvSocket } from '../transport';
 
 export interface FakeTv {
   host: string;

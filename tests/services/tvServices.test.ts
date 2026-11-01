@@ -1,10 +1,10 @@
 import type { Device } from '@/core';
 import { createServices } from '@/services';
-import { webosHostChanged } from '@/services/createServices';
 import { createMemoryStore } from '@/store/memoryStore';
 import { createMemoryPreferenceStore } from '@/store/preferences';
 import { createMemorySecretStore } from '@/store/secrets';
-import type { TvTransport } from '@/webos/transport';
+import { tvHostChanged } from '@/tv/hostChanged';
+import type { TvTransport } from '@/tv/transport';
 
 jest.mock('react-native-udp', () => ({ __esModule: true, default: { createSocket: jest.fn() } }));
 jest.mock('expo-network', () => ({}));
@@ -15,17 +15,38 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 
 function fakeTransport(): TvTransport & { calls: jest.Mock[] } {
   const open = jest.fn();
+  const openStream = jest.fn();
+  const request = jest.fn();
+  const ensureIdentity = jest.fn();
+  const deleteIdentity = jest.fn();
   const ssdpSearch = jest.fn();
+  const mdnsBrowse = jest.fn();
   const probe = jest.fn();
   const sendWol = jest.fn();
   const onWifi = jest.fn();
   return {
     open,
+    openStream,
+    request,
+    ensureIdentity,
+    deleteIdentity,
     ssdpSearch,
+    mdnsBrowse,
     probe,
     sendWol,
     onWifi,
-    calls: [open, ssdpSearch, probe, sendWol, onWifi],
+    calls: [
+      open,
+      openStream,
+      request,
+      ensureIdentity,
+      deleteIdentity,
+      ssdpSearch,
+      mdnsBrowse,
+      probe,
+      sendWol,
+      onWifi,
+    ],
   };
 }
 
@@ -81,7 +102,7 @@ describe('TV wiring', () => {
     const { store } = make();
     await store.upsertRoom({ id: 'r', name: 'R', order: 0 });
     await store.upsertDevice(tvDevice);
-    await webosHostChanged(store)('tv1', '192.168.1.40');
+    await tvHostChanged(store)('tv1', '192.168.1.40');
     const [d] = await store.devices();
     expect(d?.links).toEqual([
       { kind: 'ir', remoteId: 'x/y' },
@@ -89,9 +110,28 @@ describe('TV wiring', () => {
     ]);
   });
 
+  it("updates an androidtv link's host and leaves ir untouched", async () => {
+    const { store } = make();
+    const androidtv: Device = {
+      ...tvDevice,
+      links: [
+        { kind: 'ir', remoteId: 'x/y' },
+        { kind: 'androidtv', host: '192.168.1.30', certRef: 'c', pinSha256: 'p' },
+      ],
+    };
+    await store.upsertRoom({ id: 'r', name: 'R', order: 0 });
+    await store.upsertDevice(androidtv);
+    await tvHostChanged(store)('tv1', '192.168.1.40');
+    const [d] = await store.devices();
+    expect(d?.links).toEqual([
+      { kind: 'ir', remoteId: 'x/y' },
+      { kind: 'androidtv', host: '192.168.1.40', certRef: 'c', pinSha256: 'p' },
+    ]);
+  });
+
   it('onHostChanged does nothing when the device is gone', async () => {
     const { store } = make();
-    await webosHostChanged(store)('nope', '192.168.1.40');
+    await tvHostChanged(store)('nope', '192.168.1.40');
     expect(await store.devices()).toEqual([]);
   });
 });

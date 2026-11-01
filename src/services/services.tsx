@@ -1,9 +1,12 @@
 import { createContext, useContext } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import type { LinkDriver, TvSetup } from '@/core';
+import type { BrandSetup } from '@/tv/brands';
 import type { DeviceHub } from '@/device/hub';
 import type { PreferenceStore } from '@/store/preferences';
 import type { HomeStore, SecretStore } from '@/store/types';
+
+export type TvBrandInfo = Pick<BrandSetup, 'kind' | 'labelKey' | 'pairing' | 'codeLength'>;
 
 /**
  * Everything the screens can reach. Each lane adds one typed field here (`tv`, `ir`, `matter`) and
@@ -20,6 +23,8 @@ export interface Services {
   // Lanes add their typed field just under their own slot comment.
   // tv lane
   tv: TvSetup;
+  /** The registered brands, for the brand list, the brand word and the pairing step. */
+  tvBrands: readonly TvBrandInfo[];
   // ir lane
   // matter lane
 }

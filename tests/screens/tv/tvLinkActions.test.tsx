@@ -1,4 +1,5 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { PairError } from '@/core';
 import type { Device } from '@/core';
 import { createFakeDriver } from '@/device/testing/fakeDriver';
 import { t } from '@/i18n';
@@ -95,11 +96,91 @@ describe('TvLinkActions', () => {
     await renderWith(r.s, <TvLinkActions deviceId="tv1" />);
     await fireEvent.press(await screen.findByLabelText(t('addTv.pairAgain')));
     expect(r.setup.pair).toHaveBeenCalledWith(
-      expect.objectContaining({ host: '192.168.1.23', secure: true }),
-      expect.any(Function),
-      'key-1',
+      expect.objectContaining({ kind: 'webos', host: '192.168.1.23', secure: true }),
+      expect.objectContaining({ onAllow: expect.any(Function) }),
+      expect.objectContaining({ kind: 'webos', clientKeyRef: 'key-1' }),
     );
     expect(await screen.findByText(t('addTv.paired'))).toBeTruthy();
+  });
+
+  it('pairs an Android TV link again with that link as reuse', async () => {
+    const atv = {
+      kind: 'androidtv' as const,
+      host: '10.0.0.5',
+      certRef: 'phone',
+      pinSha256: 'p',
+    };
+    const r = await rig({ ...tvDevice, links: [atv] });
+    r.setup.pair.mockResolvedValueOnce({ link: atv, suggestedName: 'x' });
+    await renderWith(r.s, <TvLinkActions deviceId="tv1" />);
+    expect(await screen.findByText('10.0.0.5')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText(t('addTv.pairAgain')));
+    expect(r.setup.pair).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'androidtv', host: '10.0.0.5' }),
+      expect.anything(),
+      atv,
+    );
+    expect(await screen.findByText(t('addTv.paired'))).toBeTruthy();
+  });
+
+  it('asks for the code when pairing an Android TV link again, and stays quiet on cancel', async () => {
+    const atv = {
+      kind: 'androidtv' as const,
+      host: '10.0.0.5',
+      certRef: 'phone',
+      pinSha256: 'p',
+    };
+    const r = await rig({ ...tvDevice, links: [atv] });
+    const asked: (string | null)[] = [];
+    r.setup.pair.mockImplementationOnce(async (_tv, prompts) => {
+      asked.push(await prompts.askCode(false));
+      throw new PairError('cancelled');
+    });
+    await renderWith(r.s, <TvLinkActions deviceId="tv1" />);
+    await fireEvent.press(await screen.findByLabelText(t('addTv.pairAgain')));
+    await fireEvent.changeText(await screen.findByLabelText(t('addTv.codeTitle')), 'a1b2c3');
+    await fireEvent.press(screen.getByLabelText(t('addTv.codePair')));
+    await waitFor(() => expect(asked).toEqual(['A1B2C3']));
+    expect(screen.queryByText(t('addTv.unreachable'))).toBeNull();
+  });
+
+  describe('code prompt', () => {
+    const atv = {
+      kind: 'androidtv' as const,
+      host: '10.0.0.5',
+      certRef: 'phone',
+      pinSha256: 'p',
+    };
+
+    it('shows the wrong-code line and clears the field when asked again', async () => {
+      const r = await rig({ ...tvDevice, links: [atv] });
+      r.setup.pair.mockImplementationOnce(async (_tv, prompts) => {
+        await prompts.askCode(false);
+        const second = prompts.askCode(true);
+        await second;
+        throw new PairError('cancelled');
+      });
+      await renderWith(r.s, <TvLinkActions deviceId="tv1" />);
+      await fireEvent.press(await screen.findByLabelText(t('addTv.pairAgain')));
+      await fireEvent.changeText(await screen.findByLabelText(t('addTv.codeTitle')), 'zzzzzz');
+      await fireEvent.press(screen.getByLabelText(t('addTv.codePair')));
+      expect(await screen.findByText(t('addTv.codeWrong'))).toBeTruthy();
+      expect(screen.getByLabelText(t('addTv.codeTitle')).props.value).toBe('');
+    });
+
+    it('settles a pending code question when the screen is left', async () => {
+      const r = await rig({ ...tvDevice, links: [atv] });
+      const asked = jest.fn();
+      r.setup.pair.mockImplementationOnce(async (_tv, prompts) => {
+        asked(await prompts.askCode(false));
+        throw new PairError('cancelled');
+      });
+      await renderWith(r.s, <TvLinkActions deviceId="tv1" />);
+      await fireEvent.press(await screen.findByLabelText(t('addTv.pairAgain')));
+      await screen.findByLabelText(t('addTv.codeTitle'));
+      await screen.unmount();
+      await waitFor(() => expect(asked).toHaveBeenCalledWith(null));
+    });
   });
 
   it('renders nothing for a device that is not a TV', async () => {

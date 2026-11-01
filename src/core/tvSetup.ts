@@ -1,15 +1,25 @@
-import type { Device, Link } from './model';
+import type { Device } from './model';
+import type { TvLink, TvLinkKind } from './tvLink';
 import type { Unsubscribe } from './driver';
 
 /** A TV seen on the network, before it is paired. */
 export interface FoundTv {
+  kind: TvLinkKind;
   host: string;
   name: string;
   secure: boolean;
   usn?: string;
 }
 
-export type PairErrorCode = 'denied' | 'timeout' | 'unreachable';
+export interface PairPrompts {
+  /** The TV shows an Allow prompt (LG, Samsung). */
+  onAllow(): void;
+  /** The TV shows a code. Resolves the typed code, or null when the user went back.
+   *  `wrong` is true after a code the TV refused. */
+  askCode(wrong: boolean): Promise<string | null>;
+}
+
+export type PairErrorCode = 'denied' | 'timeout' | 'unreachable' | 'cancelled';
 
 export class PairError extends Error {
   readonly code: PairErrorCode;
@@ -23,7 +33,7 @@ export class PairError extends Error {
 }
 
 export interface PairedTv {
-  link: Extract<Link, { kind: 'webos' }>;
+  link: TvLink;
   suggestedName: string;
 }
 
@@ -32,7 +42,8 @@ export interface TvSetup {
   discover(onFound: (tv: FoundTv) => void): Unsubscribe;
   /** Throws DeviceError('notLocal') for an address that is not on the home network. */
   probeHost(host: string): Promise<FoundTv | null>;
-  pair(tv: FoundTv, onPrompt: () => void, clientKeyRef?: string): Promise<PairedTv>;
+  /** `reuse`: the device's current link when pairing again (keeps its secret refs). */
+  pair(tv: FoundTv, prompts: PairPrompts, reuse?: TvLink): Promise<PairedTv>;
   /** The TV's new host, or null when it was not found. */
   findAgain(device: Device): Promise<string | null>;
   /** Dev-only: every SSAP frame in and out, for the hardware spike. Absent unless wired. */

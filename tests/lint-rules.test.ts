@@ -49,8 +49,8 @@ describe('architecture lint rules', () => {
     ).toContain('no-restricted-imports');
   });
 
-  it('bans react-native in src/core, src/device, src/ir and src/matter', () => {
-    for (const dir of ['core', 'device', 'ir', 'matter']) {
+  it('bans react-native in src/core, src/device, src/ir, src/tv and src/matter', () => {
+    for (const dir of ['core', 'device', 'ir', 'tv', 'matter']) {
       expect(
         errorsFor(
           "import { Platform } from 'react-native';\nexport const p = Platform;\n",
