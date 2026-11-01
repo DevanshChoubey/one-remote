@@ -459,6 +459,26 @@ describe('rediscovery', () => {
   });
 });
 
+describe('pin mismatch during a press', () => {
+  it('is notSent while rediscovery runs, notPaired once it found nothing', async () => {
+    const r = rig();
+    r.tv.certSha256 = 'new-cert';
+    const first = r.key('up').catch((e: unknown) => e);
+    await advance(10);
+    await expect(first).resolves.toMatchObject({ code: 'notSent' });
+    await advance(25000);
+    expect(r.lan.probes.length).toBe(1);
+    await expect(r.key('up')).rejects.toMatchObject({ code: 'notPaired' });
+    expect(r.onHostChanged).not.toHaveBeenCalled();
+  });
+
+  it('is notPaired at once without a MAC to search by', async () => {
+    const r = rig({ link: { mac: undefined } });
+    r.tv.certSha256 = 'new-cert';
+    await expect(r.key('up')).rejects.toMatchObject({ code: 'notPaired' });
+  });
+});
+
 describe('forget', () => {
   it('deletes the token, closes the socket, and is safe twice', async () => {
     const r = rig({ seed: { [REF]: TOKEN, 'samsung:other': 'keep' } });

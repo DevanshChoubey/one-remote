@@ -198,6 +198,9 @@ export function createSamsungDriver(o: SamsungDriverOpts): LinkDriver & {
           if (e.pinMismatch) {
             e.pinMismatch = false;
             void onPinMismatch(e);
+            // The search is still running: this press only failed to send. It is "Pair again"
+            // only once the search is over, or when there was nothing to search by.
+            if (!e.notPaired) throw new DeviceError('notSent', 'The TV is being searched for');
           }
           throw err;
         },
