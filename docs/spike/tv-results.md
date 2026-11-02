@@ -171,17 +171,34 @@ on. Run it with any Samsung Tizen TV (2016 or later) and a phone on the same Wi-
 | 13  | Wrong network: phone on mobile data shows the "Can't reach it" panel, no hang.                                                                                                                         |        |
 | 14  | Info page: confirm it is served on 8001 on this model (some firmware may need 8002). Record `GET http://<ip>:8001/api/v2/` output (without the MAC) so the parser can be adjusted.                     |        |
 
-## Voice (lane/voice): still to test on hardware
+## Voice (lane/voice)
 
 Date: 2026-11-02.
 
-Voice is proven against the fake TV and fake mic only. Hold the mic button on the TV screen for each
-item.
+Items 1 and 2 passed on the Airtel box with the Realme X (release build). Items 3 to 5 are still
+untested. Hold the mic button on the TV screen for each item.
 
 | #   | Item                                                                                                                                         | Result |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| 1   | The Airtel box negotiates the voice bit (feature 8), so the mic button shows on its screen.                                                  |        |
-| 2   | The assistant answers phone audio: hold the mic, ask something, release. Check the 2 s wait for `remote_voice_begin` and the 8000 Hz format. |        |
+| 1   | The Airtel box negotiates the voice bit (feature 8), so the mic button shows on its screen.                                                  | Pass   |
+| 2   | The assistant answers phone audio: hold the mic, ask something, release. Check the 2 s wait for `remote_voice_begin` and the 8000 Hz format. | Pass   |
 | 3   | Dictation on an Android 13+ phone: needs an installed on-device language. The mic shows on LG and Samsung only when it can run offline.      |        |
 | 4   | Dictation on an iPhone: the text reaches an open TV search box. With no box open the line says to open one first.                            |        |
 | 5   | The mic is hidden on the Android 11 test phone for LG (no on-device recognition there), and the rest of the screen is unchanged.             |        |
+
+What it took on the Airtel box (Assistant opened at once, but heard nothing until all of these):
+
+- **8000 Hz PCM16 mono.** 16 kHz made no difference, so the format stays at 8 kHz.
+- **Whole 20480-byte messages.** Each 100 ms mic piece padded to 8192 bytes garbled the speech, and
+  shorter messages gave an empty result (androidtvremote2 issue #49).
+- **A gain on the phone mic.** The speech-recognition source on the Realme X peaks near 1300 of
+  32767; the app lifts the loudest peak to about 16000 (at most 16x).
+- **Do not close on release.** Closing at once cancels the search. After release the app sends
+  silence every 1280 ms until the box sends its own `remote_voice_payload` (the end of speech),
+  then closes 2 s later, or after 8 s at most.
+
+Other findings from the run:
+
+- When the box stops trusting the phone's pairing, the app says "TV is off", then "Can't reach it".
+  It should say to pair again; "Pair again" in Device settings fixed it.
+- "Turn on" (Wi-Fi wake) did nothing while the box was in deep standby.
