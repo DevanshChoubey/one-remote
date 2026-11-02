@@ -546,11 +546,14 @@ describe('voice', () => {
     const session = await driver.startVoice!(device, link);
     const pcm = new Uint8Array(9000).fill(3);
     session.push(pcm);
+    tv.heardVoice(7);
     session.end();
     session.end();
     await tick(10);
     expect(tv.keys).toEqual([{ code: 84, direction: 3 }]);
-    expect(tv.voice.payloads.map((p) => p.samples.length)).toEqual([9000]);
+    expect(tv.voice.payloads.map((p) => p.samples.length)).toEqual([20480]);
+    expect(tv.voice.ends).toEqual([]);
+    await tick(2000);
     expect(tv.voice.ends).toEqual([7]);
   });
 

@@ -127,6 +127,17 @@ describe('remote decoding', () => {
     });
   });
 
+  it("decodes the TV's own voice payload as the end of speech, with or without a session id", () => {
+    // The Airtel box sends this 5-byte message when it heard the end of the speech.
+    const b = new ProtoWriter().message(31, new ProtoWriter().varint(1, 1)).finish();
+    expect(b).toHaveLength(5);
+    expect(decodeRemote(b)).toEqual({ kind: 'voiceHeard', sessionId: 1 });
+    expect(decodeRemote(new ProtoWriter().message(31, new ProtoWriter()).finish())).toEqual({
+      kind: 'voiceHeard',
+      sessionId: 0,
+    });
+  });
+
   it('an unknown RemoteMessage field decodes as other', () => {
     const b = new ProtoWriter().message(99, new ProtoWriter().varint(1, 1)).finish();
     expect(decodeRemote(b)).toEqual({ kind: 'other' });

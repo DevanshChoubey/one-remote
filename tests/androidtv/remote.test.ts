@@ -216,39 +216,39 @@ describe('voice', () => {
     expect(tv.voice.begins).toEqual([7]);
   });
 
-  it('splits 50000 bytes into 20480 + 20480 + 9040', async () => {
+  it('sends whole 20480-byte messages and holds the rest', async () => {
     const { tv, lan } = await trusted();
     const r = await open(lan, tv);
     const id = await r.startVoice();
     const pcm = Uint8Array.from({ length: 50000 }, (_, i) => i % 251);
     r.sendVoice(id, pcm);
     await settle();
-    expect(tv.voice.payloads.map((p) => p.samples.length)).toEqual([20480, 20480, 9040]);
+    expect(tv.voice.payloads.map((p) => p.samples.length)).toEqual([20480, 20480]);
     expect(tv.voice.payloads.every((p) => p.sessionId === 7)).toBe(true);
     const joined = tv.voice.payloads.flatMap((p) => [...p.samples]);
-    expect(joined).toEqual([...pcm]);
+    expect(joined).toEqual([...pcm.subarray(0, 40960)]);
   });
 
-  it('collects 100 ms pieces into 8192-byte messages instead of padding each one', async () => {
+  it('collects 100 ms pieces into 20480-byte messages instead of padding each one', async () => {
     const { tv, lan } = await trusted();
     const r = await open(lan, tv);
     const id = await r.startVoice();
-    // The phone's mic gives about 1600 bytes (100 ms) at a time; padding each to 8192 bytes put
-    // 400 ms of silence after every 100 ms of speech, and the Airtel box understood nothing.
-    for (let i = 0; i < 6; i++) r.sendVoice(id, new Uint8Array(1600).fill(i + 1));
+    // The phone's mic gives about 1600 bytes (100 ms) at a time. Padding each piece put silence
+    // after every 100 ms of speech, and messages under 20 KB came back as empty recognition
+    // (androidtvremote2 issue #49).
+    for (let i = 0; i < 12; i++) r.sendVoice(id, new Uint8Array(1600).fill(i + 1));
     await settle();
-    expect(tv.voice.payloads.map((p) => p.samples.length)).toEqual([9600]);
-    r.sendVoice(id, new Uint8Array(1600).fill(7));
-    r.endVoice(id);
+    expect(tv.voice.payloads).toHaveLength(0);
+    r.sendVoice(id, new Uint8Array(1600).fill(13));
     await settle();
-    expect(tv.voice.payloads.map((p) => p.samples.length)).toEqual([9600, 8192]);
-    const tail = tv.voice.payloads[1]!.samples;
-    expect([...tail.subarray(0, 1600)].every((b) => b === 7)).toBe(true);
-    expect([...tail.subarray(1600)].every((b) => b === 0)).toBe(true);
-    expect(tv.voice.ends).toEqual([7]);
+    const [first] = tv.voice.payloads;
+    expect(tv.voice.payloads).toHaveLength(1);
+    expect(first!.samples).toHaveLength(20480);
+    expect(first!.samples[19199]).toBe(12);
+    expect(first!.samples[19200]).toBe(13);
   });
 
-  it('pads the last short message, sent on endVoice, with zeros', async () => {
+  it('endVoice sends the held audio padded with zeros to 20480 bytes', async () => {
     const { tv, lan } = await trusted();
     const r = await open(lan, tv);
     const id = await r.startVoice();
@@ -259,7 +259,7 @@ describe('voice', () => {
     await settle();
     const [only] = tv.voice.payloads;
     expect(tv.voice.payloads).toHaveLength(1);
-    expect(only!.samples).toHaveLength(8192);
+    expect(only!.samples).toHaveLength(20480);
     expect([...only!.samples.subarray(0, 1000)].every((b) => b === 9)).toBe(true);
     expect([...only!.samples.subarray(1000)].every((b) => b === 0)).toBe(true);
   });
@@ -273,18 +273,98 @@ describe('voice', () => {
     expect(tv.voice.payloads).toHaveLength(0);
   });
 
-  it('endVoice ends the session once and frees the slot', async () => {
+  it('after the hold, sends silence every 1280 ms until the TV hears the end, then ends 2 s later', async () => {
+    jest.useFakeTimers();
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    const id = await r.startVoice();
+    r.endVoice(id);
+    await settle();
+    expect(tv.voice.payloads).toHaveLength(0);
+    expect(tv.voice.ends).toEqual([]);
+    jest.advanceTimersByTime(1280 * 2);
+    await settle();
+    expect(tv.voice.payloads).toHaveLength(2);
+    expect(tv.voice.payloads.every((p) => p.samples.length === 20480)).toBe(true);
+    expect(tv.voice.payloads.every((p) => p.samples.every((b) => b === 0))).toBe(true);
+    tv.heardVoice(7);
+    await settle();
+    jest.advanceTimersByTime(1999);
+    await settle();
+    expect(tv.voice.payloads).toHaveLength(2);
+    expect(tv.voice.ends).toEqual([]);
+    jest.advanceTimersByTime(1);
+    await settle();
+    expect(tv.voice.ends).toEqual([7]);
+  });
+
+  it('ends the session 8 s after the hold when the TV never hears the end', async () => {
+    jest.useFakeTimers();
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    const id = await r.startVoice();
+    r.endVoice(id);
+    jest.advanceTimersByTime(7999);
+    await settle();
+    expect(tv.voice.ends).toEqual([]);
+    jest.advanceTimersByTime(1);
+    await settle();
+    expect(tv.voice.ends).toEqual([7]);
+    const sent = tv.voice.payloads.length;
+    jest.advanceTimersByTime(5000);
+    await settle();
+    expect(tv.voice.payloads).toHaveLength(sent);
+  });
+
+  it('ends 2 s after the hold when the TV heard the end during it', async () => {
+    jest.useFakeTimers();
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    const id = await r.startVoice();
+    tv.heardVoice(7);
+    await settle();
+    r.endVoice(id);
+    jest.advanceTimersByTime(1999);
+    await settle();
+    expect(tv.voice.ends).toEqual([]);
+    expect(tv.voice.payloads).toHaveLength(0);
+    jest.advanceTimersByTime(1);
+    await settle();
+    expect(tv.voice.ends).toEqual([7]);
+  });
+
+  it('endVoice is idempotent, and the slot frees once the session ends', async () => {
+    jest.useFakeTimers();
     const { tv, lan } = await trusted();
     const r = await open(lan, tv);
     const id = await r.startVoice();
     r.endVoice(id);
     r.endVoice(id);
-    await settle();
-    expect(tv.voice.ends).toEqual([7]);
     expect(() => r.sendVoice(id, new Uint8Array(10))).toThrow(
       expect.objectContaining({ code: 'notSent' }),
     );
-    await expect(r.startVoice()).resolves.toBe(7);
+    await expect(r.startVoice()).rejects.toMatchObject({ code: 'notSent' });
+    tv.heardVoice(7);
+    await settle();
+    jest.advanceTimersByTime(2000);
+    await settle();
+    expect(tv.voice.ends).toEqual([7]);
+    const next = r.startVoice();
+    await settle();
+    await expect(next).resolves.toBe(7);
+  });
+
+  it('closing during the tail stops the silence', async () => {
+    jest.useFakeTimers();
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    const id = await r.startVoice();
+    r.endVoice(id);
+    r.close();
+    jest.advanceTimersByTime(10000);
+    await settle();
+    expect(tv.voice.payloads).toHaveLength(0);
+    expect(tv.voice.ends).toEqual([]);
   });
 
   it('a second startVoice while one is open throws notSent', async () => {

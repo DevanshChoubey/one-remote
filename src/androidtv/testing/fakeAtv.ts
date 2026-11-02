@@ -24,6 +24,8 @@ export interface FakeAtv {
   rejectNextSecret(): void;
   /** The TV opens a voice session on its own (as a late answer to the search key). */
   beginVoice(sessionId: number): void;
+  /** The TV's own `remote_voice_payload {session_id}`: it heard the end of the speech. */
+  heardVoice(sessionId: number): void;
   stopAnswering(): void;
   drop(): void;
   moveTo(host: string): void;
@@ -365,6 +367,8 @@ export function createFakeAtv(o: FakeAtvOpts): FakeAtv {
           .message(21, new ProtoWriter().varint(1, imeCounter).varint(2, fieldCounter))
           .finish(),
       ),
+    heardVoice: (sessionId) =>
+      pushRemote(new ProtoWriter().message(31, new ProtoWriter().varint(1, sessionId)).finish()),
     beginVoice: (sessionId) =>
       pushRemote(
         new ProtoWriter()

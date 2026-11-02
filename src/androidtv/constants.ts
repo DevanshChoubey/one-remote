@@ -10,10 +10,16 @@ export const DEFAULT_NAME = 'Android TV';
 export const FEATURES = 111;
 /** The `VOICE` feature bit. */
 export const FEATURE_VOICE = 8;
-/** `remote_voice_payload` messages carry at most this many bytes of audio... */
-export const VOICE_CHUNK_MAX = 20480;
-/** ...and the TV (a Shield did not accept less) wants at least this many, so short ones are padded. */
-export const VOICE_CHUNK_MIN = 8192;
+/** Every `remote_voice_payload` carries exactly this many bytes of audio (1.28 s at 8 kHz; a short
+ *  last one is zero-padded). More closes the connection; with 8 KB messages a Sharp Android TV and
+ *  the Airtel box both opened the assistant and recognised nothing (androidtvremote2 issue 49). */
+export const VOICE_CHUNK = 20480;
+/** How often, after the hold ends, a message of silence goes out while the TV listens on. */
+export const VOICE_TRAIL_EVERY_MS = 1280;
+/** The longest the silence goes on when the TV never says it heard the end of the speech. */
+export const VOICE_TRAIL_MAX_MS = 8000;
+/** How long after the TV heard the end the session is closed (closing at once cancels the search). */
+export const VOICE_END_AFTER_MS = 2000;
 
 /** The part of the TV transport the Android TV code uses. */
 export type AtvTransport = Pick<

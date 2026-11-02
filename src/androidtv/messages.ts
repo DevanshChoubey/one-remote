@@ -38,6 +38,7 @@ const KNOWN_REMOTE = new Set([
   REMOTE_ERROR,
   REMOTE_PING_REQUEST,
   REMOTE_VOICE_BEGIN,
+  REMOTE_VOICE_PAYLOAD,
   REMOTE_START,
   REMOTE_SET_VOLUME_LEVEL,
   REMOTE_IME_KEY_INJECT,
@@ -66,6 +67,8 @@ export type RemoteIn =
   | { kind: 'imeKeyInject'; appPackage?: string }
   | { kind: 'imeBatchEdit'; imeCounter: number; fieldCounter: number }
   | { kind: 'voiceBegin'; sessionId: number; packageName?: string }
+  /** The TV's own `remote_voice_payload {session_id}`: it heard the end of the speech. */
+  | { kind: 'voiceHeard'; sessionId: number }
   | { kind: 'error' }
   | { kind: 'other' };
 
@@ -237,6 +240,9 @@ export function decodeRemote(b: Uint8Array): RemoteIn {
           ? { kind: 'voiceBegin', sessionId }
           : { kind: 'voiceBegin', sessionId, packageName };
       }
+      case REMOTE_VOICE_PAYLOAD:
+        // Session 0 has an empty body, which proto omits.
+        return { kind: 'voiceHeard', sessionId: body ? (int32(body, 1) ?? 0) : 0 };
       default:
         break;
     }
