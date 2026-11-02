@@ -11,6 +11,7 @@ import fan from '@/i18n/en/fan';
 import home from '@/i18n/en/home';
 import ir from '@/i18n/en/ir';
 import irBackup from '@/i18n/en/irBackup';
+import matter from '@/i18n/en/matter';
 import settings from '@/i18n/en/settings';
 import tv from '@/i18n/en/tv';
 
@@ -27,6 +28,7 @@ const NAMESPACES: Record<string, Record<string, string>> = {
   addAppliance,
   irBackup,
   ir,
+  matter,
 };
 
 const ROOT = path.resolve(__dirname, '..');

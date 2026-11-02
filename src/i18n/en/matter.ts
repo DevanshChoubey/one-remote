@@ -1,0 +1,25 @@
+export default {
+  title: 'Add with a Matter code',
+  intro:
+    'Your AC works with Matter, so this phone can control it over your home Wi-Fi, with no cloud. In the AC’s current app (MirAIe, Google Home or another), open the AC, choose the option that adds it to another app or turns on pairing mode, and copy the 11-digit code it shows.',
+  codeLabel: 'Matter setup code',
+  codeHint: '11 digits, or the text that starts with MT:',
+  connect: 'Connect',
+  notNow: 'Not now',
+  connectingTitle: 'Connecting',
+  connectingHint: 'Keep this phone on the same Wi-Fi as the AC. This can take up to a minute.',
+  'step.found': 'Found the AC',
+  'step.network': 'Adding this phone to the AC',
+  'step.responds': 'The AC answers',
+  retry: 'Try again',
+  badCode: 'Check the code and type it again.',
+  'error.badCode': 'The AC did not accept that code. Check it, or get a fresh one, and try again.',
+  'error.notFound':
+    'Could not find the AC. Make sure pairing mode is on, the code is fresh and this phone is on the same Wi-Fi.',
+  'error.networkFailed': 'The AC was found but could not be added. Try again.',
+  'error.noResponse': 'The AC was added but is not answering. Check that it is on, then try again.',
+  'error.unavailable': 'Matter is not available on this phone.',
+  'error.cancelled': 'Cancelled.',
+  'error.unreachable': 'Could not reach the AC. Try again.',
+  'error.rejected': 'The AC refused the request. Try again.',
+} as const;

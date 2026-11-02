@@ -5,6 +5,10 @@ import { DeviceHub } from '@/device/hub';
 import { createIrDriver } from '@/ir/driver';
 import type { IrEmitter } from '@/ir/emitter';
 import { createIrSetup } from '@/ir/setup';
+import { createNativeMatterController } from '@/matter/native/controller';
+import { createMatterSetup } from '@/matter/native/setup';
+import { createMatterDriver } from '@/matter/driver';
+import type { MatterController } from '@/matter/controller';
 import { createNativeIrEmitter } from '@/transport/irEmitter';
 import { createAsyncStorageStore } from '@/store/asyncStorageStore';
 import { createAsyncStoragePreferenceStore } from '@/store/preferences';
@@ -88,6 +92,7 @@ interface LaneContext {
   secrets: Services['secrets'];
   tvTransport: TvTransport;
   irEmitter: IrEmitter;
+  matterController: MatterController;
 }
 
 /** The IR driver's `seedFan`, when `d` has one (tests may pass plain fakes). */
@@ -122,6 +127,7 @@ function laneDrivers(ctx: LaneContext): LinkDriver[] {
     // ir lane
     createIrDriver({ emitter: ctx.irEmitter }),
     // matter lane
+    createMatterDriver({ controller: ctx.matterController, enabled: true }),
   ];
 }
 
@@ -204,9 +210,11 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
   // ir lane
   const irEmitter = createNativeIrEmitter();
   // matter lane
+  const matterController = createNativeMatterController();
   const store = deps.store ?? createAsyncStorageStore(AsyncStorage);
   const secrets = deps.secrets ?? createSecureSecretStore();
-  const drivers = deps.drivers ?? laneDrivers({ store, secrets, tvTransport, irEmitter });
+  const drivers =
+    deps.drivers ?? laneDrivers({ store, secrets, tvTransport, irEmitter, matterController });
   const hub = deps.hub ?? new DeviceHub({ drivers });
   const prefs = deps.prefs ?? createAsyncStoragePreferenceStore(AsyncStorage);
   syncHub(hub, store);
@@ -256,5 +264,6 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
         },
       }),
     // matter lane
+    matter: deps.matter ?? createMatterSetup(matterController),
   };
 }

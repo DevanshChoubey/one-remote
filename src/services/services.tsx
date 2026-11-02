@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import type { LinkDriver, TvSetup } from '@/core';
 import type { IrSetup } from '@/core/irSetup';
+import type { MatterSetup } from '@/core/matterSetup';
 import type { BrandSetup } from '@/tv/brands';
 import type { Dictation } from '@/voice/dictation';
 import type { Mic } from '@/voice/mic';
@@ -33,6 +34,7 @@ export interface Services {
   // ir lane
   ir: IrSetup;
   // matter lane
+  matter: MatterSetup;
 }
 
 const ServicesContext = createContext<Services | null>(null);

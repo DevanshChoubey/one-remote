@@ -27,7 +27,7 @@ export default {
   noIrTitle: 'This phone has no IR blaster',
   noIrBody:
     'Only ACs with the Matter logo work from this phone. Phones with IR (many Xiaomi, Redmi, Poco, iQOO, Vivo) can control the rest.',
-  scanMatter: 'Scan Matter code',
+  scanMatter: 'Add with a Matter code',
   addAnyway: 'Add anyway (for another phone)',
   suggestedAc: '{brand} AC',
   suggestedFan: '{brand} fan',
