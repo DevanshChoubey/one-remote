@@ -554,6 +554,19 @@ describe('voice', () => {
     expect(tv.voice.ends).toEqual([7]);
   });
 
+  it('boosts quiet mic audio before it reaches the TV', async () => {
+    const { tv, driver, device, link } = await setup();
+    const session = await driver.startVoice!(device, link);
+    const pcm = new Uint8Array(8192);
+    const view = new DataView(pcm.buffer);
+    for (let i = 0; i < pcm.length; i += 2) view.setInt16(i, 1000, true);
+    session.push(pcm);
+    session.end();
+    await tick(10);
+    const sent = tv.voice.payloads[0]!.samples;
+    expect(new DataView(sent.buffer, sent.byteOffset).getInt16(0, true)).toBeGreaterThan(8000);
+  });
+
   it('push after end throws notSent', async () => {
     const { driver, device, link } = await setup();
     const session = await driver.startVoice!(device, link);

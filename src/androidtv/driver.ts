@@ -16,6 +16,7 @@ import type { AtvTransport } from './constants';
 import { KEYCODE } from './keys';
 import { AtvRemote, hungUpBeforeStart, type AtvLive } from './remote';
 import { findAndroidTvByPin } from './rediscover';
+import { createVoiceGain } from './voiceGain';
 
 type AndroidTvLink = Extract<TvLink, { kind: 'androidtv' }>;
 
@@ -478,10 +479,11 @@ export function createAndroidTvDriver(o: AndroidTvDriverOpts): LinkDriver & {
         if (e.idleTimer) clearTimeout(e.idleTimer);
         e.idleTimer = undefined;
         let over = false;
+        const gain = createVoiceGain();
         return {
           push: (pcm) => {
             if (over) throw new DeviceError('notSent', 'The voice session is over');
-            remote.sendVoice(id, pcm);
+            remote.sendVoice(id, gain(pcm));
           },
           end: () => {
             if (over) return;

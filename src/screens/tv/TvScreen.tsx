@@ -8,7 +8,7 @@ import { DeviceError, tvLinkOf } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
 import type { DeviceView } from '@/services';
-import { Column, Row, Screen, Txt } from '@/ui';
+import { Box, Column, Row, Screen, Txt } from '@/ui';
 import { useKnownDevice } from '../device/useKnownDevice';
 import { BarButton } from './BarButton';
 import { DPad } from './DPad';
@@ -50,6 +50,27 @@ function useAppActive(): boolean {
     return () => sub.remove();
   }, []);
   return active;
+}
+
+/** The power symbol drawn from boxes: Android's Roboto has no ⏻, which showed as an empty box. */
+function PowerGlyph(): ReactElement {
+  return (
+    <Box w={16} h={18}>
+      <Box
+        float={{ top: 2, right: 0 }}
+        w={16}
+        h={16}
+        bg="danger"
+        radius="pill"
+        align="center"
+        justify="center"
+      >
+        <Box w={12} h={12} bg="surface2" radius="pill" />
+      </Box>
+      <Box float={{ top: 0, right: 5 }} w={6} h={9} bg="surface2" />
+      <Box float={{ top: 0, right: 7 }} w={2} h={9} bg="danger" radius="pill" />
+    </Box>
+  );
 }
 
 export function TvScreen(props: { deviceId: string }): ReactElement {
@@ -263,9 +284,8 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
           onBack={() => router.back()}
         >
           <BarButton
-            glyph="⏻"
+            icon={<PowerGlyph />}
             label={t('tv.power')}
-            color="danger"
             onPress={() => (live ? key('power') : turnOn())}
           />
           {live && caps?.text !== false ? (
