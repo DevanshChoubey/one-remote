@@ -11,7 +11,9 @@ useExpoPublishing()
 
 android {
   namespace "expo.modules.multicastlock"
+  compileSdk rootProject.ext.compileSdkVersion
   defaultConfig {
+    minSdkVersion rootProject.ext.minSdkVersion
     versionCode 1
     versionName "1.0.0"
   }

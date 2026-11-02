@@ -28,7 +28,7 @@ async function open(m: MatterSetup): Promise<{ onDone: jest.Mock; onSkip: jest.M
   const onSkip = jest.fn();
   await renderWith(
     { ...makeServices(), matter: m },
-    <MatterStep onDone={onDone} onSkip={onSkip} />,
+    <MatterStep brandId="panasonic" onDone={onDone} onSkip={onSkip} />,
   );
   return { onDone, onSkip };
 }
