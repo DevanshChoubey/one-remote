@@ -1,4 +1,4 @@
-import { ProtoWriter, readFields, str, sub } from '@/androidtv/proto';
+import { ProtoWriter, int32, readFields, str, sub } from '@/androidtv/proto';
 import { decodePairing, decodeRemote, encodePairing, encodeRemote } from '@/androidtv/messages';
 
 const hex = (b: Uint8Array): string =>
@@ -127,8 +127,50 @@ describe('remote decoding', () => {
     });
   });
 
+  it("decodes the TV's own voice payload as the end of speech, with or without a session id", () => {
+    // The Airtel box sends this 5-byte message when it heard the end of the speech.
+    const b = new ProtoWriter().message(31, new ProtoWriter().varint(1, 1)).finish();
+    expect(b).toHaveLength(5);
+    expect(decodeRemote(b)).toEqual({ kind: 'voiceHeard', sessionId: 1 });
+    expect(decodeRemote(new ProtoWriter().message(31, new ProtoWriter()).finish())).toEqual({
+      kind: 'voiceHeard',
+      sessionId: 0,
+    });
+  });
+
   it('an unknown RemoteMessage field decodes as other', () => {
     const b = new ProtoWriter().message(99, new ProtoWriter().varint(1, 1)).finish();
     expect(decodeRemote(b)).toEqual({ kind: 'other' });
+  });
+
+  it('encodes voice begin, payload and end', () => {
+    const begin = readFields(encodeRemote({ kind: 'voiceBegin', sessionId: 7 }));
+    expect(int32(sub(begin, 30)!, 1)).toBe(7);
+    const samples = Uint8Array.from([1, 2, 3, 0, 255]);
+    const payload = sub(
+      readFields(encodeRemote({ kind: 'voicePayload', sessionId: 7, samples })),
+      31,
+    )!;
+    expect(int32(payload, 1)).toBe(7);
+    expect(payload.get(2)?.[0]).toEqual(samples);
+    const end = readFields(encodeRemote({ kind: 'voiceEnd', sessionId: 7 }));
+    expect(int32(sub(end, 32)!, 1)).toBe(7);
+  });
+
+  it('decodes a voice begin with its session id and package', () => {
+    const b = new ProtoWriter()
+      .message(30, new ProtoWriter().varint(1, 7).string(2, 'com.google.android.katniss'))
+      .finish();
+    expect(decodeRemote(b)).toEqual({
+      kind: 'voiceBegin',
+      sessionId: 7,
+      packageName: 'com.google.android.katniss',
+    });
+    expect(
+      decodeRemote(new ProtoWriter().message(30, new ProtoWriter().varint(1, 3)).finish()),
+    ).toEqual({
+      kind: 'voiceBegin',
+      sessionId: 3,
+    });
   });
 });

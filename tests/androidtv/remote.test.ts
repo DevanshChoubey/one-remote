@@ -1,5 +1,5 @@
 import { AtvRemote } from '@/androidtv/remote';
-import { KEYCODE } from '@/androidtv/keys';
+import { KEYCODE, KEYCODE_SEARCH } from '@/androidtv/keys';
 import { createFakeAtv, type FakeAtv } from '@/androidtv/testing/fakeAtv';
 import { createFakeAtvLan, type FakeAtvLan } from '@/androidtv/testing/fakeAtvLan';
 
@@ -30,11 +30,11 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-test('connect resolves with power on and sends configure 103 & 615', async () => {
+test('connect resolves with power on and sends configure 111 (the TV offers 623)', async () => {
   const { tv, lan } = await trusted();
   const r = await open(lan, tv);
   expect(r.live.power).toBe(true);
-  expect(tv.configures).toEqual([103]);
+  expect(tv.configures).toEqual([111]);
   expect(r.certSha256).toBe(tv.certSha256);
   expect(r.model).toBe(tv.name);
   expect(r.vendor).toBe('Fake');
@@ -203,4 +203,245 @@ test('a failed write closes the stream', async () => {
   expect(() => r.key(19)).toThrow(expect.objectContaining({ code: 'notSent' }));
   expect(closes).toHaveBeenCalledTimes(1);
   expect(tv.connections(6466)).toBe(0);
+});
+
+describe('voice', () => {
+  it('startVoice sends the search key and resolves with the TV session id', async () => {
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    expect(r.voiceSupported).toBe(true);
+    await expect(r.startVoice()).resolves.toBe(7);
+    expect(tv.keys).toEqual([{ code: KEYCODE_SEARCH, direction: 3 }]);
+    await settle();
+    expect(tv.voice.begins).toEqual([7]);
+  });
+
+  it('sends whole 20480-byte messages and holds the rest', async () => {
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    const id = await r.startVoice();
+    const pcm = Uint8Array.from({ length: 50000 }, (_, i) => i % 251);
+    r.sendVoice(id, pcm);
+    await settle();
+    expect(tv.voice.payloads.map((p) => p.samples.length)).toEqual([20480, 20480]);
+    expect(tv.voice.payloads.every((p) => p.sessionId === 7)).toBe(true);
+    const joined = tv.voice.payloads.flatMap((p) => [...p.samples]);
+    expect(joined).toEqual([...pcm.subarray(0, 40960)]);
+  });
+
+  it('collects 100 ms pieces into 20480-byte messages instead of padding each one', async () => {
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    const id = await r.startVoice();
+    // The phone's mic gives about 1600 bytes (100 ms) at a time. Padding each piece put silence
+    // after every 100 ms of speech, and messages under 20 KB came back as empty recognition
+    // (androidtvremote2 issue #49).
+    for (let i = 0; i < 12; i++) r.sendVoice(id, new Uint8Array(1600).fill(i + 1));
+    await settle();
+    expect(tv.voice.payloads).toHaveLength(0);
+    r.sendVoice(id, new Uint8Array(1600).fill(13));
+    await settle();
+    const [first] = tv.voice.payloads;
+    expect(tv.voice.payloads).toHaveLength(1);
+    expect(first!.samples).toHaveLength(20480);
+    expect(first!.samples[19199]).toBe(12);
+    expect(first!.samples[19200]).toBe(13);
+  });
+
+  it('endVoice sends the held audio padded with zeros to 20480 bytes', async () => {
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    const id = await r.startVoice();
+    r.sendVoice(id, new Uint8Array(1000).fill(9));
+    await settle();
+    expect(tv.voice.payloads).toHaveLength(0);
+    r.endVoice(id);
+    await settle();
+    const [only] = tv.voice.payloads;
+    expect(tv.voice.payloads).toHaveLength(1);
+    expect(only!.samples).toHaveLength(20480);
+    expect([...only!.samples.subarray(0, 1000)].every((b) => b === 9)).toBe(true);
+    expect([...only!.samples.subarray(1000)].every((b) => b === 0)).toBe(true);
+  });
+
+  it('sends nothing for empty audio', async () => {
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    const id = await r.startVoice();
+    r.sendVoice(id, new Uint8Array(0));
+    await settle();
+    expect(tv.voice.payloads).toHaveLength(0);
+  });
+
+  it('after the hold, sends silence every 1280 ms until the TV hears the end, then ends 2 s later', async () => {
+    jest.useFakeTimers();
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    const id = await r.startVoice();
+    r.endVoice(id);
+    await settle();
+    expect(tv.voice.payloads).toHaveLength(0);
+    expect(tv.voice.ends).toEqual([]);
+    jest.advanceTimersByTime(1280 * 2);
+    await settle();
+    expect(tv.voice.payloads).toHaveLength(2);
+    expect(tv.voice.payloads.every((p) => p.samples.length === 20480)).toBe(true);
+    expect(tv.voice.payloads.every((p) => p.samples.every((b) => b === 0))).toBe(true);
+    tv.heardVoice(7);
+    await settle();
+    jest.advanceTimersByTime(1999);
+    await settle();
+    expect(tv.voice.payloads).toHaveLength(2);
+    expect(tv.voice.ends).toEqual([]);
+    jest.advanceTimersByTime(1);
+    await settle();
+    expect(tv.voice.ends).toEqual([7]);
+  });
+
+  it('ends the session 8 s after the hold when the TV never hears the end', async () => {
+    jest.useFakeTimers();
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    const id = await r.startVoice();
+    r.endVoice(id);
+    jest.advanceTimersByTime(7999);
+    await settle();
+    expect(tv.voice.ends).toEqual([]);
+    jest.advanceTimersByTime(1);
+    await settle();
+    expect(tv.voice.ends).toEqual([7]);
+    const sent = tv.voice.payloads.length;
+    jest.advanceTimersByTime(5000);
+    await settle();
+    expect(tv.voice.payloads).toHaveLength(sent);
+  });
+
+  it('ends 2 s after the hold when the TV heard the end during it', async () => {
+    jest.useFakeTimers();
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    const id = await r.startVoice();
+    tv.heardVoice(7);
+    await settle();
+    r.endVoice(id);
+    jest.advanceTimersByTime(1999);
+    await settle();
+    expect(tv.voice.ends).toEqual([]);
+    expect(tv.voice.payloads).toHaveLength(0);
+    jest.advanceTimersByTime(1);
+    await settle();
+    expect(tv.voice.ends).toEqual([7]);
+  });
+
+  it('endVoice is idempotent, and the slot frees once the session ends', async () => {
+    jest.useFakeTimers();
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    const id = await r.startVoice();
+    r.endVoice(id);
+    r.endVoice(id);
+    expect(() => r.sendVoice(id, new Uint8Array(10))).toThrow(
+      expect.objectContaining({ code: 'notSent' }),
+    );
+    await expect(r.startVoice()).rejects.toMatchObject({ code: 'notSent' });
+    tv.heardVoice(7);
+    await settle();
+    jest.advanceTimersByTime(2000);
+    await settle();
+    expect(tv.voice.ends).toEqual([7]);
+    const next = r.startVoice();
+    await settle();
+    await expect(next).resolves.toBe(7);
+  });
+
+  it('closing during the tail stops the silence', async () => {
+    jest.useFakeTimers();
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    const id = await r.startVoice();
+    r.endVoice(id);
+    r.close();
+    jest.advanceTimersByTime(10000);
+    await settle();
+    expect(tv.voice.payloads).toHaveLength(0);
+    expect(tv.voice.ends).toEqual([]);
+  });
+
+  it('a second startVoice while one is open throws notSent', async () => {
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    await r.startVoice();
+    await expect(r.startVoice()).rejects.toMatchObject({ code: 'notSent' });
+  });
+
+  it('a second startVoice while one is starting throws notSent', async () => {
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    const first = r.startVoice();
+    await expect(r.startVoice()).rejects.toMatchObject({ code: 'notSent' });
+    await expect(first).resolves.toBe(7);
+  });
+
+  it('startVoice times out at 2000 ms when the TV is silent', async () => {
+    jest.useFakeTimers();
+    const tv = createFakeAtv({ host: HOST, voiceAnswers: false });
+    const lan = createFakeAtvLan({ tvs: [tv] });
+    const id = await lan.ensureIdentity(link.certRef, 'One Remote');
+    tv.trusted.add(id.modulusHex);
+    const r = await open(lan, tv);
+    const done = jest.fn();
+    const p = r.startVoice().catch((e: unknown) => done(e));
+    jest.advanceTimersByTime(1999);
+    await Promise.resolve();
+    expect(done).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1);
+    await p;
+    expect(done).toHaveBeenCalledWith(expect.objectContaining({ code: 'notSent' }));
+    // The slot is free again.
+    expect(() => r.sendVoice(7, new Uint8Array(1))).toThrow();
+  });
+
+  it('a late voiceBegin with nobody waiting is closed with a voiceEnd', async () => {
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    tv.beginVoice(9);
+    await settle();
+    expect(tv.voice.ends).toEqual([9]);
+    expect(tv.voice.begins).toEqual([]);
+    // The slot stays free.
+    await expect(r.startVoice()).resolves.toBe(7);
+  });
+
+  it('is unsupported when the TV lacks the voice bit', async () => {
+    const tv = createFakeAtv({ host: HOST, features: 103 });
+    const lan = createFakeAtvLan({ tvs: [tv] });
+    const id = await lan.ensureIdentity(link.certRef, 'One Remote');
+    tv.trusted.add(id.modulusHex);
+    const r = await open(lan, tv);
+    expect(r.voiceSupported).toBe(false);
+    await expect(r.startVoice()).rejects.toMatchObject({ code: 'notSent' });
+    expect(tv.keys).toEqual([]);
+  });
+
+  it('startVoice rejects when the stream closes while waiting', async () => {
+    const tv = createFakeAtv({ host: HOST, voiceAnswers: false });
+    const lan = createFakeAtvLan({ tvs: [tv] });
+    const id = await lan.ensureIdentity(link.certRef, 'One Remote');
+    tv.trusted.add(id.modulusHex);
+    const r = await open(lan, tv);
+    const p = r.startVoice();
+    tv.drop();
+    await expect(p).rejects.toMatchObject({ code: 'notSent' });
+  });
+
+  it('sendVoice after the stream dropped throws notSent', async () => {
+    const { tv, lan } = await trusted();
+    const r = await open(lan, tv);
+    const id = await r.startVoice();
+    tv.drop();
+    expect(() => r.sendVoice(id, new Uint8Array(10))).toThrow(
+      expect.objectContaining({ code: 'notSent' }),
+    );
+    expect(() => r.endVoice(id)).not.toThrow();
+  });
 });

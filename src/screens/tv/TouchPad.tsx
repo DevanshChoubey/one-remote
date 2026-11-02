@@ -1,23 +1,19 @@
 import { useEffect, useMemo } from 'react';
 import type { ReactElement } from 'react';
-import { Platform, useWindowDimensions } from 'react-native';
+import { Platform } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import type { TvKey } from '@/core';
 import { t } from '@/i18n';
-import { Box, Txt } from '@/ui';
+import { Box, Column, Txt } from '@/ui';
 import { createPadController } from './touchpad';
 
 // The TV screen does not scroll (a scroll view takes up and down swipes from the pad), so the pad
-// takes about a third of the window, within these bounds, to leave room for the keys.
-const PAD_MAX = 280;
-const PAD_MIN = 140;
+// fills all the space between the bar and the keys.
 const TAP_MS = 250;
 
 /** A pan surface that turns swipes into arrow keys and a tap into OK. */
 export function TouchPad(props: { onKey: (k: TvKey) => void }): ReactElement {
   const ctl = useMemo(() => createPadController(), []);
-  const { height } = useWindowDimensions();
-  const padHeight = Math.round(Math.min(PAD_MAX, Math.max(PAD_MIN, height * 0.3)));
   useEffect(() => {
     ctl.setHandler(props.onKey);
   }, [ctl, props.onKey]);
@@ -43,7 +39,7 @@ export function TouchPad(props: { onKey: (k: TvKey) => void }): ReactElement {
   }, [ctl]);
 
   return (
-    <GestureHandlerRootView style={{ height: padHeight }}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <GestureDetector gesture={gesture}>
         <Box
           flex={1}
@@ -55,7 +51,10 @@ export function TouchPad(props: { onKey: (k: TvKey) => void }): ReactElement {
           testID="tv-touchpad"
           accessibilityLabel={t('tv.touchpadLabel')}
         >
-          <Txt color="ink2">{t('tv.touchpadHint')}</Txt>
+          <Column align="center" gap={3}>
+            <Box w={44} h={44} bg="surface" border="line" radius="pill" shadow="card" />
+            <Txt color="ink2">{t('tv.touchpadHint')}</Txt>
+          </Column>
         </Box>
       </GestureDetector>
     </GestureHandlerRootView>

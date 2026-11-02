@@ -1,7 +1,16 @@
 import { DeviceError, type Unsubscribe } from '@/core';
 import type { TvStream } from '@/tv/transport';
-import { FEATURES, REMOTE_PORT, type AtvTransport } from './constants';
-import { APP_TITLES } from './keys';
+import {
+  FEATURES,
+  FEATURE_VOICE,
+  REMOTE_PORT,
+  VOICE_CHUNK,
+  VOICE_END_AFTER_MS,
+  VOICE_TRAIL_EVERY_MS,
+  VOICE_TRAIL_MAX_MS,
+  type AtvTransport,
+} from './constants';
+import { APP_TITLES, KEYCODE_SEARCH } from './keys';
 import { decodeRemote, encodeRemote, type RemoteIn } from './messages';
 import { FrameReader, frame } from './proto';
 
@@ -26,6 +35,20 @@ export function hungUpBeforeStart(err: unknown): boolean {
 
 const NO_FIELD = 'No text field is open on the TV';
 
+/** A `startVoice` waiting for the TV's `remote_voice_begin`. */
+interface VoiceWait {
+  resolve: (sessionId: number) => void;
+  reject: (e: DeviceError) => void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+/** A voice session whose hold ended and that waits for the TV before closing. */
+interface VoiceTail {
+  sessionId: number;
+  trail?: ReturnType<typeof setInterval>;
+  timer?: ReturnType<typeof setTimeout>;
+}
+
 /** One remote session with an Android TV (port 6466). */
 export class AtvRemote {
   readonly certSha256: string;
@@ -38,6 +61,12 @@ export class AtvRemote {
   private ownClose = false;
   private features = FEATURES;
   private ime: { imeCounter: number; fieldCounter: number } | undefined;
+  private voiceWait: VoiceWait | undefined;
+  private voiceId: number | undefined;
+  private voiceBuf = new Uint8Array(0);
+  /** The TV said it heard the end of the open session's speech. */
+  private voiceHeard = false;
+  private voiceTail: VoiceTail | undefined;
   private silent: ReturnType<typeof setTimeout> | undefined;
   private liveCbs = new Set<(l: AtvLive) => void>();
   private closeCbs: (() => void)[] = [];
@@ -99,8 +128,121 @@ export class AtvRemote {
   /** Types into the field that is open on the TV. Throws `notSent` when none was seen. */
   text(value: string): void {
     if (this.closed) throw new DeviceError('notSent', 'The connection is closed');
-    if (!this.ime) throw new DeviceError('notSent', NO_FIELD);
+    if (!this.ime) throw new DeviceError('notSent', NO_FIELD, 'noTextField');
     this.write(encodeRemote({ kind: 'imeText', ...this.ime, text: value }));
+  }
+
+  /** True when the TV accepted the voice feature in this session. */
+  get voiceSupported(): boolean {
+    return (this.features & FEATURE_VOICE) !== 0;
+  }
+
+  /** Starts a voice session: sends the search key, waits for the TV's `remote_voice_begin`, echoes
+   *  it and resolves with the session id. Rejects `notSent` on a timeout, when the TV has no voice,
+   *  when the stream closes meanwhile, and when a session is already open or starting. */
+  startVoice(timeoutMs = 2000): Promise<number> {
+    if (this.closed) return Promise.reject(new DeviceError('notSent', 'The connection is closed'));
+    if (!this.voiceSupported) {
+      return Promise.reject(new DeviceError('notSent', 'This TV does not take voice'));
+    }
+    if (this.voiceWait || this.voiceId !== undefined || this.voiceTail) {
+      return Promise.reject(new DeviceError('notSent', 'A voice session is already open'));
+    }
+    return new Promise<number>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.voiceWait = undefined;
+        reject(new DeviceError('notSent', 'The TV did not start a voice session'));
+      }, timeoutMs);
+      this.voiceWait = { resolve, reject, timer };
+      try {
+        this.key(KEYCODE_SEARCH);
+      } catch (e) {
+        clearTimeout(timer);
+        this.voiceWait = undefined;
+        reject(e instanceof DeviceError ? e : new DeviceError('notSent', 'The write failed'));
+      }
+    });
+  }
+
+  /** Sends PCM16 LE mono 8 kHz audio of session `sessionId`, in messages of exactly 20480 bytes:
+   *  audio is held until that much has gathered, and `endVoice` sends the rest. The samples are
+   *  never logged. Throws `notSent` when that session is not open. */
+  sendVoice(sessionId: number, pcm: Uint8Array): void {
+    if (this.closed) throw new DeviceError('notSent', 'The connection is closed');
+    if (this.voiceId !== sessionId) throw new DeviceError('notSent', 'The voice session is over');
+    if (pcm.length === 0) return;
+    const held = new Uint8Array(this.voiceBuf.length + pcm.length);
+    held.set(this.voiceBuf);
+    held.set(pcm, this.voiceBuf.length);
+    const whole = held.length - (held.length % VOICE_CHUNK);
+    this.voiceBuf = held.slice(whole);
+    for (let i = 0; i < whole; i += VOICE_CHUNK) {
+      this.writeVoice(sessionId, held.subarray(i, i + VOICE_CHUNK));
+    }
+  }
+
+  /** Ends the hold: sends the held audio, then lets the TV finish listening. Until the TV says it
+   *  heard the end of the speech (or for at most 8 s), silence goes out in real time; the session
+   *  closes 2 s after that, since closing at once cancels the search. Idempotent; a session that
+   *  is not open is ignored. */
+  endVoice(sessionId: number): void {
+    if (this.voiceId !== sessionId) return;
+    this.voiceId = undefined;
+    const rest = this.voiceBuf;
+    this.voiceBuf = new Uint8Array(0);
+    if (rest.length > 0) {
+      try {
+        this.writeVoice(sessionId, rest);
+      } catch {
+        return; // the stream ended; finish() already ran
+      }
+    }
+    const tail: VoiceTail = { sessionId };
+    this.voiceTail = tail;
+    if (this.voiceHeard) {
+      this.closeVoiceSoon(tail);
+      return;
+    }
+    tail.trail = setInterval(() => {
+      try {
+        this.writeVoice(sessionId, new Uint8Array(VOICE_CHUNK));
+      } catch {
+        // the stream ended; finish() already cleared the tail
+      }
+    }, VOICE_TRAIL_EVERY_MS);
+    tail.timer = setTimeout(() => this.closeVoice(tail), VOICE_TRAIL_MAX_MS);
+  }
+
+  /** Writes one message, zero-padded to 20480 bytes. */
+  private writeVoice(sessionId: number, pcm: Uint8Array): void {
+    let samples = pcm;
+    if (samples.length < VOICE_CHUNK) {
+      samples = new Uint8Array(VOICE_CHUNK);
+      samples.set(pcm);
+    }
+    this.write(encodeRemote({ kind: 'voicePayload', sessionId, samples }));
+  }
+
+  /** The TV heard the end of the speech: stop the silence, close the session 2 s later. */
+  private closeVoiceSoon(tail: VoiceTail): void {
+    if (tail.trail) clearInterval(tail.trail);
+    tail.trail = undefined;
+    if (tail.timer) clearTimeout(tail.timer);
+    tail.timer = setTimeout(() => this.closeVoice(tail), VOICE_END_AFTER_MS);
+  }
+
+  private closeVoice(tail: VoiceTail): void {
+    if (this.voiceTail !== tail) return;
+    this.clearVoiceTail();
+    this.send({ kind: 'voiceEnd', sessionId: tail.sessionId });
+  }
+
+  private clearVoiceTail(): void {
+    const tail = this.voiceTail;
+    if (!tail) return;
+    if (tail.trail) clearInterval(tail.trail);
+    if (tail.timer) clearTimeout(tail.timer);
+    this.voiceTail = undefined;
   }
 
   onLive(cb: (l: AtvLive) => void): Unsubscribe {
@@ -157,6 +299,14 @@ export class AtvRemote {
     // A pending connect() must end whatever the reason; onClose callbacks hear only of the rest.
     this.endCb?.();
     this.endCb = undefined;
+    this.voiceId = undefined;
+    this.voiceBuf = new Uint8Array(0);
+    this.clearVoiceTail();
+    if (this.voiceWait) {
+      clearTimeout(this.voiceWait.timer);
+      this.voiceWait.reject(new DeviceError('notSent', 'The TV closed the connection'));
+      this.voiceWait = undefined;
+    }
     if (!this.ownClose) cbs.forEach((cb) => cb());
   }
 
@@ -223,6 +373,25 @@ export class AtvRemote {
       }
       case 'imeBatchEdit':
         this.ime = { imeCounter: m.imeCounter, fieldCounter: m.fieldCounter };
+        return;
+      case 'voiceBegin': {
+        const wait = this.voiceWait;
+        if (!wait) {
+          // Too late (we gave up waiting): close it so the TV's assistant is not left open.
+          this.send({ kind: 'voiceEnd', sessionId: m.sessionId });
+          return;
+        }
+        this.voiceWait = undefined;
+        clearTimeout(wait.timer);
+        this.voiceId = m.sessionId;
+        this.voiceHeard = false;
+        this.send({ kind: 'voiceBegin', sessionId: m.sessionId });
+        wait.resolve(m.sessionId);
+        return;
+      }
+      case 'voiceHeard':
+        if (this.voiceId === m.sessionId) this.voiceHeard = true;
+        else if (this.voiceTail?.sessionId === m.sessionId) this.closeVoiceSoon(this.voiceTail);
         return;
       default:
         return;

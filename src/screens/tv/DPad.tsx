@@ -7,7 +7,7 @@ import { KeyButton } from './KeyButton';
 export function DPad(props: { onKey: (k: TvKey) => void }): ReactElement {
   const { onKey } = props;
   return (
-    <Column gap={3} align="center">
+    <Column flex={1} gap={3} align="center" justify="center">
       <KeyButton label={t('tv.up')} glyph="▲" onPress={() => onKey('up')} />
       <Row gap={3} align="center">
         <KeyButton label={t('tv.left')} glyph="◀" onPress={() => onKey('left')} />

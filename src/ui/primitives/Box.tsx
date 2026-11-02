@@ -15,6 +15,11 @@ export interface BoxProps {
   radius?: RadiusToken;
   shadow?: ShadowToken;
   flex?: number;
+  /** Fixed width / height in px (round buttons, glyph parts). */
+  w?: number;
+  h?: number;
+  /** Floats over its siblings at this offset from the parent's top-right (menus). */
+  float?: { top: number; right: number };
   align?: 'start' | 'center' | 'end' | 'stretch';
   justify?: 'start' | 'center' | 'end' | 'between';
   direction?: 'row' | 'column';
@@ -58,6 +63,14 @@ export function Box(props: BoxProps): ReactElement {
   if (props.shadow) Object.assign(style, theme.shadow[props.shadow]);
   if (props.wrap) style.flexWrap = 'wrap';
   if (props.flex !== undefined) style.flex = props.flex;
+  if (props.w !== undefined) style.width = props.w;
+  if (props.h !== undefined) style.height = props.h;
+  if (props.float) {
+    style.position = 'absolute';
+    style.top = props.float.top;
+    style.right = props.float.right;
+    style.zIndex = 2;
+  }
   if (props.align) style.alignItems = ALIGN[props.align];
   if (props.justify) style.justifyContent = JUSTIFY[props.justify];
   return (

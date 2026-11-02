@@ -32,7 +32,9 @@ const SERVICE_MODULES = [
   'tv',
   'webos',
   'androidtv',
+  'samsung',
   'matter',
+  'voice',
 ];
 // `services` is the composition root (useServices); it is layered like a domain module but is not pure.
 const DOMAIN_FOLDERS = [
@@ -44,10 +46,12 @@ const DOMAIN_FOLDERS = [
   'tv',
   'webos',
   'androidtv',
+  'samsung',
   'matter',
+  'voice',
   'services',
 ];
-const PURE_FOLDERS = ['core', 'device', 'ir', 'tv', 'webos', 'androidtv', 'matter'];
+const PURE_FOLDERS = ['core', 'device', 'ir', 'tv', 'webos', 'androidtv', 'samsung', 'matter'];
 
 const NETWORK_MESSAGE =
   'All networking lives in src/transport and goes through assertLocal(). fetch and XMLHttpRequest are banned.';
@@ -78,6 +82,12 @@ const socketImports = {
     '**/modules/lan-socket/**',
   ],
   message: 'Raw sockets (dgram, react-native-udp, lan-socket) are allowed only in src/transport.',
+};
+
+// The mic-pcm native module holds no network code, but only src/voice may reach the microphone.
+const micImports = {
+  group: ['mic-pcm', 'mic-pcm/**', '**/modules/mic-pcm', '**/modules/mic-pcm/**'],
+  message: 'The microphone module (mic-pcm) is allowed only in src/voice.',
 };
 
 // expo/fetch ships a working fetch with the SDK, so it is banned in every folder, src/transport too.
@@ -186,7 +196,7 @@ module.exports = [
     rules: {
       'no-restricted-imports': [
         'error',
-        { ...rnVisualRestriction, patterns: [socketImports, fetchImports] },
+        { ...rnVisualRestriction, patterns: [socketImports, micImports, fetchImports] },
       ],
       'no-restricted-globals': [
         'error',
@@ -224,12 +234,13 @@ module.exports = [
   // Layering. Domain modules never import app/, screens or ui.
   {
     files: DOMAIN_FOLDERS.map((d) => `src/${d}/**`),
+    ignores: ['src/voice/**'],
     rules: {
       'no-restricted-imports': [
         'error',
         {
           ...rnVisualRestriction,
-          patterns: [domainLayering, socketImports, fetchImports],
+          patterns: [domainLayering, socketImports, micImports, fetchImports],
         },
       ],
     },
@@ -240,7 +251,20 @@ module.exports = [
     rules: {
       'no-restricted-imports': [
         'error',
-        { ...rnVisualRestriction, patterns: [domainLayering, fetchImports] },
+        { ...rnVisualRestriction, patterns: [domainLayering, micImports, fetchImports] },
+      ],
+    },
+  },
+  // src/voice is the only place for the microphone module.
+  {
+    files: ['src/voice/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          ...rnVisualRestriction,
+          patterns: [domainLayering, socketImports, fetchImports],
+        },
       ],
     },
   },
@@ -256,6 +280,7 @@ module.exports = [
           patterns: [
             domainLayering,
             socketImports,
+            micImports,
             fetchImports,
             {
               group: [
@@ -268,7 +293,7 @@ module.exports = [
                 '@react-native-async-storage/*',
               ],
               message:
-                'src/core, src/device, src/ir, src/tv, src/webos, src/androidtv and src/matter (except src/matter/native) must stay free of React Native and Expo.',
+                'src/core, src/device, src/ir, src/tv, src/webos, src/androidtv, src/samsung and src/matter (except src/matter/native) must stay free of React Native and Expo.',
             },
           ],
         },
@@ -291,6 +316,7 @@ module.exports = [
             },
             ...serviceImports,
             socketImports,
+            micImports,
             fetchImports,
           ],
         },
@@ -310,6 +336,7 @@ module.exports = [
             },
             ...serviceImports,
             socketImports,
+            micImports,
             fetchImports,
           ],
         },
@@ -328,6 +355,7 @@ module.exports = [
             { group: ['**/app/**'], message: 'Screens must not import from app/.' },
             ...serviceImports,
             socketImports,
+            micImports,
             fetchImports,
           ],
         },
@@ -340,7 +368,10 @@ module.exports = [
     rules: {
       'no-restricted-imports': [
         'error',
-        { ...rnVisualRestriction, patterns: [...serviceImports, socketImports, fetchImports] },
+        {
+          ...rnVisualRestriction,
+          patterns: [...serviceImports, socketImports, micImports, fetchImports],
+        },
       ],
       'import/no-default-export': 'off',
     },
@@ -351,7 +382,10 @@ module.exports = [
         {
           files: DEV_SPIKE_FILES,
           rules: {
-            'no-restricted-imports': ['error', { patterns: [socketImports, fetchImports] }],
+            'no-restricted-imports': [
+              'error',
+              { patterns: [socketImports, micImports, fetchImports] },
+            ],
           },
         },
       ]

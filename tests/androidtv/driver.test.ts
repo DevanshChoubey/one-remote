@@ -110,7 +110,7 @@ describe('capabilities', () => {
   it('has no power-on without a MAC, IR or a standby that answers', async () => {
     const { driver, device, link } = await setup();
     expect(driver.capabilities(device, link)).toEqual({
-      tv: { inputList: false, text: true, powerOn: false },
+      tv: { inputList: false, text: true, powerOn: false, voice: false },
     });
     expect(driver.supports(device, link, { kind: 'tv.powerOn' })).toBe(false);
   });
@@ -503,5 +503,104 @@ describe('abort', () => {
     ).rejects.toMatchObject({ code: 'notSent' });
     expect(tv.keys).toEqual([]);
     expect(lan.streams).toEqual([]);
+  });
+});
+
+describe('voice', () => {
+  it('has voice caps only once connected to a TV that negotiated the voice bit', async () => {
+    const { driver, device, link } = await setup();
+    expect(driver.capabilities(device, link).tv?.voice).toBe(false);
+    const reports = watch(driver, device, link).reports;
+    await tick(100);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(driver.capabilities(device, link).tv?.voice).toBe(true);
+  });
+
+  it('has no voice caps against a TV without the voice bit', async () => {
+    const tv = createFakeAtv({ host: HOST, features: 103 });
+    const lan = createFakeAtvLan({ tvs: [tv] });
+    const id = await lan.ensureIdentity('androidtv:identity', 'One Remote');
+    tv.trusted.add(id.modulusHex);
+    const driver = createAndroidTvDriver({
+      transport: lan,
+      devices: async () => [],
+      onHostChanged: async () => undefined,
+    });
+    const link = linkFor(tv);
+    const device = deviceOf('tv1', link);
+    watch(driver, device, link);
+    await tick(100);
+    expect(driver.capabilities(device, link).tv?.voice).toBe(false);
+  });
+
+  it('tells the observers when voice becomes available, so the view re-reads caps', async () => {
+    const { driver, device, link } = await setup();
+    const voice: boolean[] = [];
+    driver.observe!(device, link, () => voice.push(driver.capabilities(device, link).tv!.voice));
+    await tick(100);
+    expect(voice).toContain(true);
+  });
+
+  it('startVoice connects, and pushes and the end reach the TV', async () => {
+    const { tv, driver, device, link } = await setup();
+    const session = await driver.startVoice!(device, link);
+    const pcm = new Uint8Array(9000).fill(3);
+    session.push(pcm);
+    tv.heardVoice(7);
+    session.end();
+    session.end();
+    await tick(10);
+    expect(tv.keys).toEqual([{ code: 84, direction: 3 }]);
+    expect(tv.voice.payloads.map((p) => p.samples.length)).toEqual([20480]);
+    expect(tv.voice.ends).toEqual([]);
+    await tick(2000);
+    expect(tv.voice.ends).toEqual([7]);
+  });
+
+  it('boosts quiet mic audio before it reaches the TV', async () => {
+    const { tv, driver, device, link } = await setup();
+    const session = await driver.startVoice!(device, link);
+    const pcm = new Uint8Array(8192);
+    const view = new DataView(pcm.buffer);
+    for (let i = 0; i < pcm.length; i += 2) view.setInt16(i, 1000, true);
+    session.push(pcm);
+    session.end();
+    await tick(10);
+    const sent = tv.voice.payloads[0]!.samples;
+    expect(new DataView(sent.buffer, sent.byteOffset).getInt16(0, true)).toBeGreaterThan(8000);
+  });
+
+  it('push after end throws notSent', async () => {
+    const { driver, device, link } = await setup();
+    const session = await driver.startVoice!(device, link);
+    session.end();
+    expect(() => session.push(new Uint8Array(10))).toThrow(
+      expect.objectContaining({ code: 'notSent' }),
+    );
+  });
+
+  it('startVoice rejects notSent when the TV does not take voice', async () => {
+    const tv = createFakeAtv({ host: HOST, features: 103 });
+    const lan = createFakeAtvLan({ tvs: [tv] });
+    const id = await lan.ensureIdentity('androidtv:identity', 'One Remote');
+    tv.trusted.add(id.modulusHex);
+    const driver = createAndroidTvDriver({
+      transport: lan,
+      devices: async () => [],
+      onHostChanged: async () => undefined,
+    });
+    const link = linkFor(tv);
+    await expect(driver.startVoice!(deviceOf('tv1', link), link)).rejects.toMatchObject({
+      code: 'notSent',
+    });
+  });
+
+  it('startVoice rejects notSent when the TV stays silent for 2 s', async () => {
+    const { tv, driver, device, link } = await setup();
+    await driver.send(device, link, { kind: 'tv.key', key: 'ok' });
+    tv.stopAnswering();
+    const p = driver.startVoice!(device, link).catch((e: unknown) => e);
+    await tick(2100);
+    expect(await p).toMatchObject({ code: 'notSent' });
   });
 });

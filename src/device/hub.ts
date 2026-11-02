@@ -10,6 +10,7 @@ import type {
   LinkKind,
   Reported,
   Unsubscribe,
+  VoiceSession,
 } from '@/core';
 import { DeviceError, isIdempotent } from '@/core';
 
@@ -153,6 +154,22 @@ export class DeviceHub {
       run.catch(() => undefined),
     );
     return run;
+  }
+
+  /** Opens a voice session over the first link whose driver can. Rejects `notSent` when none can,
+   *  or when that TV does not start one. */
+  async startVoice(deviceId: string): Promise<VoiceSession> {
+    const device = this.device(deviceId);
+    for (const link of device.links) {
+      const driver = this.drivers.get(link.kind);
+      if (!driver?.available() || !driver.startVoice) continue;
+      try {
+        return await driver.startVoice(device, link);
+      } catch (e) {
+        throw e instanceof DeviceError ? e : new DeviceError('notSent', 'Voice did not start');
+      }
+    }
+    throw new DeviceError('notSent', 'This TV takes no voice');
   }
 
   subscribe(deviceId: string, cb: (v: DeviceView) => void): Unsubscribe {

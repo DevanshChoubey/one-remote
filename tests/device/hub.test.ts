@@ -1,4 +1,4 @@
-import type { AcState, Command, Device, LinkDriver } from '@/core';
+import type { AcState, Command, Device, LinkDriver, VoiceSession } from '@/core';
 import { DeviceError, defaultAcState } from '@/core';
 import type { DeviceView as View } from '@/device/hub';
 import { DeviceHub } from '@/device/hub';
@@ -530,5 +530,49 @@ describe('DeviceHub', () => {
     stop();
     hub.setDevices([ac, tv]);
     expect(seen).toHaveLength(1);
+  });
+});
+
+describe('startVoice', () => {
+  const session = (): VoiceSession => ({ push: jest.fn(), end: jest.fn() });
+
+  it('forwards to the first available link whose driver has startVoice', async () => {
+    const s = session();
+    const start = jest.fn((_d: Device) => Promise.resolve(s));
+    const webos = createFakeDriver('webos');
+    const ir = createFakeDriver('ir', { startVoice: start });
+    const hub = new DeviceHub({ drivers: [webos, ir] });
+    hub.setDevices([tv]);
+    await expect(hub.startVoice('tv1')).resolves.toBe(s);
+    expect(start).toHaveBeenCalledWith(tv);
+  });
+
+  it('rejects notSent when no link has a driver with startVoice', async () => {
+    const { hub } = setup();
+    await expect(hub.startVoice('tv1')).rejects.toMatchObject({ code: 'notSent' });
+  });
+
+  it('skips a driver that is not available', async () => {
+    const start = jest.fn(() => Promise.resolve(session()));
+    const webos = createFakeDriver('webos', { available: false, startVoice: start });
+    const hub = new DeviceHub({ drivers: [webos] });
+    hub.setDevices([tv]);
+    await expect(hub.startVoice('tv1')).rejects.toMatchObject({ code: 'notSent' });
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it('passes a DeviceError through and wraps anything else as notSent', async () => {
+    let fail: unknown = new DeviceError('notPaired');
+    const webos = createFakeDriver('webos', { startVoice: () => Promise.reject(fail) });
+    const hub = new DeviceHub({ drivers: [webos] });
+    hub.setDevices([tv]);
+    await expect(hub.startVoice('tv1')).rejects.toMatchObject({ code: 'notPaired' });
+    fail = new Error('boom');
+    await expect(hub.startVoice('tv1')).rejects.toMatchObject({ code: 'notSent' });
+  });
+
+  it('rejects for an unknown device', async () => {
+    const { hub } = setup();
+    await expect(hub.startVoice('nope')).rejects.toBeInstanceOf(DeviceError);
   });
 });

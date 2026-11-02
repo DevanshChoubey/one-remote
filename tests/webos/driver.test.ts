@@ -113,14 +113,14 @@ describe('webos driver: basics', () => {
   it('capabilities report inputList, text and powerOn from the MAC', () => {
     const { driver, dev, link } = rig();
     expect(driver.capabilities(dev, link)).toEqual({
-      tv: { inputList: true, text: true, powerOn: true },
+      tv: { inputList: true, text: true, powerOn: true, voice: false },
     });
     const noMac = webos({ mac: undefined });
     expect(driver.capabilities(device([noMac]), noMac)).toEqual({
-      tv: { inputList: true, text: true, powerOn: false },
+      tv: { inputList: true, text: true, powerOn: false, voice: false },
     });
     expect(driver.capabilities(device([noMac, { kind: 'ir', remoteId: 'a/b' }]), noMac)).toEqual({
-      tv: { inputList: true, text: true, powerOn: true },
+      tv: { inputList: true, text: true, powerOn: true, voice: false },
     });
   });
 

@@ -637,6 +637,7 @@ export function createWebosDriver(
       tv: {
         inputList: true,
         text: true,
+        voice: false,
         powerOn: (link.kind === 'webos' && !!link.mac) || device.links.some((l) => l.kind === 'ir'),
       },
     }),

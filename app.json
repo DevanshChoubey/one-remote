@@ -11,7 +11,8 @@
       "bundleIdentifier": "com.devanshchoubey.oneremote",
       "infoPlist": {
         "NSLocalNetworkUsageDescription": "One Remote finds and controls your TV on your home Wi-Fi.",
-        "NSBonjourServices": ["_androidtvremote2._tcp"]
+        "NSBonjourServices": ["_androidtvremote2._tcp"],
+        "NSMicrophoneUsageDescription": "One Remote uses the microphone while you hold the mic button, to talk to your TV."
       }
     },
     "android": {
@@ -43,7 +44,14 @@
       ],
       "expo-secure-store",
       "./plugins/withVolumeKeys.js",
-      "./plugins/withLanCleartext.js"
+      "./plugins/withLanCleartext.js",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "One Remote uses the microphone while you hold the mic button, to talk to your TV.",
+          "speechRecognitionPermission": "One Remote turns your speech into text on this phone, to type it on your TV."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

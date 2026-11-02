@@ -8,24 +8,25 @@ import { DeviceError, tvLinkOf } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
 import type { DeviceView } from '@/services';
-import { Box, Chip, Column, Row, Screen, Touchable, Txt } from '@/ui';
-import { DeviceSettingsButton } from '../device/DeviceSettingsButton';
+import { Box, Column, Row, Screen, Txt } from '@/ui';
 import { useKnownDevice } from '../device/useKnownDevice';
+import { BarButton } from './BarButton';
 import { DPad } from './DPad';
 import { KeyButton } from './KeyButton';
+import { MicButton } from './MicButton';
 import { InputSheet } from './InputSheet';
 import { KeyboardSheet } from './KeyboardSheet';
 import { pressFeedback } from './pressFeedback';
 import { TouchPad } from './TouchPad';
+import { TvBar } from './TvBar';
+import { TvMenu } from './TvMenu';
+import type { Pad } from './TvMenu';
 import { TvOffPanel } from './TvOffPanel';
 import { tvMode } from './tvMode';
 import { UnreachablePanel } from './UnreachablePanel';
 import { wakeHintKey } from './wakeHint';
 import { usePreferences } from './usePreferences';
 import { useVolumeKeys } from './useVolumeKeys';
-import { VolumeRocker } from './VolumeRocker';
-
-type Pad = 'touchpad' | 'dpad';
 
 function nowMs(): number {
   return Date.now();
@@ -49,6 +50,27 @@ function useAppActive(): boolean {
     return () => sub.remove();
   }, []);
   return active;
+}
+
+/** The power symbol drawn from boxes: Android's Roboto has no ⏻, which showed as an empty box. */
+function PowerGlyph(): ReactElement {
+  return (
+    <Box w={16} h={18}>
+      <Box
+        float={{ top: 2, right: 0 }}
+        w={16}
+        h={16}
+        bg="danger"
+        radius="pill"
+        align="center"
+        justify="center"
+      >
+        <Box w={12} h={12} bg="surface2" radius="pill" />
+      </Box>
+      <Box float={{ top: 0, right: 5 }} w={6} h={9} bg="surface2" />
+      <Box float={{ top: 0, right: 7 }} w={2} h={9} bg="danger" radius="pill" />
+    </Box>
+  );
 }
 
 export function TvScreen(props: { deviceId: string }): ReactElement {
@@ -75,6 +97,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   const [problem, setProblem] = useState<string | null>(null);
   const [keyboard, setKeyboard] = useState(false);
   const [inputsOpen, setInputsOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [finding, setFinding] = useState(false);
   const [findNote, setFindNote] = useState<string | null>(null);
   const [pickedPad, setPickedPad] = useState<Pad | null>(null);
@@ -121,7 +144,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   const canTurnOn = caps?.powerOn !== false;
   const brandKind = (device ? tvLinkOf(device)?.kind : undefined) ?? 'webos';
   const haptics = preferences?.haptics ?? true;
-  // The rocker is only on screen in these modes; elsewhere the phone keeps its own volume.
+  // Volume is the phone's keys only (no buttons on screen); they steer the TV in these modes.
   useVolumeKeys(deviceId, watching && (mode === 'ready' || mode === 'connecting'));
 
   const send = (cmd: Command): void => {
@@ -179,6 +202,8 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     );
   };
 
+  const live = mode === 'ready' || mode === 'connecting';
+
   const status =
     mode === 'connecting'
       ? t('tv.statusConnecting')
@@ -230,67 +255,80 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
       );
     }
     return (
-      <Column gap={4}>
-        <Row gap={2} justify="center">
-          <Chip
-            label={t('tv.touchpad')}
-            state={pad === 'touchpad' ? 'selected' : 'neutral'}
-            onToggle={() => choosePad('touchpad')}
-          />
-          <Chip
-            label={t('tv.dpad')}
-            state={pad === 'dpad' ? 'selected' : 'neutral'}
-            onToggle={() => choosePad('dpad')}
-          />
-        </Row>
+      <Column flex={1} gap={4}>
         {pad === 'touchpad' ? <TouchPad onKey={key} /> : <DPad onKey={key} />}
-        <VolumeRocker onKey={key} />
-        <Row gap={3} justify="center">
-          <KeyButton label={t('tv.goBack')} glyph="↩" onPress={() => key('back')} />
-          <KeyButton label={t('tv.home')} glyph="⌂" onPress={() => key('home')} />
-          <KeyButton label={t('tv.mute')} glyph="🔇" onPress={() => key('mute')} />
-        </Row>
-        <Row gap={3} justify="center">
-          {caps?.text === false ? null : (
-            <KeyButton label={t('tv.keyboard')} glyph="⌨" onPress={() => setKeyboard(true)} />
-          )}
-          <KeyButton
-            label={t('tv.input')}
-            glyph="⇄"
-            onPress={() => (caps?.inputList === false ? key('input') : setInputsOpen(true))}
+        <Row px={1} align="center" justify="between">
+          <KeyButton label={t('tv.goBack')} glyph="←" circle={64} onPress={() => key('back')} />
+          <KeyButton label={t('tv.home')} glyph="⌂" circle={84} onPress={() => key('home')} />
+          <MicButton
+            deviceId={deviceId}
+            voice={caps?.voice === true}
+            text={caps?.text !== false}
+            watching={watching}
+            send={(cmd) => hub.send(deviceId, cmd).then(() => undefined)}
+            onProblem={setProblem}
+            errorLine={errorLine}
+            onPress={() => pressFeedback(haptics)}
           />
-          <KeyButton label={t('tv.playPause')} glyph="▶❚❚" onPress={() => key('playPause')} />
         </Row>
       </Column>
     );
   })();
 
   return (
-    <Screen title={device?.name ?? t('common.appName')} onBack={() => router.back()}>
-      <Column gap={4} testID="tv-screen">
-        <Row align="center" justify="between">
-          <Box flex={1}>
-            {status ? (
-              <Txt variant="caption" color="ink2" live>
-                {status}
-              </Txt>
-            ) : null}
-          </Box>
-          <Touchable
-            onPress={() => (mode === 'ready' || mode === 'connecting' ? key('power') : turnOn())}
-            accessibilityLabel={t('tv.power')}
-          >
-            <Box px={3}>
-              <Txt variant="heading">{t('tv.power')}</Txt>
-            </Box>
-          </Touchable>
-          <DeviceSettingsButton deviceId={deviceId} />
-        </Row>
+    <Screen bare>
+      <Column flex={1} gap={4} testID="tv-screen">
+        <TvBar
+          name={device?.name ?? t('common.appName')}
+          status={status}
+          onBack={() => router.back()}
+        >
+          <BarButton
+            icon={<PowerGlyph />}
+            label={t('tv.power')}
+            onPress={() => (live ? key('power') : turnOn())}
+          />
+          {live && caps?.text !== false ? (
+            <BarButton
+              glyph="⌨"
+              label={t('tv.keyboard')}
+              onPress={() => {
+                setMenuOpen(false);
+                setKeyboard(true);
+              }}
+            />
+          ) : null}
+          <BarButton
+            glyph="⋮"
+            label={t('tv.more')}
+            expanded={menuOpen}
+            onPress={() => setMenuOpen((o) => !o)}
+          />
+        </TvBar>
         {body}
         {problem ? (
           <Txt live color="ink2">
             {problem}
           </Txt>
+        ) : null}
+        {menuOpen ? (
+          <TvMenu
+            live={live}
+            pad={pad}
+            onPad={(next) => {
+              setMenuOpen(false);
+              choosePad(next);
+            }}
+            onInput={() => {
+              setMenuOpen(false);
+              if (caps?.inputList === false) key('input');
+              else setInputsOpen(true);
+            }}
+            onSettings={() => {
+              setMenuOpen(false);
+              router.push(`/device-sheet/${deviceId}`);
+            }}
+          />
         ) : null}
       </Column>
     </Screen>

@@ -15,6 +15,8 @@ import { createSamsungBrand } from '@/samsung/setup';
 import { createWebosDriver } from '@/webos/driver';
 import { createFrameTap } from '@/webos/frameTap';
 import { createWebosBrand } from '@/webos/setup';
+import { createNativeDictation } from '@/voice/dictation';
+import { createNativeMic } from '@/voice/mic';
 import type { TvTransport } from '@/tv/transport';
 import type { Services } from './services';
 
@@ -227,6 +229,8 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
         pairing,
         ...(codeLength !== undefined ? { codeLength } : {}),
       })),
+    // voice
+    voice: deps.voice ?? { mic: createNativeMic(), dictation: createNativeDictation() },
     // ir lane
     // matter lane
   };
