@@ -24,6 +24,8 @@ export default {
   licenseApp: 'One Remote. The licence of the app as a whole is still to be decided.',
   licenseOss:
     'Built with Expo, React Native and other open-source libraries, each under its own licence.',
-  licenseLgpl:
-    'IR encoder (src/ir/lgpl): LGPL-2.1. Licence notice to be added here before release.',
+  licenseEncoders: 'IR encoders: IRremoteESP8266, LGPL-2.1',
+  licenseFanCodes: 'Fan IR codes: MIT licence',
+  licenseSourceOffer:
+    'The source of the LGPL IR encoder is available on request for at least three years: devanshc13@gmail.com.',
 } as const;

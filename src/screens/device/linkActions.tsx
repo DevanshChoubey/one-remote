@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { isTvLink } from '@/core';
 import type { Device, Link } from '@/core';
 import { TvLinkActions } from '../tv/TvLinkActions';
+import { irBackupAction } from '../appliance/IrBackupAction';
 
 export interface LinkActionProps {
   device: Device;
@@ -39,6 +40,7 @@ export type DeviceActionRenderer = (props: DeviceActionProps) => ReactElement | 
  */
 export const DEVICE_ACTIONS: readonly DeviceActionRenderer[] = [
   // ir lane
+  irBackupAction,
   // tv lane
   // matter lane
 ];

@@ -108,6 +108,10 @@ export interface Capabilities {
   sleep?: boolean;
   fanLight?: boolean;
   tv?: TvCaps;
+  /** Fan Boost key. Missing means supported. */
+  fanBoost?: boolean;
+  /** Fan timer keys. Missing means supported. */
+  fanTimer?: boolean;
 }
 
 const DEFAULT_SETPOINT_MIN = 16;

@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import type { LinkDriver, TvSetup } from '@/core';
+import type { IrSetup } from '@/core/irSetup';
 import type { BrandSetup } from '@/tv/brands';
 import type { Dictation } from '@/voice/dictation';
 import type { Mic } from '@/voice/mic';
@@ -30,6 +31,7 @@ export interface Services {
   // voice
   voice: { mic: Mic; dictation: Dictation };
   // ir lane
+  ir: IrSetup;
   // matter lane
 }
 

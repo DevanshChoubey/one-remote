@@ -6,4 +6,5 @@ export * from './driver';
 export * from './tvLink';
 export * from './tvSetup';
 // ir lane
+export * from './irSetup';
 // matter lane

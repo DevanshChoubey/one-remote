@@ -139,7 +139,9 @@ export function SettingsScreen(): ReactElement {
           <Column gap={3}>
             <Txt color="ink2">{t('settings.licenseApp')}</Txt>
             <Txt color="ink2">{t('settings.licenseOss')}</Txt>
-            <Txt color="ink2">{t('settings.licenseLgpl')}</Txt>
+            <Txt color="ink2">{t('settings.licenseEncoders')}</Txt>
+            <Txt color="ink2">{t('settings.licenseFanCodes')}</Txt>
+            <Txt color="ink2">{t('settings.licenseSourceOffer')}</Txt>
           </Column>
         </Section>
       </Column>

@@ -1,11 +1,16 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { interpolate, t } from '@/i18n';
+import ac from '@/i18n/en/ac';
+import addAppliance from '@/i18n/en/addAppliance';
 import add from '@/i18n/en/add';
 import addTv from '@/i18n/en/addTv';
 import common from '@/i18n/en/common';
 import device from '@/i18n/en/device';
+import fan from '@/i18n/en/fan';
 import home from '@/i18n/en/home';
+import ir from '@/i18n/en/ir';
+import irBackup from '@/i18n/en/irBackup';
 import settings from '@/i18n/en/settings';
 import tv from '@/i18n/en/tv';
 
@@ -17,6 +22,11 @@ const NAMESPACES: Record<string, Record<string, string>> = {
   settings,
   tv,
   addTv,
+  ac,
+  fan,
+  addAppliance,
+  irBackup,
+  ir,
 };
 
 const ROOT = path.resolve(__dirname, '..');
@@ -84,7 +94,7 @@ describe('i18n', () => {
     const missing: string[] = [];
     for (const file of files) {
       const text = fs.readFileSync(file, 'utf8');
-      for (const m of text.matchAll(/\bt\(\s*'([a-z]+)\.([A-Za-z0-9]+)'/g)) {
+      for (const m of text.matchAll(/\bt\(\s*'([A-Za-z]+)\.([A-Za-z0-9.]+)'/g)) {
         const [, ns, key] = m;
         if (ns === undefined || key === undefined || NAMESPACES[ns]?.[key] === undefined) {
           missing.push(`${path.relative(ROOT, file)}: ${ns}.${key}`);
