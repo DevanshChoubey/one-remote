@@ -24,11 +24,14 @@ export interface FieldProps extends Omit<InputProps, 'accessibilityLabel'> {
    * `.row`; the label stays above both.
    */
   trailing?: ReactNode;
+  /** The label is a plain 13 px ink2 caption 8 px above the input (mock `label.t-cap`). */
+  plainLabel?: boolean;
 }
 
 /** A labelled input with an optional helper line and an announced error. */
 export function Field(props: FieldProps): ReactElement {
-  const { label, error, helper, shakeKey, accessibilityLabel, trailing, ...input } = props;
+  const { label, error, helper, shakeKey, accessibilityLabel, trailing, plainLabel, ...input } =
+    props;
   const motion = useMotion();
   const shake = useSharedValue(0);
   // Not on mount, whatever the first key is: only a change of the key shakes.
@@ -54,12 +57,18 @@ export function Field(props: FieldProps): ReactElement {
   return (
     <Animated.View testID="field-shake" style={shaking}>
       <Column gap={2}>
-        {/* The mock's label sits 6 px above the input (4 in from the edge): the column gap is 8. */}
-        <Animated.View style={{ marginBottom: -2, marginLeft: 4 }}>
-          <Txt variant="captionBold" color="ink2">
+        {plainLabel ? (
+          <Txt variant="caption" color="ink2">
             {label}
           </Txt>
-        </Animated.View>
+        ) : (
+          // The mock's label sits 6 px above the input (4 in from the edge): the column gap is 8.
+          <Animated.View style={{ marginBottom: -2, marginLeft: 4 }}>
+            <Txt variant="captionBold" color="ink2">
+              {label}
+            </Txt>
+          </Animated.View>
+        )}
         {trailing ? (
           <Row gap={2} align="center" testID="field-row">
             <Box flex={1}>{box}</Box>
