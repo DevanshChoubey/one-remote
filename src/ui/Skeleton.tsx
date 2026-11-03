@@ -17,14 +17,18 @@ import { Tile } from './Tile';
 
 export interface SkeletonProps {
   width?: number | `${number}%`;
-  height: number;
+  /** A number of points, or a share of the parent to fill it. */
+  height: number | `${number}%`;
   radius?: RadiusToken;
+  /** For bars on a card: the `line` colour at 0.7 opacity, as in the mock. */
+  onCard?: boolean;
 }
 
 const SWEEP_MS = 1500;
 const BLINK_MS = 1600;
 const BAND_SHARE = 0.6;
 const BAND_OPACITY = 0.7;
+const CARD_OPACITY = 0.7;
 
 /** A placeholder bar with a light band sweeping across it; reduced motion: a slow blink. */
 export function Skeleton(props: SkeletonProps): ReactElement {
@@ -55,11 +59,12 @@ export function Skeleton(props: SkeletonProps): ReactElement {
   const bandStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: -bandWidth + sweep.value * (barWidth + bandWidth) }],
   }));
-  const barStyle = useAnimatedStyle(() => ({ opacity: reduced ? blink.value : 1 }));
+  const rest = props.onCard ? CARD_OPACITY : 1;
+  const barStyle = useAnimatedStyle(() => ({ opacity: rest * (reduced ? blink.value : 1) }));
   const onLayout = (e: LayoutChangeEvent): void => setBarWidth(e.nativeEvent.layout.width);
   return (
     <AnimatedBox
-      bg="surface2"
+      bg={props.onCard ? 'line' : 'surface2'}
       w={props.width}
       h={props.height}
       radius={props.radius ?? 'sm'}
@@ -94,16 +99,16 @@ export function Skeleton(props: SkeletonProps): ReactElement {
 }
 
 /** A device card while it loads: tile, two bars and a switch pill. */
-export function SkelCard(): ReactElement {
+export function SkelCard(props: { testID?: string }): ReactElement {
   return (
-    <Box bg="surface" border="line" radius="md" shadow="card" p={4}>
+    <Box testID={props.testID} bg="surface" border="line" radius="md" shadow="card" p={4}>
       <Row gap={3} align="center">
         <Tile icon="room" />
         <Box flex={1} gap={2}>
-          <Skeleton width="60%" height={14} />
-          <Skeleton width="35%" height={12} />
+          <Skeleton width="60%" height={14} onCard />
+          <Skeleton width="35%" height={12} onCard />
         </Box>
-        <Skeleton width={52} height={32} radius="pill" />
+        <Skeleton width={52} height={32} radius="pill" onCard />
       </Row>
     </Box>
   );

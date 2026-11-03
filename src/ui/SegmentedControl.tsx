@@ -50,7 +50,9 @@ export function SegmentedControl<V extends string>(props: SegmentedControlProps<
       accessibilityRole="radiogroup"
       accessibilityLabel={props.label}
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+      accessibilityState={props.disabled ? { disabled: true } : undefined}
       style={{
+        opacity: props.disabled ? 0.42 : 1,
         backgroundColor: theme.color.surface2,
         borderColor: theme.color.line,
         borderWidth: 1,
@@ -85,6 +87,7 @@ export function SegmentedControl<V extends string>(props: SegmentedControlProps<
                 accessibilityLabel={o.label}
                 selected={selected}
                 disabled={props.disabled}
+                noDim
                 radius="pill"
                 pressScale={1}
               >

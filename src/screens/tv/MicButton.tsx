@@ -261,6 +261,7 @@ export function MicButton(props: MicButtonProps): ReactElement | null {
 /** "Listening…" with a four-bar equaliser, above and to the right of the mic. */
 function ListeningBubble(): ReactElement {
   const motion = useMotion();
+  const { reduced } = motion;
   const shown = useSharedValue(0);
   useEffect(() => {
     shown.value = withTiming(1, motion.timing('base', 'enter'));
@@ -268,7 +269,7 @@ function ListeningBubble(): ReactElement {
   }, [shown, motion]);
   const style = useAnimatedStyle(() => ({
     opacity: Math.min(1, shown.value * 2),
-    transform: [{ translateY: motion.reduced ? 0 : 6 * (1 - shown.value) }],
+    transform: [{ translateY: reduced ? 0 : 6 * (1 - shown.value) }],
   }));
   return (
     <AnimatedBox

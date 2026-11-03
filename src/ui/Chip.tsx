@@ -5,7 +5,7 @@ import type { ColorToken } from '@/theme';
 import { useMotion, useTheme } from '@/theme';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
-import { AnimatedBox, Row, Touchable, Txt } from './primitives';
+import { AnimatedBox, Box, Row, Touchable } from './primitives';
 import { mixColor } from './primitives/Touchable';
 
 export type ChipState = 'neutral' | 'selected';
@@ -16,6 +16,10 @@ export interface ChipProps {
   onToggle?: () => void;
   disabled?: boolean;
   icon?: IconName;
+  /** Makes the chip a plain button (role button) instead of a toggle; `onToggle` wins if both are set. */
+  onPress?: () => void;
+  /** What a press does, for the screen reader. */
+  accessibilityHint?: string;
 }
 
 const LOOK: Record<ChipState, { bg: ColorToken; border: ColorToken; text: ColorToken }> = {
@@ -49,15 +53,43 @@ export function Chip(props: ChipProps): ReactElement {
     }),
     [offBg, litBg, offLine, litLine],
   );
+  // The label and icon colours follow the fill: same progress, same duration.
+  const offText = theme.color[off.text];
+  const litText = theme.color[lit.text];
+  const labelColour = useAnimatedStyle(
+    () => ({ color: mixColor(on.value, offText, litText) }),
+    [offText, litText],
+  );
+  const offIcon = useAnimatedStyle(() => ({ opacity: 1 - on.value }));
+  const litIcon = useAnimatedStyle(() => ({ opacity: on.value }));
   const row = (
     <Row gap={2} align="center" justify="center" px={4} minH={48}>
-      {props.icon ? <Icon name={props.icon} size={18} color={look.text} /> : null}
-      <Txt variant="label" color={look.text}>
+      {props.icon ? (
+        <Box w={18} h={18}>
+          <AnimatedBox animatedStyle={offIcon}>
+            <Icon name={props.icon} size={18} color={off.text} />
+          </AnimatedBox>
+          <AnimatedBox float={{ top: 0, left: 0 }} animatedStyle={litIcon}>
+            <Icon name={props.icon} size={18} color={lit.text} />
+          </AnimatedBox>
+        </Box>
+      ) : null}
+      <Animated.Text
+        style={[
+          {
+            ...theme.font.heading,
+            fontSize: theme.size.label,
+            lineHeight: theme.lineHeight.label,
+          },
+          labelColour,
+        ]}
+      >
         {props.label}
-      </Txt>
+      </Animated.Text>
     </Row>
   );
-  if (!props.onToggle) {
+  const press = props.onToggle ?? props.onPress;
+  if (!press) {
     return (
       <Animated.View
         accessible
@@ -77,12 +109,14 @@ export function Chip(props: ChipProps): ReactElement {
       </Animated.View>
     );
   }
+  const toggle = props.onToggle !== undefined;
   return (
     <Touchable
-      onPress={props.onToggle}
+      onPress={press}
       disabled={props.disabled}
-      selected={selected}
-      accessibilityRole="togglebutton"
+      selected={toggle ? selected : undefined}
+      accessibilityRole={toggle ? 'togglebutton' : 'button'}
+      accessibilityHint={props.accessibilityHint}
       accessibilityLabel={props.label}
       radius="pill"
       pressScale={0.95}

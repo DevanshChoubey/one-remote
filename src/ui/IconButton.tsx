@@ -1,7 +1,10 @@
 import type { ReactElement } from 'react';
+import { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useMotion, useTheme } from '@/theme';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
-import { Box, Touchable } from './primitives';
+import { AnimatedBox, Box, Touchable } from './primitives';
+import { mixColor } from './primitives/Touchable';
 
 export interface IconButtonProps {
   icon: IconName;
@@ -20,6 +23,18 @@ export interface IconButtonProps {
 
 /** A 48 px round icon control. */
 export function IconButton(props: IconButtonProps): ReactElement {
+  const theme = useTheme();
+  const motion = useMotion();
+  // A flat button has no fill: its press tint is the pressed colour at alpha 0 fading in.
+  const press = useSharedValue(0);
+  const pressed = theme.color.surface2;
+  // The same colour at alpha 0 (`#rrggbb00`), so the fade has no dark midpoint.
+  const clear = `${pressed}00`;
+  const tint = useAnimatedStyle(
+    () => ({ backgroundColor: mixColor(press.value, clear, pressed) }),
+    [clear, pressed],
+  );
+  const flat = !!props.flat;
   return (
     <Touchable
       onPress={props.onPress}
@@ -30,13 +45,28 @@ export function IconButton(props: IconButtonProps): ReactElement {
       accessibilityRole={props.checked === undefined ? 'button' : 'switch'}
       testID={props.testID}
       radius="pill"
-      bg={props.flat ? undefined : 'surface'}
-      border={props.flat ? undefined : 'line'}
-      pressedBg="surface2"
+      bg={flat ? undefined : 'surface'}
+      border={flat ? undefined : 'line'}
+      pressedBg={flat ? undefined : 'surface2'}
+      onPressIn={() => {
+        press.set(withTiming(1, motion.timing('instant')));
+      }}
+      onPressOut={() => {
+        press.set(withTiming(0, motion.timing('fast')));
+      }}
       pressScale={0.92}
       disabledOpacity={0.4}
     >
       <Box w={48} h={48} align="center" justify="center">
+        {flat ? (
+          <AnimatedBox
+            float={{ top: 0, right: 0, bottom: 0, left: 0 }}
+            radius="pill"
+            pointerEvents="none"
+            testID="icon-button-tint"
+            animatedStyle={tint}
+          />
+        ) : null}
         <Icon name={props.icon} color={props.tone === 'power' ? 'dangerInk' : 'ink'} />
       </Box>
     </Touchable>

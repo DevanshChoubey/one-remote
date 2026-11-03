@@ -14,6 +14,7 @@ const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as c
 export function SentRing(props: { trigger: number }): ReactElement {
   const theme = useTheme();
   const motion = useMotion();
+  const { reduced } = motion;
   const progress = useSharedValue(1);
   const { trigger } = props;
   useEffect(() => {
@@ -24,7 +25,7 @@ export function SentRing(props: { trigger: number }): ReactElement {
   }, [trigger, progress, motion]);
   const style = useAnimatedStyle(() => ({
     opacity: 0.8 * (1 - progress.value),
-    transform: [{ scale: motion.reduced ? 1 : 1 + 0.35 * progress.value }],
+    transform: [{ scale: reduced ? 1 : 1 + 0.35 * progress.value }],
   }));
   return (
     <Animated.View

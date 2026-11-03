@@ -14,6 +14,8 @@ export interface OptionCardProps {
   onPress: () => void;
   badge?: BadgeProps;
   disabled?: boolean;
+  /** A choice in a list: draws a tick on the right, an accent border and reports `selected`. */
+  selected?: boolean;
   /** Position in a staggered list (the card rises in after `index` steps). */
   index?: number;
   accessibilityLabel?: string;
@@ -28,8 +30,9 @@ export function OptionCard(props: OptionCardProps): ReactElement {
       accessibilityLabel={props.accessibilityLabel ?? props.title}
       disabled={props.disabled}
       testID={props.testID}
+      selected={props.selected}
       bg="surface"
-      border="line"
+      border={props.selected ? 'accent' : 'line'}
       radius="md"
       pressedBg="surface2"
       pressScale={0.985}
@@ -47,7 +50,11 @@ export function OptionCard(props: OptionCardProps): ReactElement {
           </Column>
         </Box>
         {props.badge ? <Badge {...props.badge} /> : null}
-        <Icon name="chev" size={22} color="ink2" />
+        {props.selected ? (
+          <Icon name="check" size={22} color="accent" />
+        ) : (
+          <Icon name="chev" size={22} color="ink2" />
+        )}
       </Row>
     </Touchable>
   );
