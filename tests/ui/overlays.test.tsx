@@ -333,6 +333,14 @@ describe('overlays', () => {
       { key: 'b', label: 'Dark', onPress: jest.fn(), current: true },
     ];
 
+    it('opens 4 px under the bar and grows past 220 px for a long label, within the gutters', async () => {
+      await render(wrap(<Menu open onClose={jest.fn()} items={items} testID="menu" />));
+      const style = StyleSheet.flatten(screen.getByTestId('menu').props.style);
+      expect(style.top).toBe(68);
+      expect(style.width).toBeUndefined();
+      expect(style.maxWidth).toBeGreaterThanOrEqual(220);
+    });
+
     it('under reduced motion renders its items with no transform', async () => {
       await render(wrap(<Menu open onClose={jest.fn()} items={items} testID="menu" />));
       expect(screen.getByLabelText('Light')).toBeTruthy();
@@ -410,6 +418,13 @@ describe('overlays', () => {
   });
 
   describe('Mark', () => {
+    it('glows with the accent at 40%, as the mock', async () => {
+      await render(wrap(<Mark />));
+      const style = StyleSheet.flatten(screen.getByTestId('mark').props.style);
+      expect(style.boxShadow).toBe(`0px 14px 34px ${lightTokens.color.accent}66`);
+      expect(style.borderRadius).toBe(lightTokens.radius.art);
+    });
+
     beforeEach(() => jest.useFakeTimers());
     afterEach(() => jest.useRealTimers());
 

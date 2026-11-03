@@ -10,6 +10,8 @@ export interface HomeCard {
   needsIr: boolean;
   /** What the power switch shows: the last command, else the reported state. */
   power: boolean;
+  /** The switch can act: false for a TV that is off and cannot be woken from this phone. */
+  canPower: boolean;
 }
 
 export interface HomeSection {
@@ -28,14 +30,15 @@ export interface HomeModel {
   togglePower(id: string): void;
 }
 
-/** What a device was last told, and the hub state it was told against. */
+/** What a device was last told, and the hub state it was told against. A TV keeps only its power. */
 interface Told {
-  state: AcState | FanState;
+  power: boolean;
+  state?: AcState | FanState;
   base: ViewState | undefined;
 }
 
 function reportedPower(state: ViewState | undefined): boolean {
-  return state?.kind === 'ac' || state?.kind === 'fan' ? state.state.power : false;
+  return state ? state.state.power : false;
 }
 
 export function useHome(): HomeModel {
@@ -117,31 +120,9 @@ export function useHome(): HomeModel {
     return () => stops.forEach((stop) => stop());
   }, [hub, ids, commit]);
 
-  const togglePower = useCallback(
-    (id: string): void => {
-      let view: DeviceView;
-      try {
-        view = hub.view(id);
-      } catch {
-        return; // The device was removed under the tap.
-      }
-      const kind = view.device.kind;
-      if (kind !== 'ac' && kind !== 'fan') return;
-      const prior = told.current.get(id)?.state;
-      const reported = view.state;
-      const last =
-        prior ??
-        (kind === 'ac'
-          ? reported?.kind === 'ac'
-            ? reported.state
-            : defaultAcState()
-          : reported?.kind === 'fan'
-            ? reported.state
-            : defaultFanState());
-      const next = { ...last, power: !last.power };
-      const entry: Told = { state: next, base: reported };
-      told.current.set(id, entry);
-      commit();
+  // Counts a power send in flight and settles `told` once the device is idle again.
+  const track = useCallback(
+    (id: string, entry: Told, sent: Promise<unknown>): void => {
       inflight.current.set(id, (inflight.current.get(id) ?? 0) + 1);
       const settle = (): void => {
         const left = (inflight.current.get(id) ?? 1) - 1;
@@ -161,10 +142,6 @@ export function useHome(): HomeModel {
         }
         commit();
       };
-      const sent =
-        kind === 'ac'
-          ? hub.send(id, { kind: 'ac.set', state: { ...defaultAcState(), ...next } })
-          : hub.send(id, { kind: 'fan.set', state: { ...defaultFanState(), ...next } });
       sent.then(settle, (e: unknown) => {
         console.error('Power toggle failed', e);
         if (told.current.get(id) === entry) told.current.delete(id);
@@ -172,6 +149,54 @@ export function useHome(): HomeModel {
       });
     },
     [hub, commit],
+  );
+
+  const togglePower = useCallback(
+    (id: string): void => {
+      let view: DeviceView;
+      try {
+        view = hub.view(id);
+      } catch {
+        return; // The device was removed under the tap.
+      }
+      const kind = view.device.kind;
+      const reported = view.state;
+      const before = told.current.get(id);
+      if (kind === 'tv') {
+        // On: the TV's power key. Off or not heard from: wake it, as the TV screen's Turn on does.
+        const wasOn = before ? before.power : reportedPower(reported);
+        if (!wasOn && view.capabilities.tv?.powerOn === false) return;
+        const entry: Told = { power: !wasOn, base: reported };
+        told.current.set(id, entry);
+        commit();
+        track(
+          id,
+          entry,
+          hub.send(id, wasOn ? { kind: 'tv.key', key: 'power' } : { kind: 'tv.powerOn' }),
+        );
+        return;
+      }
+      const prior = before?.state;
+      const last =
+        prior ??
+        (kind === 'ac'
+          ? reported?.kind === 'ac'
+            ? reported.state
+            : defaultAcState()
+          : reported?.kind === 'fan'
+            ? reported.state
+            : defaultFanState());
+      const next = { ...last, power: !last.power };
+      const entry: Told = { power: next.power, state: next, base: reported };
+      told.current.set(id, entry);
+      commit();
+      const sent =
+        kind === 'ac'
+          ? hub.send(id, { kind: 'ac.set', state: { ...defaultAcState(), ...next } })
+          : hub.send(id, { kind: 'fan.set', state: { ...defaultFanState(), ...next } });
+      track(id, entry, sent);
+    },
+    [hub, commit, track],
   );
 
   const sorted = [...(rooms ?? [])].sort((a, b) => a.order - b.order);
@@ -183,7 +208,10 @@ export function useHome(): HomeModel {
         const view = hub.view(d.id);
         const needsIr = !view.usable && d.links.length > 0 && d.links.every((l) => l.kind === 'ir');
         const t = toldNow.get(d.id);
-        return { view, needsIr, power: t ? t.state.power : reportedPower(view.state) };
+        const power = t ? t.power : reportedPower(view.state);
+        const canPower =
+          view.usable && (d.kind !== 'tv' || power || view.capabilities.tv?.powerOn !== false);
+        return { view, needsIr, power, canPower };
       });
     return cards.length > 0 ? [{ room, cards }] : [];
   });

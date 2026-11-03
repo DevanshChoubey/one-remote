@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { defaultAcState, defaultFanState } from '@/core';
 import type { Command, Device, LinkDriver, Room } from '@/core';
 import { t } from '@/i18n';
@@ -108,16 +108,6 @@ describe('HomeScreen', () => {
     await screen.findByText('Name i1');
     expect(screen.getAllByText(t('home.needsIr'))).toHaveLength(2);
     expect(screen.getAllByText(t('home.noIrBanner'))).toHaveLength(1);
-    await fireEvent.press(screen.getByLabelText(`Name i1, ${t('home.needsIr')}`));
-    expect(mockPush).not.toHaveBeenCalled();
-  });
-
-  it('shows the needs-IR toast as an error', async () => {
-    const s = setup({ irAvailable: false });
-    await seed(s, [dev('i1', 'tv', 'liv', 0, [ir])]);
-    await renderHome(s);
-    await fireEvent.press(await screen.findByLabelText(`Name i1, ${t('home.needsIr')}`));
-    expect(screen.getByTestId('toast').props.accessibilityLiveRegion).toBe('assertive');
   });
 
   it('opens a usable device', async () => {
@@ -137,10 +127,9 @@ describe('HomeScreen', () => {
     const card = screen.getByLabelText(`Name i1, ${t('home.needsIr')}`);
     // The card dims once (0.6); the touchable inside does not dim a second time.
     expect(StyleSheet.flatten(card.props.style).opacity).toBe(1);
-    expect(StyleSheet.flatten(screen.getByTestId('device-card-i1').props.style).opacity).toBe(0.6);
+    const dim = screen.getByTestId('device-card-dim-i1');
+    expect(StyleSheet.flatten(dim.props.style).opacity).toBe(0.6);
     expect(card.props.accessibilityHint).toBe(t('home.longPressHint'));
-    await fireEvent.press(card);
-    expect(mockPush).not.toHaveBeenCalledWith('/device/i1');
     await fireEvent(card, 'longPress');
     expect(mockPush).toHaveBeenCalledWith('/device-sheet/i1');
   });
@@ -388,22 +377,21 @@ describe('HomeScreen to the mock', () => {
     expect(screen.queryAllByTestId('skel-card')).toHaveLength(0);
   });
 
-  it('shows a toast, not a screen, when a needs-IR card is pressed', async () => {
+  it('opens the remote of a needs-IR card, with no toast (its controls are inert there)', async () => {
     const s = setup({ irAvailable: false });
-    await seed(s, [dev('i1', 'tv', 'liv', 0, [ir])]);
+    await seed(s, [dev('i1', 'ac', 'liv', 0, [ir])]);
     await renderHome(s);
     await fireEvent.press(await screen.findByLabelText(`Name i1, ${t('home.needsIr')}`));
-    const toast = await screen.findByTestId('toast');
-    expect(within(toast).getByText(t('home.needsIr'))).toBeTruthy();
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith('/device/i1');
+    expect(screen.queryByTestId('toast')).toBeNull();
   });
 
-  it('keeps a 40-character name to two lines with the switch still shown', async () => {
+  it('wraps a 40-character name instead of clipping it, with the switch still shown', async () => {
     const s = setup();
     const long = 'N'.repeat(40);
     await seed(s, [{ ...dev('a1', 'ac', 'liv', 0, [matter]), name: long }]);
     await renderHome(s);
-    expect((await screen.findByText(long)).props.numberOfLines).toBe(2);
+    expect((await screen.findByText(long)).props.numberOfLines).toBeUndefined();
     expect(screen.getByLabelText(t('home.power', { name: long }))).toBeTruthy();
   });
 
@@ -443,7 +431,7 @@ describe('HomeScreen to the mock', () => {
     expect(toggle.props.accessibilityState.disabled).toBe(true);
   });
 
-  it('colours the tile accent when the device is on, ink when off', async () => {
+  it('keeps the tile ink whether the device is on or off', async () => {
     const s = setup();
     await seed(s, [dev('a1', 'ac', 'liv', 0, [matter]), dev('a2', 'ac', 'liv', 1, [matter])]);
     await renderHome(s);
@@ -465,8 +453,85 @@ describe('HomeScreen to the mock', () => {
       walk(screen.toJSON(), false);
       return found.join(' ');
     };
-    await waitFor(() => expect(stroke('a1')).toContain(lightTokens.color.accent));
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText(t('home.power', { name: 'Name a1' })).props.accessibilityState
+          .checked,
+      ).toBe(true),
+    );
+    // Mock `.tile`: the glyph is ink even when the device is on (only the switch turns accent).
+    expect(stroke('a1')).toContain(lightTokens.color.ink);
+    expect(stroke('a1')).not.toContain(lightTokens.color.accent);
     expect(stroke('a2')).not.toContain(lightTokens.color.accent);
+  });
+});
+
+describe('HomeScreen TV power switch', () => {
+  function tvSetup(caps: { powerOn: boolean }): Services & {
+    tvDriver: ReturnType<typeof createFakeDriver>;
+  } {
+    const tvDriver = createFakeDriver('matter', {
+      capabilities: { tv: { inputList: false, text: false, powerOn: caps.powerOn, voice: false } },
+    });
+    const services = createServices({
+      store: createMemoryStore(),
+      secrets: createMemorySecretStore(),
+      prefs: createMemoryPreferenceStore(),
+      drivers: [tvDriver],
+    });
+    return { ...services, tvDriver };
+  }
+  const tvLabel = t('home.power', { name: 'Name tv' });
+
+  it('wakes a TV that is off with tv.powerOn and shows it on at once', async () => {
+    const s = tvSetup({ powerOn: true });
+    await seed(s, [dev('tv', 'tv', 'liv', 0, [matter])]);
+    await renderHome(s);
+    const toggle = await screen.findByLabelText(tvLabel);
+    expect(toggle.props.accessibilityState.checked).toBe(false);
+    await fireEvent.press(toggle);
+    await waitFor(() => expect(s.tvDriver.sent).toHaveLength(1));
+    expect(s.tvDriver.sent[0]?.cmd).toEqual({ kind: 'tv.powerOn' });
+    expect(screen.getByLabelText(tvLabel).props.accessibilityState.checked).toBe(true);
+  });
+
+  it('turns a TV that says it is on off with its power key', async () => {
+    const s = tvSetup({ powerOn: true });
+    await seed(s, [dev('tv', 'tv', 'liv', 0, [matter])]);
+    await renderHome(s);
+    await screen.findByLabelText(tvLabel);
+    await act(async () => {
+      s.tvDriver.emit('tv', { kind: 'tv', state: { power: true } });
+    });
+    await waitFor(() =>
+      expect(screen.getByLabelText(tvLabel).props.accessibilityState.checked).toBe(true),
+    );
+    await fireEvent.press(screen.getByLabelText(tvLabel));
+    await waitFor(() => expect(s.tvDriver.sent).toHaveLength(1));
+    expect(s.tvDriver.sent[0]?.cmd).toEqual({ kind: 'tv.key', key: 'power' });
+  });
+
+  it('disables the switch of an off TV that cannot be woken from this phone', async () => {
+    const s = tvSetup({ powerOn: false });
+    await seed(s, [dev('tv', 'tv', 'liv', 0, [matter])]);
+    await renderHome(s);
+    const toggle = await screen.findByLabelText(tvLabel);
+    expect(toggle.props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(toggle);
+    expect(s.tvDriver.sent).toHaveLength(0);
+  });
+
+  it('opens the TV from anywhere on the card but the switch', async () => {
+    const s = tvSetup({ powerOn: true });
+    await seed(s, [dev('tv', 'tv', 'liv', 0, [matter])]);
+    await renderHome(s);
+    const open = await screen.findByTestId('device-open-tv');
+    // The open area is the card's own width: no padding sits between it and the card's edge.
+    const card = screen.getByTestId('device-card-tv');
+    expect(StyleSheet.flatten(card.props.style).padding).toBeUndefined();
+    expect(StyleSheet.flatten(open.props.style).flex).toBe(1);
+    await fireEvent.press(open);
+    expect(mockPush).toHaveBeenCalledWith('/device/tv');
   });
 });
 

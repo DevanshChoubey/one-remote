@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { t } from '@/i18n';
 import { darkTokens, lightTokens } from '@/theme';
 import { DeviceSettingsButton, DeviceSheet } from '@/screens/device';
@@ -85,12 +85,13 @@ describe('DeviceSheet as a bottom sheet', () => {
     expect(JSON.stringify(screen.toJSON())).toContain(darkTokens.color.bg);
   });
 
-  it('shows skeleton bars while loading', async () => {
+  it('shows the title and nothing else while loading, as the mock', async () => {
     const s = makeServices();
     jest.spyOn(s.store, 'rooms').mockReturnValue(new Promise(() => undefined));
     await renderWith(s, <DeviceSheet deviceId="d1" />);
     expect(screen.getByText(t('device.title'))).toBeTruthy();
-    expect(screen.getByTestId('device-skeleton').children).toHaveLength(3);
+    expect(screen.queryByTestId('device-skeleton')).toBeNull();
+    expect(screen.queryByText(t('device.name'))).toBeNull();
   });
 
   it('says the device is gone inside the sheet', async () => {
@@ -151,6 +152,12 @@ describe('DeviceSheet', () => {
     await fireEvent.press(screen.getByLabelText(t('common.cancel')));
     expect((await s.store.devices()).length).toBe(2);
     await fireEvent.press(screen.getByLabelText(t('device.remove')));
+    // Mock: a short heading, then the explanation as a muted body sentence.
+    const heading = screen.getByText(t('device.removeTitle', { name: 'Panasonic AC' }));
+    expect(heading.props.accessibilityRole).toBe('header');
+    const body = screen.getByText(t('device.removeAsk', { name: 'Panasonic AC' }));
+    expect(body.props.accessibilityRole).toBeUndefined();
+    expect(StyleSheet.flatten(body.props.style).color).toBe(lightTokens.color.ink2);
     await fireEvent.press(screen.getByLabelText(t('device.confirmRemove')));
     await waitFor(async () => expect((await s.store.devices()).map((d) => d.id)).toEqual(['d2']));
     expect(mockDismissAll).toHaveBeenCalled();
@@ -228,6 +235,16 @@ describe('DeviceSheet', () => {
     expect(screen.getByText('192.168.1.23')).toBeTruthy();
     expect(screen.getAllByText(t('device.main')).length).toBe(1);
     expect(screen.getAllByText(t('device.backup')).length).toBe(2);
+  });
+
+  it('says a failed save in one plain status sentence', async () => {
+    const s = await seeded();
+    jest.spyOn(s.store, 'moveDevice').mockRejectedValue(new Error('disk'));
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
+    await fireEvent.press(await screen.findByLabelText(t('device.moveDown')));
+    const line = await screen.findByText(t('device.failed'));
+    expect(line.props.accessibilityLiveRegion).toBe('polite');
+    expect(StyleSheet.flatten(line.props.style).color).toBe(lightTokens.color.ink2);
   });
 
   it('renders a lane action under its link', async () => {

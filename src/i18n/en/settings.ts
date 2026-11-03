@@ -12,6 +12,8 @@ export default {
   saveRoom: 'Save {name}',
   roomUp: 'Move {name} up',
   roomDown: 'Move {name} down',
+  roomUpGlyph: '↑',
+  roomDownGlyph: '↓',
   removeRoom: 'Remove {name}',
   roomNotEmpty: 'Move or remove its devices first',
   noRooms: 'No rooms yet. You add one when you name a device.',
