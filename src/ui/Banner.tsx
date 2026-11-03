@@ -27,7 +27,9 @@ export function Banner(props: BannerProps): ReactElement {
         <Icon name={props.icon ?? look.icon} size={20} color="ink" />
         <Box flex={1}>
           <Column gap={1}>
-            <Txt variant="caption">{props.text}</Txt>
+            <Txt variant="caption" size="banner">
+              {props.text}
+            </Txt>
             {props.action ? (
               <Touchable
                 onPress={props.action.onPress}

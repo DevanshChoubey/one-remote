@@ -50,7 +50,7 @@ export function FanScreen(props: { deviceId: string }): ReactElement {
   if (found.state === 'gone') {
     return (
       <Screen title={t('common.appName')} onBack={() => router.back()}>
-        <EmptyState art="alert" tone="ink2" title={t('fan.notFound')} body="" fill />
+        <EmptyState art="alert" tone="ink2" title={t('fan.notFound')} fill />
       </Screen>
     );
   }

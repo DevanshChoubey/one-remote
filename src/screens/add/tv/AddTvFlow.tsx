@@ -104,7 +104,6 @@ export function AddTvFlow(): ReactElement {
           <EmptyState
             art="tv"
             title={t('addTv.duplicate', { name: step.existing.name })}
-            body=""
             action={
               <Button
                 label={t('addTv.openIt')}

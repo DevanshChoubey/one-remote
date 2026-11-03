@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
@@ -7,6 +8,8 @@ import { Button, Column, OptionCard, Screen } from '@/ui';
 export function TvBrandStep(props: { onFind: () => void; onManual: () => void }): ReactElement {
   const router = useRouter();
   const { tvBrands } = useServices();
+  // The first brand is picked to begin with, as in the mock; Continue ('Find my TV') goes on.
+  const [picked, setPicked] = useState<string | undefined>(tvBrands[0]?.kind);
   return (
     <Screen
       title={t('addTv.title')}
@@ -26,7 +29,8 @@ export function TvBrandStep(props: { onFind: () => void; onManual: () => void })
             index={i}
             icon="tv"
             title={t(b.labelKey)}
-            onPress={props.onFind}
+            selected={picked === b.kind}
+            onPress={() => setPicked(b.kind)}
           />
         ))}
       </Column>

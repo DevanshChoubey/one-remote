@@ -122,6 +122,20 @@ describe('Add TV flow', () => {
     expect(screen.getByText(t('addTv.findTitle'))).toBeTruthy();
   });
 
+  it('picking a brand only selects it; Find my TV goes on', async () => {
+    const r = await rig();
+    await renderWith(r.s, <AddTvFlow />);
+    expect(screen.getByLabelText(t('addTv.brandLg')).props.accessibilityState.selected).toBe(true);
+    await fireEvent.press(screen.getByLabelText(t('addTv.brandAndroidTv')));
+    expect(screen.getByLabelText(t('addTv.brandAndroidTv')).props.accessibilityState.selected).toBe(
+      true,
+    );
+    expect(screen.getByLabelText(t('addTv.brandLg')).props.accessibilityState.selected).toBe(false);
+    expect(screen.queryByText(t('addTv.findTitle'))).toBeNull();
+    await toFind();
+    expect(screen.getByText(t('addTv.findTitle'))).toBeTruthy();
+  });
+
   it('goes to the manual step from the brand step', async () => {
     const r = await rig();
     await renderWith(r.s, <AddTvFlow />);

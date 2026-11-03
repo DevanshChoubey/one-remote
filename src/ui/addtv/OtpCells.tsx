@@ -58,7 +58,7 @@ export function OtpCells(props: OtpCellsProps): ReactElement {
                 align="center"
                 justify="center"
               >
-                <Txt variant="title" tabular>
+                <Txt variant="title" size="otp" tabular>
                   {chars[i] ?? ''}
                 </Txt>
               </Box>

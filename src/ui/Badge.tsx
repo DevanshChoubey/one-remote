@@ -32,7 +32,7 @@ export function Badge(props: BadgeProps): ReactElement {
         ...(look.border ? { borderWidth: 1, borderColor: theme.color[look.border] } : null),
       }}
     >
-      <Txt variant="caption" color={look.text}>
+      <Txt variant="captionBold" size="badge" color={look.text}>
         {props.label}
       </Txt>
     </Animated.View>

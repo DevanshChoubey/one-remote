@@ -62,6 +62,8 @@ export interface Tokens {
     welcome: number;
     /** Pair ring number (32). */
     ring: number;
+    /** The dial's "Off" word (52). */
+    dialOff: number;
   };
   /** Pixel line heights per text variant. */
   lineHeight: {
@@ -140,6 +142,7 @@ const base = {
     otp: 26,
     welcome: 30,
     ring: 32,
+    dialOff: 52,
   },
   lineHeight: { title: 35, heading: 25, body: 22, label: 20, caption: 18, display: 76 },
   tracking: { title: -0.45, display: -2.28 },

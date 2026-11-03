@@ -44,9 +44,12 @@ export function Field(props: FieldProps): ReactElement {
   const shaking = useAnimatedStyle(() => ({ transform: [{ translateX: shake.value }] }));
   return (
     <Column gap={2}>
-      <Txt variant="label" color="ink2">
-        {label}
-      </Txt>
+      {/* The mock's label sits 6 px above the input (4 in from the edge): the column gap is 8. */}
+      <Animated.View style={{ marginBottom: -2, marginLeft: 4 }}>
+        <Txt variant="captionBold" color="ink2">
+          {label}
+        </Txt>
+      </Animated.View>
       <Animated.View testID="field-shake" style={shaking}>
         <Input {...input} accessibilityLabel={accessibilityLabel ?? label} invalid={!!error} />
       </Animated.View>

@@ -14,7 +14,7 @@ export interface OptionCardProps {
   onPress: () => void;
   badge?: BadgeProps;
   disabled?: boolean;
-  /** A choice in a list: draws a tick on the right, an accent border and reports `selected`. */
+  /** A choice in a list: draws a radio (ticked when picked) on the right, an accent border and reports `selected`. */
   selected?: boolean;
   /** Position in a staggered list (the card rises in after `index` steps). */
   index?: number;
@@ -41,7 +41,9 @@ export function OptionCard(props: OptionCardProps): ReactElement {
         <Tile icon={props.icon} size={56} />
         <Box flex={1}>
           <Column gap={1}>
-            <Txt variant="bodyBold">{props.title}</Txt>
+            <Txt variant="bodyBold" size="cardName">
+              {props.title}
+            </Txt>
             {props.subtitle ? (
               <Txt variant="caption" color="ink2">
                 {props.subtitle}
@@ -50,8 +52,22 @@ export function OptionCard(props: OptionCardProps): ReactElement {
           </Column>
         </Box>
         {props.badge ? <Badge {...props.badge} /> : null}
-        {props.selected ? (
-          <Icon name="check" size={22} color="accent" />
+        {props.selected !== undefined ? (
+          // A choice in a list (the mock's radio): an empty ring, filled accent with a tick when picked.
+          <Box
+            w={24}
+            h={24}
+            radius="pill"
+            align="center"
+            justify="center"
+            bg={props.selected ? 'accent' : undefined}
+            border={props.selected ? 'accent' : 'ink2'}
+            testID="option-radio"
+          >
+            {props.selected ? (
+              <Icon name="check" size={16} color="accentInk" strokeWidth={3.2} />
+            ) : null}
+          </Box>
         ) : (
           <Icon name="chev" size={22} color="ink2" />
         )}

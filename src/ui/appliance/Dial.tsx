@@ -21,7 +21,6 @@ const STROKE = 18;
 const ARC = 2 * Math.PI * RADIUS * 0.75;
 const DIGIT_W = 43;
 const DIGIT_H = 80;
-const OFF_SCALE = 52 / 76;
 
 export interface DialProps {
   value: number;
@@ -126,13 +125,14 @@ export function Dial(props: DialProps): ReactElement {
                   <Digit key={digits.length - i} char={d} dir={track.dir} />
                 ))}
                 <Animated.View style={{ marginTop: 6 }}>
-                  <Txt variant="title">°</Txt>
+                  <Txt variant="title" size="displaySup">
+                    °
+                  </Txt>
                 </Animated.View>
               </Row>
             ) : (
-              // "Off" is the display size scaled to the mock's 52 px.
-              <Animated.View style={{ transform: [{ scale: OFF_SCALE }], paddingTop: 12 }}>
-                <Txt variant="display" color="ink2">
+              <Animated.View style={{ paddingTop: 12 }}>
+                <Txt variant="display" size="dialOff" color="ink2">
                   {t('ac.off')}
                 </Txt>
               </Animated.View>

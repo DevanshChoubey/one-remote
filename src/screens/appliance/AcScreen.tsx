@@ -17,7 +17,6 @@ import {
   Screen,
   SegmentedControl,
   Skeleton,
-  Touchable,
   Txt,
   useToast,
 } from '@/ui';
@@ -62,7 +61,7 @@ export function AcScreen(props: { deviceId: string }): ReactElement {
   if (found.state === 'gone') {
     return (
       <Screen title={t('common.appName')} onBack={() => router.back()}>
-        <EmptyState art="alert" tone="ink2" title={t('ac.notFound')} body="" fill />
+        <EmptyState art="alert" tone="ink2" title={t('ac.notFound')} fill />
       </Screen>
     );
   }
@@ -211,25 +210,14 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
 
         <Row gap={2} wrap justify="center">
           {fans.length > 1 ? (
-            <Touchable
-              onPress={() => press({ fan: fans[(fans.indexOf(state.fan) + 1) % fans.length] })}
+            <Chip
+              icon="wind"
+              label={state.fan === 'auto' ? t('ac.fanAuto') : t('ac.fanChip', { speed: state.fan })}
+              state="neutral"
               disabled={!live}
-              accessibilityLabel={
-                state.fan === 'auto' ? t('ac.fanAuto') : t('ac.fanChip', { speed: state.fan })
-              }
+              onPress={() => press({ fan: fans[(fans.indexOf(state.fan) + 1) % fans.length] })}
               accessibilityHint={t('ac.fanHint')}
-              radius="pill"
-              pressScale={0.95}
-            >
-              <Chip
-                icon="wind"
-                label={
-                  state.fan === 'auto' ? t('ac.fanAuto') : t('ac.fanChip', { speed: state.fan })
-                }
-                state="neutral"
-                disabled={!live}
-              />
-            </Touchable>
+            />
           ) : null}
           {caps.swing === true ? (
             <Chip

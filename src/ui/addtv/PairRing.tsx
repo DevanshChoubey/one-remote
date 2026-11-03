@@ -78,7 +78,7 @@ export function PairRing(props: PairRingProps): ReactElement {
         </Svg>
       </Box>
       {props.phase === 'wait' ? (
-        <Txt variant="title" tabular>
+        <Txt variant="title" size="ring" tabular>
           {String(props.secondsLeft)}
         </Txt>
       ) : props.phase === 'ok' ? (

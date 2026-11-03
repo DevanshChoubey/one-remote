@@ -49,8 +49,16 @@ export function EmptyState(props: EmptyStateProps): ReactElement {
           <Icon name={props.art} size={48} strokeWidth={1.7} color={TONE[props.tone ?? 'accent']} />
         </Box>
       ) : null}
-      <Txt variant="heading">{props.title}</Txt>
-      {props.body ? <Txt color="ink2">{props.body}</Txt> : null}
+      <Txt variant="heading" size={props.art === 'mark' ? 'welcome' : undefined} align="center">
+        {props.title}
+      </Txt>
+      {props.body ? (
+        <Box maxW={300} testID="empty-body">
+          <Txt color="ink2" align="center">
+            {props.body}
+          </Txt>
+        </Box>
+      ) : null}
       {props.action}
     </Column>
   );
