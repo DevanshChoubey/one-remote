@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import type { Room } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Button, Column, ErrorLine, IconButton, Input, Row, Txt } from '@/ui';
+import { Button, Column, Input, Row, Txt } from '@/ui';
 
 const NOT_EMPTY = 'roomNotEmpty';
 
@@ -45,15 +45,20 @@ function RoomRow(props: {
           disabled={trimmed === '' || trimmed === room.name}
           onPress={() => run(store.upsertRoom({ ...room, name: trimmed }))}
         />
-        <IconButton
-          icon="up"
-          label={t('settings.roomUp', { name: room.name })}
+        {/* Mock: small secondary pills labelled with the arrows, as Save beside them. */}
+        <Button
+          label={t('settings.roomUpGlyph')}
+          accessibilityLabel={t('settings.roomUp', { name: room.name })}
+          variant="secondary"
+          size="small"
           disabled={index === 0}
           onPress={() => moveTo(index - 1)}
         />
-        <IconButton
-          icon="down"
-          label={t('settings.roomDown', { name: room.name })}
+        <Button
+          label={t('settings.roomDownGlyph')}
+          accessibilityLabel={t('settings.roomDown', { name: room.name })}
+          variant="secondary"
+          size="small"
           disabled={index === rooms.length - 1}
           onPress={() => moveTo(index + 1)}
         />
@@ -73,7 +78,7 @@ function RoomRow(props: {
 export function RoomsEditor(props: { rooms: Room[] }): ReactElement {
   const [error, setError] = useState<string | null>(null);
   return (
-    <Column gap={4}>
+    <Column gap={3}>
       {props.rooms.length === 0 ? <Txt color="ink2">{t('settings.noRooms')}</Txt> : null}
       {props.rooms.map((r, i) => (
         <RoomRow
@@ -84,7 +89,12 @@ export function RoomsEditor(props: { rooms: Room[] }): ReactElement {
           onError={setError}
         />
       ))}
-      {error ? <ErrorLine text={t(error)} /> : null}
+      {/* Mock: a plain status line, not an error line ("not empty" is not an error). */}
+      {error ? (
+        <Txt color="ink2" live>
+          {t(error)}
+        </Txt>
+      ) : null}
     </Column>
   );
 }
