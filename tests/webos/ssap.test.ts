@@ -113,6 +113,13 @@ describe('isPoweredOn', () => {
     expect(isPoweredOn({})).toBeUndefined();
     expect(isPoweredOn({ state: 'Something New' })).toBeUndefined();
   });
+
+  it('counts a TV on its way to standby as off', () => {
+    expect(isPoweredOn({ state: 'Active', processing: 'Request Active Standby' })).toBe(false);
+    expect(isPoweredOn({ state: 'Active', processing: 'Request Power Off' })).toBe(false);
+    expect(isPoweredOn({ state: 'Active', processing: 'Prepare Suspend' })).toBe(false);
+    expect(isPoweredOn({ state: 'Active', processing: 'Screen On' })).toBe(true);
+  });
 });
 
 describe('parseMac', () => {

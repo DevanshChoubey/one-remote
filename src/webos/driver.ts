@@ -33,6 +33,8 @@ export interface WebosDriverOpts {
 
 const OFF_AFTER_MS = 3000;
 const POWER_FALLBACK_MS = 1500;
+/** Connected, and neither the power API nor the foreground app answered: take it as on. */
+const POWER_LAST_RESORT_MS = 4000;
 const REDISCOVER_EVERY_MS = 30000;
 const PROMPT_COOLDOWN_MS = 60000;
 
@@ -40,6 +42,10 @@ interface Session {
   client: SsapClient;
   stopped: boolean;
   powerKnown: boolean;
+  /** The TV does not answer the power API: the foreground app says it (none in standby). */
+  powerFromApp: boolean;
+  /** The fallback is due but the foreground app has not answered yet. */
+  fallbackDue: boolean;
   appId: string | undefined;
   titles: Map<string, string>;
   timers: Set<ReturnType<typeof setTimeout>>;
@@ -446,6 +452,8 @@ export function createWebosDriver(
       client,
       stopped: false,
       powerKnown: false,
+      powerFromApp: false,
+      fallbackDue: false,
       appId: undefined,
       titles: new Map(),
       timers: new Set(),
@@ -459,6 +467,14 @@ export function createWebosDriver(
       }, ms);
       s.timers.add(timer);
     };
+    // Standby with Quick Start+ still takes connections, so a connection alone does not mean on.
+    const powerByApp = (): void => {
+      if (s.appId === undefined) return;
+      s.powerKnown = true;
+      s.powerFromApp = true;
+      s.fallbackDue = false;
+      update(e, s, { power: s.appId !== '' });
+    };
     const appTitle = (): string | undefined =>
       s.appId === undefined ? undefined : (s.titles.get(s.appId) ?? SYSTEM_APP_TITLES[s.appId]);
 
@@ -467,6 +483,8 @@ export function createWebosDriver(
         const on = isPoweredOn(p);
         if (on === undefined) return;
         s.powerKnown = true;
+        s.powerFromApp = false;
+        s.fallbackDue = false;
         update(e, s, { power: on });
       }),
       client.subscribe(URI.volume, (p) => update(e, s, parseVolume(p))),
@@ -480,6 +498,7 @@ export function createWebosDriver(
           e.state = rest;
         }
         update(e, s, { app });
+        if (s.powerFromApp || s.fallbackDue) powerByApp();
       }),
     );
     client
@@ -502,10 +521,16 @@ export function createWebosDriver(
       })
       .catch(() => undefined);
 
-    // Older firmware may not answer the power subscription: a connected TV is on.
+    // Older firmware may not answer the power subscription: the foreground app says it instead.
     later(POWER_FALLBACK_MS, () => {
       if (s.powerKnown) return;
+      if (s.appId === undefined) s.fallbackDue = true;
+      else powerByApp();
+    });
+    later(POWER_LAST_RESORT_MS, () => {
+      if (s.powerKnown) return;
       s.powerKnown = true;
+      s.fallbackDue = false;
       update(e, s, { power: true });
     });
 

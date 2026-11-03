@@ -678,6 +678,40 @@ describe('webos driver: fix round 1', () => {
     stop();
   });
 
+  it('without the power API, no foreground app (standby with Quick Start+) is off, not on', async () => {
+    const tv = tvAt({ failUris: [URI.power] });
+    tv.setApp('');
+    const r = rig({ tvs: [tv] });
+    const { reports, stop } = r.observe();
+    await advance(10000);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports.some((x) => x.kind === 'tv' && x.state.power)).toBe(false);
+    tv.setApp('com.webos.app.home');
+    await advance(0);
+    expect(reports[reports.length - 1]).toMatchObject({ state: { power: true } });
+    stop();
+  });
+
+  it('a TV going to standby says so before it drops: the processing note counts as off', async () => {
+    const r = rig();
+    const { reports, stop } = r.observe();
+    await advance(0);
+    r.tv.setPowerState('Active', { processing: 'Request Active Standby' });
+    await advance(0);
+    expect(reports[reports.length - 1]).toMatchObject({ state: { power: false } });
+    stop();
+  });
+
+  it('connected, with neither the power API nor the foreground app answering, is on after 4 s', async () => {
+    const r = rig({ tvs: [tvAt({ failUris: [URI.power, URI.foreground] })] });
+    const { reports, stop } = r.observe();
+    await advance(3000);
+    expect(reports).toEqual([]);
+    await advance(1500);
+    expect(reports[0]).toMatchObject({ state: { power: true } });
+    stop();
+  });
+
   it('a revoked key over 300 s produces exactly one register and is not reported as off', async () => {
     const tv = tvAt({ knownKeys: [], prompt: 'never' });
     const r = rig({ tvs: [tv] });
