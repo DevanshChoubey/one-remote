@@ -3,449 +3,1163 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>One Remote mockup</title>
+<title>One Remote mockup v4</title>
 <style>
-  :root {
-    --bg: #eef0f3; --phone: #fbfbfc; --surface: #ffffff; --surface-2: #f1f3f6;
-    --ink: #15181d; --ink-2: #5d6470; --line: #e2e5ea; --accent: #2f6df6; --accent-ink: #ffffff;
-    --cool: #2f8ff6; --warm: #f2793a; --ok: #1f9d63;
+/* =====================================================================================
+   1. DESIGN TOKENS. The one place values live. Names follow src/theme/tokens.ts
+      (color.bg -> --color-bg, space(4) -> --space-4, radius.md -> --radius-md ...).
+      Values marked "NEW" are proposed for the app, see "Token changes for the app".
+   ===================================================================================== */
+:root {
+  color-scheme: light;
+  /* colour (app values) */
+  --color-bg: #eef0f3;       --color-surface: #ffffff;   --color-surface2: #f1f3f6;
+  --color-ink: #15181d;      --color-ink2: #5d6470;      --color-line: #e2e5ea;
+  --color-accent: #2f6df6;   --color-accent-ink: #ffffff;
+  --color-cool: #2f8ff6;     --color-warm: #f2793a;      --color-ok: #1f9d63;   --color-danger: #e5484d;
+  /* NEW: text-safe versions of ok and danger (the bright ones fail AA as text) */
+  --color-ok-ink: #17744a;   --color-danger-ink: #c4262c;
+  /* NEW: scrim behind sheets, tinted fills */
+  --color-scrim: rgba(13, 15, 18, .45);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  --color-ok-soft: color-mix(in srgb, var(--color-ok) 14%, var(--color-surface));
+  --color-danger-soft: color-mix(in srgb, var(--color-danger) 12%, var(--color-surface));
+  --color-warm-soft: color-mix(in srgb, var(--color-warm) 16%, var(--color-surface));
+  /* mock chrome only (not an app token) */
+  --stage: #dde1e7; --stage-ink: #15181d; --stage-ink2: #4b525d; --stage-line: #c6ccd5;
+
+  /* type: the system font only; a weight picks the face */
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-size-title: 30px; --font-size-heading: 21px; --font-size-body: 16px; --font-size-caption: 13px;
+  --font-weight-body: 400; --font-weight-bold: 700;
+  --line-height-tight: 1.15; --line-height-body: 1.4;
+  --tracking-title: -.015em;
+
+  /* space: 4 px steps, space(n) = n * 4 */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 24px;
+  --space-8: 32px; --space-10: 40px; --space-12: 48px;
+  /* radius */
+  --radius-sm: 10px; --radius-md: 18px; --radius-lg: 26px; --radius-pill: 999px;
+  --radius-sheet: 28px; /* NEW */
+  /* touch */
+  --touch-min: 48px; --touch-key: 56px; /* NEW: buttons, inputs */
+
+  /* elevation: card is the app's; pop (menu, toast) and sheet are NEW */
+  --shadow-card: 0 2px 8px rgba(21, 24, 29, .08);
+  --shadow-pop: 0 10px 28px rgba(21, 24, 29, .18), 0 2px 6px rgba(21, 24, 29, .08);
+  --shadow-sheet: 0 -10px 40px rgba(21, 24, 29, .22);
+  --shadow-device: 0 24px 60px rgba(21, 24, 29, .18), 0 2px 8px rgba(21, 24, 29, .08);
+
+  /* motion (NEW): every animation in this file uses these and nothing else */
+  --dur-instant: 90ms;   /* press feedback, ripple start */
+  --dur-fast: 160ms;     /* toggle, chip, digit change, exits */
+  --dur-base: 260ms;     /* menu, toast in, cross-fade, arc */
+  --dur-slow: 380ms;     /* screen push/back, bottom sheet */
+  --dur-ambient: 1500ms; /* skeleton shimmer, pulse, scan line, spinner = 900ms */
+  --ease-standard: cubic-bezier(.2, 0, 0, 1);      /* things that move between rest points */
+  --ease-enter: cubic-bezier(.05, .7, .1, 1);      /* arriving: fast start, soft landing */
+  --ease-exit: cubic-bezier(.3, 0, .8, .15);       /* leaving: slow start, quick end */
+  --ease-spring: cubic-bezier(.34, 1.45, .64, 1);  /* press release, success pop */
+  --shift-in: 100%;      /* push distance; reduced motion sets it to 0 so push becomes a fade */
+  --lift: 14px;          /* toast / menu travel; reduced motion sets 0 */
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-bg: #0d0f12; --color-surface: #1c2027; --color-surface2: #232832; --color-ink: #eef1f5;
+    --color-ink2: #9aa3b2; --color-line: #2b313b; --color-accent: #6a96ff; --color-accent-ink: #0d0f12;
+    --color-ok-ink: #4cc88c; --color-danger-ink: #ff8b8f; --color-scrim: rgba(0, 0, 0, .6);
+    --shadow-card: 0 2px 8px rgba(0, 0, 0, .4); --shadow-pop: 0 10px 28px rgba(0, 0, 0, .55), 0 0 0 1px #2b313b;
+    --shadow-sheet: 0 -10px 40px rgba(0, 0, 0, .6); --shadow-device: 0 24px 60px rgba(0, 0, 0, .6);
+    --stage: #07080a; --stage-ink: #eef1f5; --stage-ink2: #a3acba; --stage-line: #22272f;
   }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #0d0f12; --phone: #14171c; --surface: #1c2027; --surface-2: #232832;
-      --ink: #eef1f5; --ink-2: #9aa3b2; --line: #2b313b; --accent: #6a96ff; --accent-ink: #0d0f12;
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #0d0f12; --phone: #14171c; --surface: #1c2027; --surface-2: #232832;
-    --ink: #eef1f5; --ink-2: #9aa3b2; --line: #2b313b; --accent: #6a96ff; --accent-ink: #0d0f12;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-    font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { max-width: 1240px; margin: 0 auto; padding: 24px 16px 8px; }
-  header h1 { margin: 0 0 4px; font-size: 22px; }
-  header p { margin: 0; color: var(--ink-2); max-width: 760px; }
-  .toggle { margin-top: 12px; display: inline-flex; gap: 6px; }
-  .toggle button { border: 1px solid var(--line); background: var(--surface); color: var(--ink);
-    border-radius: 999px; padding: 6px 12px; font: inherit; cursor: pointer; }
-  .grid { max-width: 1240px; margin: 0 auto; padding: 16px; display: grid; gap: 24px;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-  figure { margin: 0; }
-  figcaption { margin-top: 10px; color: var(--ink-2); font-size: 13px; }
-  figcaption b { color: var(--ink); }
-  .phone { background: var(--phone); border: 1px solid var(--line); border-radius: 32px;
-    padding: 18px 16px 20px; height: 600px; display: flex; flex-direction: column; gap: 12px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.08); overflow: hidden; }
-  .bar { display: flex; align-items: center; justify-content: space-between; }
-  .bar h2 { margin: 0; font-size: 18px; }
-  .sub { color: var(--ink-2); font-size: 12px; }
-  .icon { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
-    background: var(--surface-2); border: 1px solid var(--line); font-size: 16px; }
-  .icon.power { color: #e5484d; }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 12px 14px;
-    display: flex; align-items: center; gap: 12px; }
-  .card .grow { flex: 1; }
-  .card .name { font-weight: 600; }
-  .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2);
-    color: var(--ink-2); border: 1px solid var(--line); }
-  .pill.on { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); border-color: transparent; }
-  .sw { width: 42px; height: 24px; border-radius: 999px; background: var(--line); position: relative; }
-  .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
-    border-radius: 50%; background: #fff; }
-  .sw.on { background: var(--accent); } .sw.on::after { left: 21px; }
-  .section { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); margin-top: 4px; }
-  .pad { flex: 1; border-radius: 24px; background: var(--surface-2); border: 1px solid var(--line);
-    display: grid; place-items: center; color: var(--ink-2); font-size: 13px; text-align: center; position: relative; }
-  .pad .hint { opacity: .8; }
-  .seg { display: flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
-  .seg span { flex: 1; text-align: center; padding: 6px 0; border-radius: 9px; font-size: 13px; color: var(--ink-2); }
-  .seg span.sel { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
-  .row { display: flex; gap: 10px; }
-  .btn { flex: 1; height: 48px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line);
-    display: grid; place-items: center; font-size: 13px; font-weight: 600; }
-  .btn.accent { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
-  .rocker { display: flex; flex-direction: column; width: 56px; border-radius: 16px; overflow: hidden;
-    border: 1px solid var(--line); background: var(--surface); }
-  .rocker span { height: 44px; display: grid; place-items: center; font-weight: 700; }
-  .rocker span + span { border-top: 1px solid var(--line); }
-  .dial { align-self: center; width: 210px; height: 210px; border-radius: 50%; position: relative; margin: 6px 0;
-    background: conic-gradient(var(--cool) 0 62%, var(--line) 62% 100%); display: grid; place-items: center; }
-  .dial::before { content: ""; position: absolute; inset: 14px; border-radius: 50%; background: var(--phone); }
-  .dial .v { position: relative; text-align: center; }
-  .dial .t { font-size: 56px; font-weight: 700; line-height: 1; }
-  .dial .m { color: var(--ink-2); font-size: 13px; }
-  .pm { display: flex; justify-content: center; gap: 48px; margin-top: -4px; }
-  .pm span { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 26px;
-    background: var(--surface); border: 1px solid var(--line); }
-  .speeds { display: flex; gap: 8px; align-items: flex-end; height: 150px; padding: 0 6px; }
-  .speeds span { flex: 1; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line);
-    display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; font-weight: 700; color: var(--ink-2); }
-  .speeds span.lit { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chip { padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: 13px; }
-  .chip.sel { border-color: var(--accent); color: var(--accent); font-weight: 600; }
-  .via { font-size: 11px; color: var(--ink-2); text-align: center; }
-  .dpad { flex: 1; display: grid; place-items: center; }
-  .ring { width: 230px; height: 230px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--line);
-    position: relative; display: grid; place-items: center; }
-  .ring b { position: absolute; color: var(--ink-2); font-size: 18px; }
-  .ring .ok { width: 92px; height: 92px; border-radius: 50%; background: var(--surface); border: 1px solid var(--line);
-    display: grid; place-items: center; font-weight: 700; }
-  .card.dim { opacity: .45; }
-  .banner { background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px;
-    font-size: 12px; color: var(--ink-2); }
-  .phone > .btn { flex: 0 0 48px; }
-  .flow { max-width: 1240px; margin: 24px auto 0; padding: 0 16px; }
-  .flow h2 { margin: 0 0 2px; font-size: 18px; } .flow p { margin: 0; color: var(--ink-2); font-size: 13px; max-width: 760px; }
-  .phone.short { height: 520px; }
-  .big { font-size: 22px; font-weight: 700; margin: 4px 0; }
-  .center { text-align: center; } .spacer { flex: 1; }
-  .hero { align-self: center; width: 96px; height: 96px; border-radius: 28px; display: grid; place-items: center;
-    background: var(--surface-2); border: 1px solid var(--line); font-size: 44px; margin-top: 8px; }
-  .input { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 12px; color: var(--ink-2); }
-  .link { color: var(--accent); font-size: 13px; text-align: center; }
-  .qr { align-self: center; width: 200px; height: 200px; border-radius: 20px; border: 3px dashed var(--accent);
-    display: grid; place-items: center; color: var(--ink-2); font-size: 12px; text-align: center; }
-  .sheet { margin-top: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 22px 22px 0 0;
-    padding: 14px; display: flex; flex-direction: column; gap: 10px; margin-left: -16px; margin-right: -16px; margin-bottom: -20px; }
-  .item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
-  .item:last-child { border-bottom: 0; } .item .sub { font-size: 12px; }
-  .danger { color: #e5484d; }
-  .step { font-size: 11px; color: var(--ink-2); text-align: center; }
-  .warn { background: color-mix(in srgb, var(--warm) 14%, transparent); color: var(--ink); border: 1px solid transparent;
-    border-radius: 14px; padding: 10px 12px; font-size: 12px; }
-  .notes { max-width: 1240px; margin: 0 auto; padding: 0 16px 32px; color: var(--ink-2); font-size: 13px; }
-  .notes li { margin: 4px 0; }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #0d0f12; --color-surface: #1c2027; --color-surface2: #232832; --color-ink: #eef1f5;
+  --color-ink2: #9aa3b2; --color-line: #2b313b; --color-accent: #6a96ff; --color-accent-ink: #0d0f12;
+  --color-ok-ink: #4cc88c; --color-danger-ink: #ff8b8f; --color-scrim: rgba(0, 0, 0, .6);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, .4); --shadow-pop: 0 10px 28px rgba(0, 0, 0, .55), 0 0 0 1px #2b313b;
+  --shadow-sheet: 0 -10px 40px rgba(0, 0, 0, .6); --shadow-device: 0 24px 60px rgba(0, 0, 0, .6);
+  --stage: #07080a; --stage-ink: #eef1f5; --stage-ink2: #a3acba; --stage-line: #22272f;
+}
+/* Reduced motion: moves become fades, loops stop. Also forced by the page switch. */
+@media (prefers-reduced-motion: reduce) { :root:not([data-motion="full"]) { --shift-in: 0%; --lift: 0px; } }
+:root[data-motion="reduce"] { --shift-in: 0%; --lift: 0px; }
+
+/* =====================================================================================
+   2. BASE + PAGE CHROME (not part of the app)
+   ===================================================================================== */
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+body { margin: 0; background: var(--stage); color: var(--stage-ink); font: var(--font-weight-body) 16px/1.5 var(--font); }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; background: none; padding: 0; -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 2px; }
+.i { width: 24px; height: 24px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.i.fill { fill: currentColor; stroke: none; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.layout { display: grid; grid-template-columns: 248px minmax(0, 1fr); max-width: 1480px; margin: 0 auto; }
+.index { position: sticky; top: 0; align-self: start; height: 100vh; overflow: auto; padding: 28px 16px 28px 24px; }
+.index h2 { font-size: 15px; margin: 0 0 12px; }
+.index a { display: block; padding: 6px 10px; margin-left: -10px; border-radius: 8px; color: var(--stage-ink2); text-decoration: none; font-size: 14px; }
+.index a:hover { background: color-mix(in srgb, var(--stage-ink) 8%, transparent); color: var(--stage-ink); }
+.index a.sub { padding-left: 22px; font-size: 13px; }
+.page { padding: 28px 24px 96px; min-width: 0; }
+.page > header { max-width: 780px; }
+.page h1 { font-size: 34px; line-height: 1.1; letter-spacing: -.02em; margin: 0 0 12px; }
+.page > header p { color: var(--stage-ink2); margin: 0 0 8px; }
+.ctl { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 0; align-items: center; }
+.ctl .grp { display: inline-flex; border: 1px solid var(--stage-line); border-radius: 999px; padding: 3px; background: color-mix(in srgb, var(--stage-ink) 4%, transparent); }
+.ctl button, .rp { min-height: 40px; padding: 0 16px; border-radius: 999px; font-size: 14px; font-weight: 600; color: var(--stage-ink2); transition: background var(--dur-fast) var(--ease-standard), color var(--dur-fast); }
+.ctl .grp button[aria-pressed="true"] { background: var(--stage-ink); color: var(--stage); }
+.ctl .solo { border: 1px solid var(--stage-line); color: var(--stage-ink); }
+section.flow { margin-top: 64px; }
+section.flow > h2 { font-size: 26px; letter-spacing: -.015em; margin: 0 0 6px; }
+section.flow > p { color: var(--stage-ink2); max-width: 720px; margin: 0 0 24px; }
+.figs { display: flex; flex-wrap: wrap; gap: 40px 36px; align-items: flex-start; }
+figure.fig { margin: 0; width: 390px; flex: none; }
+figure.fig > .fh { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 40px; margin-bottom: 8px; }
+figure.fig h3 { margin: 0; font-size: 15px; }
+.rp { border: 1px solid var(--stage-line); min-height: 36px; padding: 0 12px; font-size: 13px; color: var(--stage-ink); display: inline-flex; align-items: center; gap: 6px; }
+.rp .i { width: 16px; height: 16px; }
+.rp:hover { background: color-mix(in srgb, var(--stage-ink) 8%, transparent); }
+figcaption { margin-top: 12px; color: var(--stage-ink2); font-size: 14px; line-height: 1.45; }
+.sim { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; align-items: center; font-size: 13px; color: var(--stage-ink2); }
+.sim button { border: 1px solid var(--stage-line); border-radius: 999px; min-height: 36px; padding: 0 12px; color: var(--stage-ink); font-size: 13px; font-weight: 600; }
+.sim button:hover { background: color-mix(in srgb, var(--stage-ink) 8%, transparent); }
+.spec { display: block; overflow-x: auto; width: 100%; max-width: 1040px; border-collapse: collapse; font-size: 14px; }
+.spec th, .spec td { text-align: left; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--stage-line); vertical-align: top; }
+.spec th { font-weight: 600; }
+.spec code, .tk code { font: 13px ui-monospace, "SF Mono", Menlo, monospace; }
+.tk { display: grid; gap: 28px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); max-width: 1100px; }
+.tk h3 { margin: 0 0 10px; font-size: 16px; }
+.sw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.sw-i { border-radius: 14px; border: 1px solid var(--stage-line); overflow: hidden; background: var(--color-surface); color: var(--color-ink); font-size: 12px; }
+.sw-i i { display: block; height: 44px; }
+.sw-i span { display: block; padding: 6px 10px; line-height: 1.3; }
+.sw-i b { display: block; font-size: 13px; }
+.scale { display: grid; gap: 6px; }
+.scale div { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--stage-ink2); }
+.scale i { display: block; background: var(--color-accent); height: 12px; border-radius: 4px; }
+.scale .r { width: 56px; height: 56px; background: var(--color-surface); border: 1px solid var(--stage-line); }
+.motion-demo { display: grid; gap: 8px; }
+.motion-demo .lane { height: 36px; border-radius: 999px; background: color-mix(in srgb, var(--stage-ink) 7%, transparent); position: relative; overflow: hidden; }
+.motion-demo .lane b { position: absolute; left: 4px; top: 4px; width: 28px; height: 28px; border-radius: 50%; background: var(--color-accent); }
+.motion-demo .lane span { position: absolute; right: 14px; top: 8px; font-size: 12px; color: var(--stage-ink2); }
+.motion-demo.go .lane b { transform: translateX(calc(var(--lw, 260px) - 36px)); }
+.motion-demo .lane b { transition: transform var(--d) var(--e); }
+code.i2 { font: 13px ui-monospace, Menlo, monospace; background: color-mix(in srgb, var(--stage-ink) 8%, transparent); padding: 1px 6px; border-radius: 6px; }
+@media (max-width: 1020px) {
+  .layout { display: block; }
+  .index { position: static; height: auto; padding: 16px 16px 0; }
+  .index nav { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; }
+  .index a, .index a.sub { white-space: nowrap; border: 1px solid var(--stage-line); border-radius: 999px; margin: 0; padding: 8px 14px; }
+  .index h2 { display: none; }
+  .page { padding: 16px 16px 72px; }
+}
+figure.fig { zoom: var(--zoom, 1); }
+
+/* =====================================================================================
+   3. THE PHONE (390 x 844) AND ITS LAYERS
+   ===================================================================================== */
+.device { position: relative; width: 390px; height: 844px; border-radius: 48px; overflow: hidden; background: var(--color-bg); color: var(--color-ink);
+  border: 1px solid var(--stage-line); box-shadow: var(--shadow-device); isolation: isolate; font-size: var(--font-size-body); line-height: var(--line-height-body); user-select: none; -webkit-user-select: none; }
+.zoomer { zoom: var(--zoom, 1); }
+.statusbar { position: absolute; z-index: 30; top: 0; left: 0; right: 0; height: 44px; padding: 14px 30px 0; display: flex; justify-content: space-between; font-size: 15px; font-weight: 600; pointer-events: none; font-variant-numeric: tabular-nums; }
+.statusbar span:last-child { display: flex; gap: 6px; align-items: center; }
+.statusbar .i { width: 16px; height: 16px; stroke-width: 2.4; }
+.home-ind { position: absolute; z-index: 30; bottom: 8px; left: 50%; width: 134px; height: 5px; margin-left: -67px; border-radius: 3px; background: var(--color-ink); opacity: .85; pointer-events: none; }
+.stack, .layer { position: absolute; inset: 0; }
+.layer { z-index: 20; pointer-events: none; overflow: hidden; }
+.layer > * { pointer-events: auto; }
+.screen { position: absolute; inset: 0; display: flex; flex-direction: column; gap: var(--space-4); padding: 52px var(--space-4) 30px; background: var(--color-bg); }
+.screen.dead { visibility: hidden; }
+.screen.push { animation: push-in var(--dur-slow) var(--ease-enter) both; }
+.screen.under-back { animation: back-in var(--dur-slow) var(--ease-enter) both; }
+.screen.pop-out { animation: pop-out var(--dur-slow) var(--ease-exit) both; z-index: 2; }
+.screen.settle { animation: fade-in var(--dur-base) var(--ease-standard) both; }
+@keyframes push-in { from { transform: translateX(var(--shift-in)); opacity: calc(1 - (var(--shift-in) / 100%)); box-shadow: -12px 0 32px rgba(0,0,0,.12); } to { transform: none; opacity: 1; } }
+@keyframes back-in { from { transform: translateX(calc(var(--shift-in) * -.25)); opacity: .55; } to { transform: none; opacity: 1; } }
+@keyframes pop-out { from { transform: none; opacity: 1; } to { transform: translateX(var(--shift-in)); opacity: calc(1 - (var(--shift-in) / 100%)); } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise { from { opacity: 0; transform: translateY(var(--lift)); } to { opacity: 1; transform: none; } }
+.fade { animation: fade-in var(--dur-base) var(--ease-standard) both; }
+.rise { animation: rise var(--dur-base) var(--ease-enter) both; animation-delay: calc(var(--n, 0) * 45ms); }
+.scroll { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; margin: 0 calc(var(--space-4) * -1); padding: 0 var(--space-4) var(--space-2); display: flex; flex-direction: column; gap: var(--space-3); }
+.scroll::-webkit-scrollbar { display: none; }
+.grow { flex: 1; min-height: 0; } .col { display: flex; flex-direction: column; } .row { display: flex; align-items: center; }
+.gap2 { gap: var(--space-2); } .gap3 { gap: var(--space-3); } .gap4 { gap: var(--space-4); } .center { text-align: center; align-items: center; }
+
+/* =====================================================================================
+   4. COMPONENTS (mirror src/ui: Button, Card, Chip, EmptyState, Screen, Toggle)
+   ===================================================================================== */
+.t-title { font-size: var(--font-size-title); line-height: var(--line-height-tight); font-weight: 700; letter-spacing: var(--tracking-title); margin: 0; }
+.t-head { font-size: var(--font-size-heading); line-height: 1.2; font-weight: 700; margin: 0; }
+.t-cap { font-size: var(--font-size-caption); line-height: 1.35; color: var(--color-ink2); margin: 0; }
+.t-body { margin: 0; } .ink2 { color: var(--color-ink2); } .ok-ink { color: var(--color-ok-ink); } .danger-ink { color: var(--color-danger-ink); }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* Button: 56 high pill */
+.btn { position: relative; min-height: var(--touch-key); padding: 0 var(--space-6); border-radius: var(--radius-pill); display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  font-weight: 700; font-size: var(--font-size-body); overflow: hidden; width: 100%;
+  transition: transform var(--dur-instant) var(--ease-standard), background-color var(--dur-fast) var(--ease-standard), opacity var(--dur-fast); }
+.btn.primary { background: var(--color-accent); color: var(--color-accent-ink); }
+.btn.secondary { background: var(--color-surface2); color: var(--color-ink); box-shadow: inset 0 0 0 1px var(--color-line); }
+.btn.ghost { color: var(--color-accent); min-height: var(--touch-min); }
+.btn.danger { background: var(--color-danger-soft); color: var(--color-danger-ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-danger) 35%, transparent); }
+.btn:active, .btn.is-pressed, .press:active, .press.is-pressed { transform: scale(.97); transition-duration: var(--dur-instant); }
+.btn.primary:active, .btn.primary.is-pressed { background: color-mix(in srgb, var(--color-accent), #000 14%); }
+.btn.secondary:active, .btn.secondary.is-pressed { background: color-mix(in srgb, var(--color-surface2), var(--color-ink) 8%); }
+.btn.ghost:active, .btn.ghost.is-pressed { background: var(--color-accent-soft); }
+.btn:disabled, .btn.is-disabled { opacity: .42; pointer-events: none; }
+.btn.loading { pointer-events: none; }
+.spinner { width: 20px; height: 20px; border-radius: 50%; border: 2.5px solid currentColor; border-right-color: transparent; animation: spin 900ms linear infinite; flex: none; opacity: .9; }
+.spinner.lg { width: 36px; height: 36px; border-width: 3.5px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.btn.sm { min-height: var(--touch-min); padding: 0 var(--space-5); width: auto; }
+
+/* round icon keys */
+.ibtn { width: var(--touch-min); height: var(--touch-min); border-radius: 50%; display: grid; place-items: center; background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-line); flex: none;
+  transition: transform var(--dur-instant) var(--ease-standard), background-color var(--dur-fast); position: relative; }
+.ibtn.flat { background: none; box-shadow: none; }
+.ibtn:active, .ibtn.is-pressed { transform: scale(.92); background: var(--color-surface2); }
+.ibtn.pw { color: var(--color-danger-ink); }
+.ibtn[aria-expanded="true"] { background: var(--color-surface2); }
+.ibtn.is-disabled, .ibtn:disabled { opacity: .4; pointer-events: none; }
+
+/* Bar: back, title block, actions */
+.bar { display: flex; align-items: center; gap: var(--space-2); min-height: var(--touch-min); position: relative; z-index: 6; }
+.bar .bt { flex: 1; min-width: 0; }
+.bar .bt h1 { margin: 0; font-size: var(--font-size-heading); line-height: 1.2; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar .bt p { margin: 0; font-size: var(--font-size-caption); color: var(--color-ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-ok); flex: none; }
+.dot.warn { background: var(--color-warm); } .dot.err { background: var(--color-danger); }
+.dot.live { animation: blink 1.4s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .35; } }
+
+/* Card, tiles, toggle */
+.card { background: var(--color-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line); padding: var(--space-4); display: flex; align-items: center; gap: var(--space-3);
+  min-height: 76px; text-align: left; width: 100%; transition: transform var(--dur-instant) var(--ease-standard), background-color var(--dur-fast); position: relative; }
+button.card:active, .card.is-pressed { transform: scale(.985); background: var(--color-surface2); }
+.card.off { opacity: .6; }
+.card .nm { font-weight: 700; display: block; line-height: 1.25; } .card .sb { font-size: var(--font-size-caption); color: var(--color-ink2); display: block; line-height: 1.35; margin-top: 2px; }
+.card .meta { flex: 1; min-width: 0; }
+.tile { width: 44px; height: 44px; border-radius: 14px; background: var(--color-surface2); display: grid; place-items: center; flex: none; color: var(--color-ink); }
+.tile.cool { color: var(--color-accent); } 
+.switch { width: 52px; height: 32px; border-radius: 16px; background: var(--color-ink2); position: relative; flex: none; transition: background-color var(--dur-fast) var(--ease-standard); display: block; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: var(--color-surface); box-shadow: 0 1px 3px rgba(0,0,0,.3);
+  transition: transform var(--dur-base) var(--ease-spring), width var(--dur-instant); }
+.switch.on { background: var(--color-accent); } .switch.on::after { transform: translateX(20px); }
+.tog { padding: 8px 0 8px 8px; margin: -8px 0; flex: none; border-radius: 20px; }
+.tog:active .switch::after { width: 32px; } .tog:active .switch.on::after { transform: translateX(14px); }
+.tog.is-disabled { opacity: .4; pointer-events: none; }
+.room { margin: var(--space-2) 0 0; font-size: var(--font-size-caption); font-weight: 700; color: var(--color-ink2); display: flex; align-items: center; justify-content: space-between; }
+
+/* Chip + segmented */
+.chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.chip { min-height: var(--touch-min); padding: 0 var(--space-4); border-radius: var(--radius-pill); display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 700; font-size: 15px;
+  background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-line); color: var(--color-ink);
+  transition: transform var(--dur-instant) var(--ease-standard), background-color var(--dur-fast) var(--ease-standard), color var(--dur-fast), box-shadow var(--dur-fast); }
+.chip .i { width: 18px; height: 18px; }
+.chip:active, .chip.is-pressed { transform: scale(.95); }
+.chip[aria-pressed="true"], .chip.sel { background: var(--color-accent); color: var(--color-accent-ink); box-shadow: none; }
+.chip.is-disabled { opacity: .42; pointer-events: none; }
+.seg { display: flex; background: var(--color-surface2); border-radius: var(--radius-pill); padding: 4px; gap: 2px; box-shadow: inset 0 0 0 1px var(--color-line); position: relative; }
+.seg button { flex: 1; min-height: var(--touch-min); border-radius: var(--radius-pill); font-weight: 700; font-size: 15px; display: grid; place-items: center; color: var(--color-ink2); position: relative; z-index: 1; transition: color var(--dur-fast); }
+.seg button[aria-pressed="true"] { color: var(--color-ink); }
+.seg .thumb { position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px; border-radius: var(--radius-pill); background: var(--color-surface); box-shadow: var(--shadow-card);
+  width: calc((100% - 8px - (var(--n) - 1) * 2px) / var(--n)); transform: translateX(calc(var(--i) * (100% + 2px))); transition: transform var(--dur-base) var(--ease-standard); }
+.seg button .i { width: 18px; height: 18px; margin-right: 6px; } .seg button { display: flex; align-items: center; justify-content: center; }
+
+/* Inputs */
+.field label { display: block; font-size: var(--font-size-caption); font-weight: 700; color: var(--color-ink2); margin: 0 0 6px 4px; }
+.input { width: 100%; min-height: var(--touch-key); border-radius: var(--radius-md); border: 0; background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-line); padding: 0 var(--space-4); font-size: var(--font-size-body); color: var(--color-ink); user-select: text; -webkit-user-select: text;
+  transition: box-shadow var(--dur-fast) var(--ease-standard); }
+.input::placeholder { color: var(--color-ink2); opacity: 1; }
+.input:focus, .input.focus { outline: none; box-shadow: inset 0 0 0 2px var(--color-accent); }
+.input.err { box-shadow: inset 0 0 0 2px var(--color-danger); }
+.errline { display: flex; gap: 6px; align-items: flex-start; margin: 8px 4px 0; font-size: 14px; color: var(--color-danger-ink); line-height: 1.35; }
+.errline .i { width: 18px; height: 18px; margin-top: 1px; }
+.shake { animation: shake var(--dur-base) var(--ease-standard); }
+@keyframes shake { 20% { transform: translateX(-6px); } 45% { transform: translateX(5px); } 70% { transform: translateX(-3px); } }
+.otp { display: flex; gap: 8px; justify-content: center; }
+.otp i { width: 48px; height: 60px; border-radius: 14px; background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-line); display: grid; place-items: center; font-style: normal; font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.otp i.cur { box-shadow: inset 0 0 0 2px var(--color-accent); }
+.otp.err i { box-shadow: inset 0 0 0 2px var(--color-danger); }
+
+.opn { display: flex; align-items: center; gap: var(--space-3); flex: 1; min-width: 0; min-height: 52px; text-align: left; border-radius: 14px; }
+.card:has(.opn:active) { transform: scale(.985); background: var(--color-surface2); }
+.card { transition: transform var(--dur-instant) var(--ease-standard), background-color var(--dur-fast); }
+.pick.sel { box-shadow: var(--shadow-card), 0 0 0 2px var(--color-accent); }
+.pick .rad { width: 24px; height: 24px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--color-ink2); display: grid; place-items: center; color: transparent; flex: none; transition: all var(--dur-fast); }
+.pick.sel .rad { background: var(--color-accent); box-shadow: none; color: var(--color-accent-ink); } .pick .rad .i { width: 16px; height: 16px; stroke-width: 3.2; }
+.panel { background: var(--color-bg); color: var(--color-ink); border-radius: 28px; padding: 28px; box-shadow: var(--shadow-device); border: 1px solid var(--stage-line); display: grid; gap: 32px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); max-width: 1100px; }
+.panel h4 { margin: 0 0 12px; font-size: 13px; color: var(--color-ink2); }
+.panel .col > * { max-width: 340px; }
+.panel .toast { position: static; animation: none; }
+/* Banner, EmptyState */
+.banner { display: flex; gap: var(--space-3); align-items: flex-start; border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); background: var(--color-warm-soft); font-size: 14px; line-height: 1.4; }
+.banner .i { color: var(--color-ink); width: 20px; height: 20px; margin-top: 1px; }
+.banner.err { background: var(--color-danger-soft); } .banner.ok { background: var(--color-ok-soft); }
+.empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: var(--space-3); padding: 0 var(--space-4); }
+.empty .art { width: 104px; height: 104px; border-radius: 32px; display: grid; place-items: center; background: var(--color-surface); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line); color: var(--color-accent); margin-bottom: var(--space-2); }
+.empty .art .i { width: 48px; height: 48px; stroke-width: 1.7; }
+.empty .btn { margin-top: var(--space-3); }
+.empty p { max-width: 300px; }
+
+/* Skeleton: same shapes as the loaded content, shimmer only (ambient) */
+.sk { position: relative; overflow: hidden; background: var(--color-surface2); border-radius: 10px; }
+.card .sk, .card.skel { background: var(--color-surface2); }
+.sk::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, color-mix(in srgb, var(--color-surface) 70%, transparent) 50%, transparent 80%); transform: translateX(-100%); animation: shimmer var(--dur-ambient) var(--ease-standard) infinite; }
+@keyframes shimmer { to { transform: translateX(100%); } }
+.card.skel .sk { background: var(--color-line); opacity: .7; }
+
+/* Toast / snackbar */
+.toast { position: absolute; left: var(--space-4); right: var(--space-4); bottom: 30px; min-height: 52px; border-radius: var(--radius-md); background: var(--color-ink); color: var(--color-bg); box-shadow: var(--shadow-pop);
+  display: flex; align-items: center; gap: var(--space-3); padding: 8px 8px 8px var(--space-4); font-size: 15px; line-height: 1.3; font-weight: 600; z-index: 40;
+  animation: toast-in var(--dur-base) var(--ease-enter) both; }
+.toast.out { animation: toast-out var(--dur-fast) var(--ease-exit) both; }
+.toast.ok .i:first-child { color: #4cc88c; } [data-theme="dark"] .toast.ok .i:first-child { color: var(--color-ok-ink); }
+.toast.error { background: var(--color-danger-ink); color: #fff; } 
+:root[data-theme="dark"] .toast.error, :root:not([data-theme="light"]) .toast.error { }
+.toast .i { width: 20px; height: 20px; }
+.toast span { flex: 1; }
+.toast button { min-height: var(--touch-min); padding: 0 var(--space-3); border-radius: var(--radius-pill); font-weight: 700; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(var(--lift)) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes toast-out { to { opacity: 0; transform: translateY(calc(var(--lift) * .5)); } }
+:root[data-theme="dark"] .toast.error { background: #5a1d20; color: #ffd9da; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .toast.error { background: #5a1d20; color: #ffd9da; } }
+
+/* Menu (dropdown under the bar) and sheet */
+.menu { position: absolute; top: 104px; right: var(--space-4); min-width: 220px; background: var(--color-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-pop), 0 0 0 1px var(--color-line); padding: 6px; transform-origin: 100% 0; animation: menu-in var(--dur-base) var(--ease-enter) both; z-index: 25; }
+.menu.out { animation: menu-out var(--dur-fast) var(--ease-exit) both; }
+.menu button { width: 100%; min-height: var(--touch-min); padding: 0 var(--space-4); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); text-align: left; font-size: var(--font-size-body); transition: background-color var(--dur-fast); }
+.menu button:active, .menu button.is-pressed { background: var(--color-surface2); }
+.menu button[aria-current="true"] { color: var(--color-ink2); }
+.menu hr { border: 0; height: 1px; background: var(--color-line); margin: 4px 8px; }
+@keyframes menu-in { from { opacity: 0; transform: translateY(calc(var(--lift) * -.5)) scale(.9); } to { opacity: 1; transform: none; } }
+@keyframes menu-out { to { opacity: 0; transform: scale(.96); } }
+.scrim { position: absolute; inset: 0; background: var(--color-scrim); animation: fade-in var(--dur-base) var(--ease-standard) both; z-index: 21; }
+.scrim.out { animation: fade-out var(--dur-base) var(--ease-exit) both; }
+@keyframes fade-out { to { opacity: 0; } }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 90%; display: flex; flex-direction: column; background: var(--color-bg); border-radius: var(--radius-sheet) var(--radius-sheet) 0 0; box-shadow: var(--shadow-sheet);
+  padding: var(--space-2) var(--space-4) 30px; z-index: 22; animation: sheet-in var(--dur-slow) var(--ease-enter) both; gap: var(--space-4); }
+.sheet.out { animation: sheet-out var(--dur-base) var(--ease-exit) both; }
+@keyframes sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes sheet-out { to { transform: translateY(100%); } }
+.grab { width: 40px; height: 5px; border-radius: 3px; background: var(--color-ink2); opacity: .45; align-self: center; margin: 4px 0 0; flex: none; }
+.group { background: var(--color-surface); border-radius: var(--radius-md); box-shadow: 0 0 0 1px var(--color-line); overflow: hidden; }
+.group > * + * { border-top: 1px solid var(--color-line); }
+.li { display: flex; align-items: center; gap: var(--space-3); min-height: 56px; padding: 8px var(--space-4); width: 100%; text-align: left; transition: background-color var(--dur-fast); }
+button.li:active, .li.is-pressed { background: var(--color-surface2); }
+.li .meta { flex: 1; min-width: 0; } .li .nm { font-weight: 600; display: block; } .li .sb { font-size: var(--font-size-caption); color: var(--color-ink2); display: block; }
+.badge { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--color-surface2); color: var(--color-ink2); box-shadow: inset 0 0 0 1px var(--color-line); }
+.badge.ok { background: var(--color-ok-soft); color: var(--color-ok-ink); box-shadow: none; }
+.badge.acc { background: var(--color-accent-soft); color: var(--color-accent); box-shadow: none; }
+.link { color: var(--color-accent); font-weight: 600; min-height: var(--touch-min); display: inline-flex; align-items: center; justify-content: center; padding: 0 var(--space-3); border-radius: var(--radius-pill); }
+.sect { font-size: var(--font-size-caption); font-weight: 700; color: var(--color-ink2); margin: var(--space-2) 4px -4px; }
+
+/* =====================================================================================
+   5. SCREENS
+   ===================================================================================== */
+/* splash */
+.splash { align-items: center; justify-content: center; gap: var(--space-5); }
+.mark { width: 112px; height: 112px; border-radius: 34px; background: var(--color-accent); display: grid; place-items: center; color: var(--color-accent-ink); box-shadow: 0 14px 34px color-mix(in srgb, var(--color-accent) 40%, transparent); animation: mark-in var(--dur-slow) var(--ease-spring) both; }
+.mark svg { width: 64px; height: 64px; fill: none; stroke: currentColor; stroke-width: 4; stroke-linecap: round; }
+.mark svg .ring { stroke-dasharray: 126; stroke-dashoffset: 126; animation: draw 700ms var(--ease-standard) 260ms forwards; }
+.mark svg .core { transform-origin: 32px 32px; animation: pop-dot var(--dur-base) var(--ease-spring) 820ms both; }
+.splash h1 { animation: rise var(--dur-base) var(--ease-enter) 700ms both; }
+@keyframes mark-in { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: none; } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes pop-dot { from { transform: scale(0); } to { transform: none; } }
+
+/* tv */
+.tv-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--space-4); position: relative; }
+.pads { flex: 1; min-height: 0; position: relative; }
+.pad { position: absolute; inset: 0; transition: opacity var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-standard); }
+.screen[data-pad="touchpad"] .pad.dpad, .screen[data-pad="dpad"] .pad.touch { opacity: 0; transform: scale(.94); pointer-events: none; }
+.touch { border-radius: var(--radius-lg); background: radial-gradient(circle, var(--color-line) 1.5px, transparent 2px) 0 0 / 28px 28px, var(--color-surface); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line); display: grid; place-items: center; touch-action: none; overflow: hidden; cursor: crosshair; }
+.touch .hint { color: var(--color-ink2); font-size: 15px; transition: opacity var(--dur-base); text-align: center; padding: 0 24px; }
+.touch.active .hint { opacity: .0; }
+.touch .tdot { position: absolute; left: var(--x, 50%); top: var(--y, 50%); width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: var(--color-surface); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line), 0 0 0 10px color-mix(in srgb, var(--color-accent) 12%, transparent); opacity: 0; transform: scale(.6); transition: opacity var(--dur-fast), transform var(--dur-fast) var(--ease-spring); pointer-events: none; }
+.touch.active .tdot { opacity: 1; transform: scale(1); }
+.touch.static-dot .tdot { opacity: 1; transform: scale(1); --x: 62%; --y: 56%; }
+.touch.static-dot .hint { opacity: 0; }
+.touch .tap { position: absolute; left: var(--x, 50%); top: var(--y, 50%); width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; border: 2px solid var(--color-accent); opacity: 0; pointer-events: none; }
+.touch .tap.go { animation: ripple var(--dur-base) var(--ease-standard); }
+@keyframes ripple { from { opacity: .8; transform: scale(.6); } to { opacity: 0; transform: scale(2.6); } }
+.dp { display: grid; place-items: center; }
+.ring { position: relative; width: 300px; height: 300px; border-radius: 50%; background: var(--color-surface); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line); margin: auto; }
+.ring .k { position: absolute; width: 84px; height: 84px; display: grid; place-items: center; border-radius: 50%; transition: background-color var(--dur-fast), transform var(--dur-instant); }
+.ring .k .i { width: 30px; height: 30px; }
+.ring .k:active, .ring .k.is-pressed { background: var(--color-surface2); transform: scale(.92); }
+.ring .k.u { top: 6px; left: 108px; } .ring .k.d { bottom: 6px; left: 108px; } .ring .k.l { left: 6px; top: 108px; } .ring .k.r { right: 6px; top: 108px; }
+.ring .ok { position: absolute; left: 100px; top: 100px; width: 100px; height: 100px; border-radius: 50%; background: var(--color-accent); color: var(--color-accent-ink); font-weight: 700; font-size: 22px; display: grid; place-items: center; transition: transform var(--dur-instant) var(--ease-standard), background-color var(--dur-fast); }
+.ring .ok:active, .ring .ok.is-pressed { transform: scale(.94); background: color-mix(in srgb, var(--color-accent), #000 14%); }
+.keys { display: flex; justify-content: space-between; align-items: center; padding: 0 var(--space-1); position: relative; }
+.key { border-radius: 50%; display: grid; place-items: center; background: var(--color-surface); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line); position: relative; transition: transform var(--dur-instant) var(--ease-standard), background-color var(--dur-fast); }
+.key.b { width: 64px; height: 64px; } .key.h { width: 84px; height: 84px; }
+.key .i { width: 28px; height: 28px; } .key.h .i { width: 34px; height: 34px; }
+.key:active, .key.is-pressed { transform: scale(.92); background: var(--color-surface2); }
+.key::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--color-accent); opacity: 0; pointer-events: none; }
+.key.sent::after { animation: sent var(--dur-base) var(--ease-standard); }
+@keyframes sent { from { opacity: .8; transform: scale(1); } to { opacity: 0; transform: scale(1.35); } }
+.micwrap { position: relative; display: grid; place-items: center; width: 64px; height: 64px; }
+.mic { width: 64px; height: 64px; border-radius: 50%; background: var(--color-ink); color: var(--color-bg); display: grid; place-items: center; position: relative; z-index: 2; touch-action: none; transition: transform var(--dur-fast) var(--ease-spring); }
+.mic .i { width: 28px; height: 28px; }
+.mic:active, .mic.is-pressed { transform: scale(1.1); }
+.micwrap::before, .micwrap::after { content: ""; position: absolute; width: 64px; height: 64px; border-radius: 50%; background: var(--color-accent); opacity: 0; z-index: 1; }
+.listening .micwrap::before { animation: pulse var(--dur-ambient) var(--ease-standard) infinite; }
+.listening .micwrap::after { animation: pulse var(--dur-ambient) var(--ease-standard) calc(var(--dur-ambient) / 2) infinite; }
+@keyframes pulse { from { opacity: .45; transform: scale(1); } to { opacity: 0; transform: scale(2.4); } }
+.listening .mic { transform: scale(1.12); background: var(--color-accent); color: var(--color-accent-ink); }
+.mlabel { position: absolute; right: 0; bottom: 78px; transform: translateY(6px); background: var(--color-ink); color: var(--color-bg); padding: 8px 14px; border-radius: 999px; font-size: 14px; font-weight: 700; opacity: 0; pointer-events: none; white-space: nowrap; transition: opacity var(--dur-fast), transform var(--dur-base) var(--ease-enter); display: flex; gap: 8px; align-items: center; }
+.listening .mlabel { opacity: 1; transform: none; }
+.eq { display: inline-flex; gap: 3px; align-items: center; height: 14px; } .eq i { width: 3px; height: 4px; border-radius: 2px; background: currentColor; animation: eq 700ms ease-in-out infinite; } .eq i:nth-child(2) { animation-delay: 120ms; } .eq i:nth-child(3) { animation-delay: 240ms; } .eq i:nth-child(4) { animation-delay: 60ms; }
+@keyframes eq { 50% { height: 14px; } }
+.listening .pads { opacity: .55; transition: opacity var(--dur-base); } .pads { transition: opacity var(--dur-base); }
+.tv-panel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: var(--space-3); padding: 0 var(--space-4); }
+.tv-panel .art { width: 96px; height: 96px; border-radius: 30px; display: grid; place-items: center; background: var(--color-surface); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line); margin-bottom: var(--space-2); }
+.tv-panel .art .i { width: 44px; height: 44px; stroke-width: 1.7; }
+.tv-panel .art.off { color: var(--color-ink2); } .tv-panel .art.bad { color: var(--color-warm); }
+.tv-panel .btn { margin-top: var(--space-1); } .tv-panel .stk { display: flex; flex-direction: column; gap: var(--space-2); width: 100%; margin-top: var(--space-3); }
+.dim { opacity: .45; pointer-events: none; }
+.conn-pad { border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line); flex: 1; display: grid; place-items: center; position: relative; overflow: hidden; }
+.conn-pad .sk { position: absolute; inset: 0; border-radius: 0; opacity: .8; }
+.conn-pad .badge2 { position: relative; z-index: 2; display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: var(--color-surface); border-radius: 999px; box-shadow: var(--shadow-pop); font-weight: 700; }
+.kbd-area { background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line); }
+
+/* AC */
+.dialwrap { position: relative; width: 290px; height: 290px; margin: var(--space-2) auto 0; flex: none; }
+.dialwrap svg.d { width: 290px; height: 290px; transform: rotate(135deg); }
+.dialwrap circle { fill: none; stroke-width: 18; stroke-linecap: round; }
+.dialwrap .tr { stroke: var(--color-surface); } .dialwrap .tr-ring { stroke: var(--color-line); }
+.dialwrap .arc { stroke: var(--arc, var(--color-cool)); transition: stroke-dashoffset var(--dur-base) var(--ease-standard), stroke var(--dur-base); }
+.dialwrap .ctr { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; text-align: center; }
+.big { font-size: 76px; line-height: 1; font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; display: flex; justify-content: center; height: 80px; overflow: hidden; }
+.big sup { font-size: 28px; font-weight: 700; margin-top: 6px; letter-spacing: 0; }
+.big .dg { display: inline-block; position: relative; width: .56em; }
+.big .dg span { display: block; position: absolute; inset: 0; text-align: center; }
+.big .dg.up .n { animation: roll-up var(--dur-fast) var(--ease-standard) both; } .big .dg.up .o { animation: roll-out-up var(--dur-fast) var(--ease-standard) both; }
+.big .dg.dn .n { animation: roll-dn var(--dur-fast) var(--ease-standard) both; } .big .dg.dn .o { animation: roll-out-dn var(--dur-fast) var(--ease-standard) both; }
+@keyframes roll-up { from { transform: translateY(70%); opacity: 0; } } @keyframes roll-out-up { to { transform: translateY(-70%); opacity: 0; } }
+@keyframes roll-dn { from { transform: translateY(-70%); opacity: 0; } } @keyframes roll-out-dn { to { transform: translateY(70%); opacity: 0; } }
+.ac-off .arc { stroke: var(--color-ink2); opacity: .0; } .ac-off .big { color: var(--color-ink2); }
+.stepper { position: absolute; left: 0; right: 0; bottom: -6px; display: flex; justify-content: space-between; padding: 0 14px; }
+.step-b { width: 64px; height: 64px; border-radius: 50%; background: var(--color-surface); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line); display: grid; place-items: center; transition: transform var(--dur-instant) var(--ease-standard), background-color var(--dur-fast); }
+.step-b .i { width: 30px; height: 30px; stroke-width: 2.4; }
+.step-b:active, .step-b.is-pressed { transform: scale(.9); background: var(--color-surface2); }
+.step-b.is-disabled { opacity: .35; pointer-events: none; }
+.linkline { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--touch-min); font-size: 14px; color: var(--color-ink2); text-align: center; padding: 0 var(--space-2); border-radius: 14px; }
+.linkline.fell { background: var(--color-warm-soft); color: var(--color-ink); padding: 8px 14px; }
+.linkline.btnlike { width: 100%; } .linkline u { text-underline-offset: 3px; }
+
+/* Fan */
+.speed { display: flex; align-items: flex-end; gap: 10px; height: 250px; }
+.speed button { flex: 1; border-radius: 18px; background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-line); position: relative; overflow: hidden; display: grid; align-items: end; justify-items: center; padding-bottom: 14px; font-weight: 700; font-size: 20px; color: var(--color-ink2); height: calc(32% + var(--k) * 17%);
+  transition: transform var(--dur-instant) var(--ease-standard), color var(--dur-fast); }
+.speed button::before { content: ""; position: absolute; inset: 0; background: var(--color-accent); transform: scaleY(0); transform-origin: bottom; transition: transform var(--dur-base) var(--ease-standard); }
+.speed button.lit::before { transform: scaleY(1); } .speed button.lit { color: var(--color-accent-ink); box-shadow: none; }
+.speed button span { position: relative; } .speed button:active, .speed button.is-pressed { transform: scale(.96); }
+.fan-spin { color: var(--color-accent); } .fan-spin.on .i { animation: spin calc(2400ms / var(--sp, 1)) linear infinite; }
+.fan-hero { display: flex; align-items: center; justify-content: center; gap: var(--space-4); }
+.fan-hero .art { width: 112px; height: 112px; border-radius: 36px; display: grid; place-items: center; background: var(--color-surface); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line); }
+.fan-hero .art .i { width: 56px; height: 56px; stroke-width: 1.7; }
+
+/* Add flows */
+.optcard { min-height: 88px; padding: var(--space-4) var(--space-5); gap: var(--space-4); }
+.optcard .tile { width: 56px; height: 56px; border-radius: 18px; } .optcard .tile .i { width: 30px; height: 30px; }
+.optcard .nm { font-size: 18px; } .chev { color: var(--color-ink2); width: 22px; height: 22px; }
+.radar { position: relative; width: 168px; height: 168px; margin: var(--space-2) auto; flex: none; display: grid; place-items: center; }
+.radar i { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--color-accent); opacity: 0; animation: ping 2.4s var(--ease-standard) infinite; }
+.radar i:nth-child(2) { animation-delay: .8s; } .radar i:nth-child(3) { animation-delay: 1.6s; }
+.radar .core { position: relative; width: 72px; height: 72px; border-radius: 50%; background: var(--color-accent); color: var(--color-accent-ink); display: grid; place-items: center; }
+.radar .core .i { width: 34px; height: 34px; }
+.radar.still i { animation: none; opacity: 0; } 
+@keyframes ping { from { opacity: .55; transform: scale(.45); } to { opacity: 0; transform: scale(1.15); } }
+.pair-ring { position: relative; width: 132px; height: 132px; margin: var(--space-2) auto; display: grid; place-items: center; flex: none; }
+.pair-ring svg.rg { position: absolute; inset: 0; transform: rotate(-90deg); } .pair-ring circle { fill: none; stroke-width: 8; stroke-linecap: round; }
+.pair-ring .bgc { stroke: var(--color-line); } .pair-ring .fg { stroke: var(--color-accent); transition: stroke-dashoffset 1s linear, stroke var(--dur-base); }
+.pair-ring .num { font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pair-ring.done .fg { stroke: var(--color-ok); stroke-dashoffset: 0 !important; transition: stroke-dashoffset var(--dur-base), stroke var(--dur-base); }
+.pair-ring.bad .fg { stroke: var(--color-danger); stroke-dashoffset: 0 !important; }
+.found { display: flex; flex-direction: column; gap: var(--space-2); }
+.check { width: 48px; height: 48px; stroke: var(--color-ok-ink); fill: none; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+.check path { stroke-dasharray: 40; stroke-dashoffset: 40; animation: draw-check 420ms var(--ease-standard) 140ms forwards; }
+@keyframes draw-check { to { stroke-dashoffset: 0; } }
+.okdisc { width: 96px; height: 96px; border-radius: 50%; background: var(--color-ok-soft); display: grid; place-items: center; animation: mark-in var(--dur-slow) var(--ease-spring) both; margin: 0 auto; }
+.okdisc .check { width: 52px; height: 52px; }
+.baddisc { width: 96px; height: 96px; border-radius: 50%; background: var(--color-danger-soft); display: grid; place-items: center; margin: 0 auto; color: var(--color-danger-ink); animation: mark-in var(--dur-slow) var(--ease-spring) both; }
+.baddisc .i { width: 44px; height: 44px; }
+.cam { position: relative; height: 280px; border-radius: var(--radius-lg); overflow: hidden; background: radial-gradient(120% 90% at 30% 20%, #3b4552, #14181e 70%); flex: none; color: #fff; }
+.cam .qr { position: absolute; left: 50%; top: 50%; width: 132px; height: 132px; margin: -66px 0 0 -66px; transform: rotate(-4deg) scale(.96); background: #fff; border-radius: 10px; padding: 9px; transition: transform var(--dur-base) var(--ease-standard); filter: blur(.4px); }
+.cam .qr svg { width: 100%; height: 100%; display: block; }
+.cam .br { position: absolute; left: 50%; top: 50%; width: 188px; height: 188px; margin: -94px 0 0 -94px; transition: width var(--dur-base) var(--ease-spring), height var(--dur-base) var(--ease-spring), margin var(--dur-base) var(--ease-spring); }
+.cam .br b { position: absolute; width: 36px; height: 36px; border: 4px solid #fff; transition: border-color var(--dur-fast); }
+.cam .br b:nth-child(1) { left: 0; top: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 14px; } .cam .br b:nth-child(2) { right: 0; top: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 14px; }
+.cam .br b:nth-child(3) { left: 0; bottom: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 14px; } .cam .br b:nth-child(4) { right: 0; bottom: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 14px; }
+.cam .beam { position: absolute; left: 50%; width: 176px; margin-left: -88px; height: 3px; border-radius: 2px; background: linear-gradient(90deg, transparent, #7fb0ff, transparent); box-shadow: 0 0 14px #6a96ff; top: 50%; animation: beam 1.8s ease-in-out infinite alternate; }
+@keyframes beam { from { transform: translateY(-84px); } to { transform: translateY(84px); } }
+.cam.locked .beam { display: none; } .cam.locked .br { width: 150px; height: 150px; margin: -75px 0 0 -75px; } .cam.locked .br b { border-color: #4cc88c; } .cam.locked .qr { transform: none; filter: none; }
+.cam .lockbadge { position: absolute; left: 50%; bottom: 14px; transform: translate(-50%, 10px); opacity: 0; background: #17744a; color: #fff; border-radius: 999px; padding: 6px 14px; font-weight: 700; font-size: 14px; display: flex; gap: 6px; align-items: center; transition: opacity var(--dur-base), transform var(--dur-base) var(--ease-enter); }
+.cam.locked .lockbadge { opacity: 1; transform: translate(-50%, 0); }
+.cam .lockbadge .i { width: 18px; height: 18px; stroke-width: 3; }
+.cam.denied { background: var(--color-surface2); color: var(--color-ink2); display: grid; place-items: center; text-align: center; padding: 0 28px; box-shadow: inset 0 0 0 1px var(--color-line); }
+.cam.denied .i { width: 40px; height: 40px; display: block; margin: 0 auto 10px; }
+.cam .hint { position: absolute; top: 14px; left: 0; right: 0; text-align: center; font-size: 14px; font-weight: 600; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+.steps { display: flex; flex-direction: column; gap: 0; background: var(--color-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line); padding: var(--space-2) var(--space-4); }
+.stp { display: flex; align-items: center; gap: var(--space-4); min-height: 64px; position: relative; font-weight: 600; color: var(--color-ink2); transition: color var(--dur-base); }
+.stp + .stp { border-top: 1px solid var(--color-line); }
+.stp .ic { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; flex: none; box-shadow: inset 0 0 0 2px var(--color-line); transition: background-color var(--dur-base), box-shadow var(--dur-base); color: var(--color-ink2); }
+.stp .ic .i { width: 18px; height: 18px; stroke-width: 3; } .stp .ic .spinner { width: 18px; height: 18px; border-width: 2.5px; color: var(--color-accent); }
+.stp.act { color: var(--color-ink); } .stp.act .ic { box-shadow: inset 0 0 0 2px var(--color-accent); }
+.stp.done { color: var(--color-ink); } .stp.done .ic { background: var(--color-ok); box-shadow: none; color: #fff; animation: pop-ic var(--dur-base) var(--ease-spring); }
+.stp.fail { color: var(--color-danger-ink); } .stp.fail .ic { background: var(--color-danger); box-shadow: none; color: #fff; animation: pop-ic var(--dur-base) var(--ease-spring); }
+@keyframes pop-ic { from { transform: scale(.6); } to { transform: none; } }
+.irtest { text-align: center; }
+.irphone { width: 120px; height: 160px; margin: 0 auto; position: relative; flex: none; }
+.irphone .i { width: 64px; height: 64px; position: absolute; left: 28px; top: 70px; color: var(--color-ink); }
+.irphone i { position: absolute; left: 50%; top: 40px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--color-accent); margin-left: -7px; opacity: 0; }
+.irphone.fire i { animation: beamup 900ms var(--ease-standard) infinite; } .irphone.fire i:nth-child(2) { animation-delay: 300ms; } .irphone.fire i:nth-child(3) { animation-delay: 600ms; }
+@keyframes beamup { from { opacity: .8; transform: translateY(24px) scale(.5); } to { opacity: 0; transform: translateY(-34px) scale(3); } }
+.pbar { height: 6px; border-radius: 3px; background: var(--color-line); overflow: hidden; } .pbar i { display: block; height: 100%; background: var(--color-accent); border-radius: 3px; transition: width var(--dur-base) var(--ease-standard); }
+.sysalert { position: absolute; left: 50%; top: 50%; width: 270px; transform: translate(-50%, -50%); background: color-mix(in srgb, var(--color-surface) 92%, transparent); backdrop-filter: blur(20px); border-radius: 18px; text-align: center; z-index: 24; box-shadow: var(--shadow-pop); animation: alert-in var(--dur-base) var(--ease-spring) both; overflow: hidden; color: var(--color-ink); }
+.sysalert div { padding: 18px 16px 14px; font-size: 14px; line-height: 1.35; } .sysalert h4 { margin: 0 0 4px; font-size: 16px; }
+.sysalert button { display: block; width: 100%; min-height: 48px; border-top: 1px solid var(--color-line); color: var(--color-accent); font-weight: 600; }
+@keyframes alert-in { from { opacity: 0; transform: translate(-50%, -50%) scale(1.12); } to { opacity: 1; transform: translate(-50%, -50%); } }
+.pill-room { }
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .spinner { animation: blink 1.2s ease-in-out infinite; }
+  :root:not([data-motion="full"]) .sk::after { animation: blink 1.6s ease-in-out infinite; transform: none; background: color-mix(in srgb, var(--color-surface) 50%, transparent); }
+  :root:not([data-motion="full"]) .beam, :root:not([data-motion="full"]) .radar i, :root:not([data-motion="full"]) .micwrap::before, :root:not([data-motion="full"]) .micwrap::after, :root:not([data-motion="full"]) .eq i, :root:not([data-motion="full"]) .fan-spin.on .i, :root:not([data-motion="full"]) .irphone.fire i { animation: none; }
+  :root:not([data-motion="full"]) * { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  :root:not([data-motion="full"]) .spinner, :root:not([data-motion="full"]) .sk::after { animation-duration: 1.4s !important; animation-iteration-count: infinite !important; }
+}
+:root[data-motion="reduce"] .spinner { animation: blink 1.2s ease-in-out infinite; }
+:root[data-motion="reduce"] .sk::after { animation: blink 1.6s ease-in-out infinite; transform: none; background: color-mix(in srgb, var(--color-surface) 50%, transparent); }
+:root[data-motion="reduce"] .beam, :root[data-motion="reduce"] .radar i, :root[data-motion="reduce"] .micwrap::before, :root[data-motion="reduce"] .micwrap::after, :root[data-motion="reduce"] .eq i, :root[data-motion="reduce"] .fan-spin.on .i, :root[data-motion="reduce"] .irphone.fire i { animation: none; }
+:root[data-motion="reduce"] * { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; }
+:root[data-motion="reduce"] .spinner, :root[data-motion="reduce"] .sk::after { animation-duration: 1.4s !important; animation-iteration-count: infinite !important; }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M5 9l7 7 7-7"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></symbol>
+    <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M7 6.3a8 8 0 1010 0"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.6" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M7.5 14h9"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8.5a1.5 1.5 0 01-1.5 1.5H15v-6H9v6H5.5A1.5 1.5 0 014 19.5z"/></symbol>
+    <symbol id="i-tv" viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="19" height="12.5" rx="2.5"/><path d="M8 21h8M12 17v4"/></symbol>
+    <symbol id="i-ac" viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="19" height="8" rx="2.5"/><path d="M6 16.5c0 1.5-1 1.5-1 3M12 16.5c0 1.5-1 1.5-1 3M18 16.5c0 1.5-1 1.5-1 3M6.5 8.5h6"/></symbol>
+    <symbol id="i-fan" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.8"/><path d="M12 10.2C10.6 6 11.2 3.5 13.5 3.5c2 0 2.2 3 -1.5 6.7zM13.8 12c4.2-1.4 6.7-.8 6.7 1.5 0 2-3 2.2-6.7-1.5zM12 13.8c1.4 4.2.8 6.7-1.5 6.7-2 0-2.2-3 1.5-6.7zM10.2 12C6 13.4 3.5 12.8 3.5 10.5c0-2 3-2.2 6.7 1.5z"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2.5 9a15 15 0 0119 0M5.5 12.5a10.5 10.5 0 0113 0M8.7 16a6 6 0 016.6 0"/><circle cx="12" cy="19.4" r="1" fill="currentColor"/></symbol>
+    <symbol id="i-wifioff" viewBox="0 0 24 24"><path d="M3 3l18 18M2.5 9a15 15 0 015-3M10 5.2a15 15 0 0111.5 3.8M5.5 12.5a10.5 10.5 0 013-2M13 10.1a10.5 10.5 0 015.5 2.4M8.7 16a6 6 0 015.5-1"/><circle cx="12" cy="19.4" r="1" fill="currentColor"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.5h.01"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8h.01"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3.5 8.5A2 2 0 015.5 6.5h2l1.5-2h6l1.5 2h2a2 2 0 012 2v9a2 2 0 01-2 2h-13a2 2 0 01-2-2z"/><circle cx="12" cy="13" r="3.8"/></symbol>
+    <symbol id="i-cameraoff" viewBox="0 0 24 24"><path d="M3 3l18 18M8 6.5l1-2h6l1.5 2h2a2 2 0 012 2v8M17.5 19.5h-12a2 2 0 01-2-2v-9a2 2 0 012-2"/><path d="M9.7 10.2A3.8 3.8 0 0015.8 14"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24"><rect x="5" y="4.5" width="14" height="17" rx="2.5"/><path d="M9 4.5V3.5h6v1M9 11h6M9 15h4"/></symbol>
+    <symbol id="i-swing" viewBox="0 0 24 24"><path d="M12 3v18M7.5 7.5L12 3l4.5 4.5M7.5 16.5L12 21l4.5-4.5"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 119.5 4a7 7 0 0010.5 10.5z"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2.5L4.5 13.5H12l-1 8 8.5-11H12z"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 00-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0012 3z"/></symbol>
+    <symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 2.5v19M3.8 7.2l16.4 9.6M3.8 16.8l16.4-9.6M9.5 4L12 6.5 14.5 4M9.5 20l2.5-2.5 2.5 2.5"/></symbol>
+    <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3.5s6.5 6.4 6.5 11a6.5 6.5 0 01-13 0c0-4.6 6.5-11 6.5-11z"/></symbol>
+    <symbol id="i-wind" viewBox="0 0 24 24"><path d="M3 9h10.5a2.5 2.5 0 10-2.4-3.2M3 15h14a2.5 2.5 0 11-2.4 3.2M3 12h17"/></symbol>
+    <symbol id="i-auto" viewBox="0 0 24 24"><path d="M6 19L12 5l6 14M8.3 14h7.4"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="i-input" viewBox="0 0 24 24"><path d="M3 12h13M12 7l5 5-5 5M21 4v16"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 018 0v2.5"/></symbol>
+    <symbol id="i-room" viewBox="0 0 24 24"><path d="M4 20V9l8-5 8 5v11M9 20v-6h6v6"/></symbol>
+    <symbol id="i-ir" viewBox="0 0 24 24"><path d="M12 14.5v6M8.5 6.8a5 5 0 017 0M5.5 4a9 9 0 0113 0"/><rect x="8" y="9.5" width="8" height="5" rx="2.5"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 11-2.6-5.9M20 4v5h-5"/></symbol>
+  </defs>
+</svg>
+
+<div class="layout">
+<aside class="index" aria-label="Page index">
+  <h2>One Remote mock v4</h2>
+  <nav>
+    <a href="#s-proto">Try it</a>
+    <a href="#s-tokens">Visual system</a>
+    <a href="#s-start">Start and Home</a>
+    <a href="#s-tv">TV remote</a>
+    <a href="#s-ac">Air conditioner</a>
+    <a href="#s-fan">Fan</a>
+    <a href="#s-addtv">Add a TV</a>
+    <a href="#s-addac">Add an AC or fan</a>
+    <a href="#s-matter" class="sub">Matter QR scan</a>
+    <a href="#s-sheet">Settings and sheets</a>
+    <a href="#s-comp">Components</a>
+    <a href="#s-motion">Motion</a>
+    <a href="#s-changes">Token changes</a>
+  </nav>
+</aside>
+
+<div class="page">
 <header>
-  <h1>One Remote: mockup v4 (all flows)</h1>
-  <p>One device, one card, one remote. How the app talks to a device (Wi-Fi, Matter or IR) is the app's
-  problem, not a kind of device you pick. An AC is an AC: it gets the same screen whether it is reached
-  over Matter or IR, and the app uses the best link that works right now.</p>
-  <div class="toggle" role="group" aria-label="Theme">
-    <button onclick="document.documentElement.dataset.theme='light'">Light</button>
-    <button onclick="document.documentElement.dataset.theme='dark'">Dark</button>
+  <h1>One Remote, mock v4</h1>
+  <p>The production-grade reference for every screen and state. One device, one card, one remote: how the app reaches a device (Wi-Fi, Matter or IR) is the app's problem, not something you pick. Every phone below is 390 by 844, uses the app's tokens (<code class="i2">src/theme/tokens.ts</code>) and the copy in <code class="i2">src/i18n/en</code>, and most of them respond to taps.</p>
+  <p>Everything animates from the motion tokens in the CSS. Use the controls to switch theme, force reduced motion, or replay any phone.</p>
+  <div class="ctl" role="group" aria-label="Page controls">
+    <div class="grp" role="group" aria-label="Theme">
+      <button data-theme-set="system" aria-pressed="true">System</button>
+      <button data-theme-set="light" aria-pressed="false">Light</button>
+      <button data-theme-set="dark" aria-pressed="false">Dark</button>
+    </div>
+    <div class="grp" role="group" aria-label="Motion">
+      <button data-motion-set="system" aria-pressed="true">Motion: system</button>
+      <button data-motion-set="reduce" aria-pressed="false">Reduce</button>
+    </div>
+    <button class="solo" id="replay-all">Replay all animations</button>
   </div>
 </header>
 
-<main class="grid">
-  <!-- 1. Home -->
-  <figure>
-    <div class="phone">
-      <div class="bar"><div><h2>Home</h2><div class="sub">5 devices</div></div><div class="row" style="flex:0"><div class="icon">⚙</div><div class="icon">＋</div></div></div>
-      <div class="section">Living room</div>
-      <div class="card"><div class="icon">📺</div><div class="grow"><div class="name">LG OLED C4</div><div class="sub">Netflix · Vol 18</div></div><span class="pill on">On</span></div>
-      <div class="card"><div class="icon">❄️</div><div class="grow"><div class="name">Panasonic AC</div><div class="sub">Cool · 24°</div></div><div class="sw on"></div></div>
-      <div class="card"><div class="icon">🌀</div><div class="grow"><div class="name">Atomberg fan</div><div class="sub">Speed 3</div></div><div class="sw on"></div></div>
-      <div class="section">Bedroom</div>
-      <div class="card"><div class="icon">❄️</div><div class="grow"><div class="name">Panasonic AC</div><div class="sub">Off</div></div><div class="sw"></div></div>
-      <div class="card"><div class="icon">🌀</div><div class="grow"><div class="name">Atomberg fan</div><div class="sub">Off</div></div><div class="sw"></div></div>
-    </div>
-    <figcaption><b>Home.</b> Every device on one screen, grouped by room. A quick on/off on each card, and a tap opens its remote. No account, no tabs, no store.</figcaption>
-  </figure>
-
-  <!-- 2. TV -->
-  <figure>
-    <div class="phone">
-      <div class="bar"><div class="icon">‹</div><div style="text-align:center"><h2>LG OLED C4</h2><div class="sub">Wi-Fi · connected</div></div><div class="icon power">⏻</div></div>
-      <div class="seg"><span class="sel">Touchpad</span><span>D-pad</span></div>
-      <div class="row" style="flex:1; align-items:stretch">
-        <div class="pad"><div class="hint">Swipe to move<br>Tap to select</div></div>
-        <div class="rocker" style="align-self:center"><span>＋</span><span style="font-size:11px;color:var(--ink-2)">VOL</span><span>－</span></div>
-      </div>
-      <div class="row"><div class="btn">↩ Back</div><div class="btn">⌂ Home</div><div class="btn">🔇</div></div>
-      <div class="row"><div class="btn">⌨ Keyboard</div><div class="btn">⇄ Input</div><div class="btn">▶❚❚</div></div>
-    </div>
-    <figcaption><b>TV.</b> Modelled on the Google TV remote: touchpad by default, D-pad one tap away. The phone's volume keys also control the TV. Keyboard for search boxes. No ads, no channel guide, no "ThinQ" extras.</figcaption>
-  </figure>
-
-  <!-- 3. AC -->
-  <figure>
-    <div class="phone">
-      <div class="bar"><div class="icon">‹</div><div style="text-align:center"><h2>Panasonic AC</h2><div class="sub">Living room · 27° in the room</div></div><div class="icon power">⏻</div></div>
-      <div class="dial"><div class="v"><div class="t">24°</div><div class="m">Cool</div></div></div>
-      <div class="pm"><span>－</span><span>＋</span></div>
-      <div class="seg"><span class="sel">❄ Cool</span><span>💧 Dry</span><span>🌬 Fan</span><span>A Auto</span></div>
-      <div class="seg"><span>Fan</span><span>1</span><span class="sel">2</span><span>3</span><span>Auto</span></div>
-      <div class="row"><div class="btn">↕ Swing</div><div class="btn">🌙 Sleep</div><div class="btn">⏲ Timer</div></div>
-      <div class="via">● Connected · <u>how it's connected</u></div>
-    </div>
-    <figcaption><b>AC.</b> One screen for every AC. Dial with + and −, mode and fan speed as plain toggles, extras in one row. The link (Matter, Wi-Fi or IR) only shows up as a small line at the bottom. If the AC can report back, you see its real state and room temperature; if it can only take IR, you see what was last sent, and the room temperature line disappears. Buttons the AC lacks are hidden.</figcaption>
-  </figure>
-
-  <!-- 4. Fan -->
-  <figure>
-    <div class="phone">
-      <div class="bar"><div class="icon">‹</div><div style="text-align:center"><h2>Atomberg fan</h2><div class="sub">Bedroom</div></div><div class="icon power">⏻</div></div>
-      <div class="section">Speed</div>
-      <div class="speeds">
-        <span class="lit" style="height:30%">1</span><span class="lit" style="height:45%">2</span><span class="lit" style="height:60%">3</span>
-        <span style="height:75%">4</span><span style="height:90%">5</span>
-      </div>
-      <div class="row"><div class="btn accent">⚡ Boost</div><div class="btn">🌙 Sleep</div></div>
-      <div class="section">Timer</div>
-      <div class="chips"><span class="chip">Off</span><span class="chip sel">1 h</span><span class="chip">2 h</span><span class="chip">4 h</span><span class="chip">8 h</span></div>
-      <div class="row"><div class="btn">💡 Light</div><div class="btn">✨ LED</div></div>
-    </div>
-    <figcaption><b>Fan.</b> Five tall speed bars you can hit without looking, with Boost and Sleep below. Timer as chips. The Light row appears only for fans that have one.</figcaption>
-  </figure>
-
-  <!-- 5. TV, D-pad mode -->
-  <figure>
-    <div class="phone">
-      <div class="bar"><div class="icon">‹</div><div style="text-align:center"><h2>LG OLED C4</h2><div class="sub">Wi-Fi · connected</div></div><div class="icon power">⏻</div></div>
-      <div class="seg"><span>Touchpad</span><span class="sel">D-pad</span></div>
-      <div class="row" style="flex:1; align-items:center">
-        <div class="dpad"><div class="ring">
-          <b style="top:14px">▲</b><b style="bottom:14px">▼</b><b style="left:18px">◀</b><b style="right:18px">▶</b>
-          <div class="ok">OK</div></div></div>
-        <div class="rocker"><span>＋</span><span style="font-size:11px;color:var(--ink-2)">VOL</span><span>－</span></div>
-      </div>
-      <div class="row"><div class="btn">↩ Back</div><div class="btn">⌂ Home</div><div class="btn">🔇</div></div>
-      <div class="row"><div class="btn">⌨ Keyboard</div><div class="btn">⇄ Input</div><div class="btn">▶❚❚</div></div>
-    </div>
-    <figcaption><b>TV, D-pad.</b> The same screen with the pad swapped for arrows and OK, like the Google TV app's D-pad mode. The app remembers your choice per TV.</figcaption>
-  </figure>
-
-  <!-- 6. Add device -->
-  <figure>
-    <div class="phone">
-      <div class="bar"><div class="icon">‹</div><div style="text-align:center"><h2>Add device</h2><div class="sub">What is it?</div></div><div style="width:40px"></div></div>
-      <div class="card"><div class="icon">📺</div><div class="grow"><div class="name">TV</div></div></div>
-      <div class="card"><div class="icon">❄️</div><div class="grow"><div class="name">Air conditioner</div></div></div>
-      <div class="card"><div class="icon">🌀</div><div class="grow"><div class="name">Fan</div></div></div>
-      <div class="section">Then</div>
-      <div class="banner">Pick the brand. The app looks for it on your Wi-Fi first (LG TV, Matter). If it finds nothing, it offers the IR remote for that brand and asks you to test one button. You never choose "Matter" or "IR".</div>
-    </div>
-    <figcaption><b>Add device.</b> You pick what the thing is, not how it connects. A rough sketch; the full add flows come later.</figcaption>
-  </figure>
-
-  <!-- 7. Home without IR -->
-  <figure>
-    <div class="phone">
-      <div class="bar"><div><h2>Home</h2><div class="sub">5 devices · Samsung S21 FE</div></div><div class="icon">＋</div></div>
-      <div class="banner">This phone has no IR blaster. Devices that only take IR can't be controlled from it.</div>
-      <div class="section">Living room</div>
-      <div class="card"><div class="icon">📺</div><div class="grow"><div class="name">LG OLED C4</div><div class="sub">Netflix · Vol 18</div></div><span class="pill on">On</span></div>
-      <div class="card dim"><div class="icon">🌀</div><div class="grow"><div class="name">Atomberg fan</div><div class="sub">Needs a phone with IR</div></div></div>
-      <div class="section">Bedroom</div>
-      <div class="card"><div class="icon">❄️</div><div class="grow"><div class="name">Panasonic AC</div><div class="sub">Off</div></div><div class="sw"></div></div>
-      <div class="card dim"><div class="icon">❄️</div><div class="grow"><div class="name">Panasonic AC</div><div class="sub">Needs a phone with IR</div></div></div>
-    </div>
-    <figcaption><b>Home, phone without IR.</b> The same cards with no link labels. The Matter AC works as usual. Devices that only take IR stay visible, greyed out, saying they need a phone with IR.</figcaption>
-  </figure>
-</main>
-
-<!-- ============ First run ============ -->
-<section class="flow"><h2>First run</h2><p>No account, no sign-in, no permissions up front. Permissions are asked only when a step needs them.</p></section>
-<div class="grid">
-  <figure>
-    <div class="phone short">
-      <div class="hero">⌂</div>
-      <div class="big center">One Remote</div>
-      <div class="sub center">Your TV, ACs and fans in one place. No account, no ads, nothing leaves your home network.</div>
-      <div class="spacer"></div>
-      <div class="btn accent">Add your first device</div>
-    </div>
-    <figcaption><b>Welcome.</b> One screen, one button. Also the empty state of Home.</figcaption>
-  </figure>
-</div>
-
-<!-- ============ Add TV ============ -->
-<section class="flow"><h2>Add a TV</h2><p>Pick TV → brand → the app finds it on Wi-Fi → you accept once on the TV → name and room. v1 brands: LG (webOS).</p></section>
-<div class="grid">
-  <figure>
-    <div class="phone short">
-      <div class="bar"><div class="icon">‹</div><div class="center"><h2>Add TV</h2><div class="sub">Which brand?</div></div><div style="width:40px"></div></div>
-      <div class="input">🔍 Search brands</div>
-      <div class="card"><div class="grow"><div class="name">LG</div><div class="sub">webOS TVs, 2014 and later</div></div><span>›</span></div>
-      <div class="card dim"><div class="grow"><div class="name">Samsung, Sony, Google TV…</div><div class="sub">Not yet supported</div></div></div>
-    </div>
-    <figcaption><b>Brand.</b> Only brands we can actually control are tappable. Others are listed as "not yet" so nobody guesses.</figcaption>
-  </figure>
-  <figure>
-    <div class="phone short">
-      <div class="bar"><div class="icon">‹</div><div class="center"><h2>Looking for your TV</h2><div class="sub">On this Wi-Fi</div></div><div style="width:40px"></div></div>
-      <div class="warn">Turn the TV on and keep the phone on the same Wi-Fi as the TV.</div>
-      <div class="card"><div class="icon">📺</div><div class="grow"><div class="name">LG OLED C4</div><div class="sub">192.168.1.23</div></div><span>›</span></div>
-      <div class="sub center">Still looking…</div>
-      <div class="spacer"></div>
-      <div class="link">Can't find it? Enter the TV's IP address</div>
-    </div>
-    <figcaption><b>Find.</b> Lists TVs as they appear. On iPhone the system's "local network" prompt shows here, the first time only. Manual IP is the backup.</figcaption>
-  </figure>
-  <figure>
-    <div class="phone short">
-      <div class="bar"><div class="icon">‹</div><div class="center"><h2>Check your TV</h2><div class="sub">LG OLED C4</div></div><div style="width:40px"></div></div>
-      <div class="hero">📺</div>
-      <div class="big center">Press "Allow" on the TV</div>
-      <div class="sub center">A prompt is showing on the TV screen. Use the TV's own remote to accept it. You only do this once.</div>
-      <div class="spacer"></div>
-      <div class="sub center">Waiting… (60 s)</div>
-      <div class="link">Prompt didn't show? Try again</div>
-    </div>
-    <figcaption><b>Pair.</b> LG's one-time prompt. The app keeps the key it gets back, so it never asks again.</figcaption>
-  </figure>
-  <figure>
-    <div class="phone short">
-      <div class="bar"><div class="icon">‹</div><div class="center"><h2>Name it</h2><div class="sub">Last step</div></div><div style="width:40px"></div></div>
-      <div class="section">Name</div>
-      <div class="input" style="color:var(--ink)">LG OLED C4</div>
-      <div class="section">Room</div>
-      <div class="chips"><span class="chip sel">Living room</span><span class="chip">Bedroom</span><span class="chip">＋ New room</span></div>
-      <div class="spacer"></div>
-      <div class="btn accent">Done</div>
-    </div>
-    <figcaption><b>Name and room.</b> Shared last step for every device type. The name is pre-filled; rooms are created right here, no separate rooms screen.</figcaption>
-  </figure>
-</div>
-
-<!-- ============ Add AC ============ -->
-<section class="flow"><h2>Add an AC</h2><p>Pick AC → brand → if it has the Matter logo, scan its code; otherwise (or as well) the app finds the right IR remote by testing buttons. You are never asked "Matter or IR?".</p></section>
-<div class="grid">
-  <figure>
-    <div class="phone short">
-      <div class="bar"><div class="icon">‹</div><div class="center"><h2>Add AC</h2><div class="sub">Which brand?</div></div><div style="width:40px"></div></div>
-      <div class="input">🔍 Search brands</div>
-      <div class="card"><div class="grow"><div class="name">Panasonic</div></div><span>›</span></div>
-      <div class="card"><div class="grow"><div class="name">Voltas</div></div><span>›</span></div>
-      <div class="card"><div class="grow"><div class="name">Daikin</div></div><span>›</span></div>
-      <div class="card"><div class="grow"><div class="name">LG · Samsung · Hitachi · …</div></div><span>›</span></div>
-      <div class="sub center">Brand missing? Tell us (opens email, nothing sent automatically)</div>
-    </div>
-    <figcaption><b>Brand.</b> The list is the brands we have codes for. Same screen for fans.</figcaption>
-  </figure>
-  <figure>
-    <div class="phone short">
-      <div class="bar"><div class="icon">‹</div><div class="center"><h2>Panasonic AC</h2><div class="sub">Does it have this logo?</div></div><div style="width:40px"></div></div>
-      <div class="qr">Point the camera at the Matter QR code<br>on the AC's sticker or manual</div>
-      <div class="link">Type the 11-digit code instead</div>
-      <div class="spacer"></div>
-      <div class="btn">No Matter logo — use the AC's remote codes</div>
-    </div>
-    <figcaption><b>Matter (if it has it).</b> Only shown for brands that sell Matter models. If the AC is already set up in another app (e.g. MirAIe or Google Home), that app can show a fresh pairing code; the copy explains this.</figcaption>
-  </figure>
-  <figure>
-    <div class="phone short">
-      <div class="bar"><div class="icon">‹</div><div class="center"><h2>Connecting</h2><div class="sub">Panasonic AC</div></div><div style="width:40px"></div></div>
-      <div class="hero">❄️</div>
-      <div class="item"><span>Found the AC</span><span class="pill on">✓</span></div>
-      <div class="item"><span>Joining your Wi-Fi</span><span class="pill on">✓</span></div>
-      <div class="item"><span>Checking it responds</span><span class="pill">…</span></div>
-      <div class="spacer"></div>
-      <div class="sub center">Keep the phone near the AC with Bluetooth on</div>
-    </div>
-    <figcaption><b>Matter setup.</b> Plain steps, not a spinner. On failure, it says which step and what to do. After this, phones with IR are offered "Add IR backup" (the test screen next).</figcaption>
-  </figure>
-  <figure>
-    <div class="phone short">
-      <div class="bar"><div class="icon">‹</div><div class="center"><h2>Find the right remote</h2><div class="sub">Panasonic · try 2 of 5</div></div><div style="width:40px"></div></div>
-      <div class="hero">📡</div>
-      <div class="big center">Point at the AC, press Test</div>
-      <div class="sub center">This turns the AC on, Cool 24°. Did it beep or turn on?</div>
-      <div class="btn accent">Test</div>
-      <div class="row"><div class="btn">No, try next</div><div class="btn">Yes, it worked</div></div>
-      <div class="step">● ● ○ ○ ○</div>
-    </div>
-    <figcaption><b>IR test.</b> Goes through that brand's known remotes one by one. After "Yes", one more check (temperature up) confirms it. If none work: "Sorry, we don't have codes for this AC yet." No charge, no guessing.</figcaption>
-  </figure>
-  <figure>
-    <div class="phone short">
-      <div class="bar"><div class="icon">‹</div><div class="center"><h2>Add AC</h2><div class="sub">This phone</div></div><div style="width:40px"></div></div>
-      <div class="hero">📵</div>
-      <div class="big center">This phone has no IR blaster</div>
-      <div class="sub center">Only ACs with the Matter logo work from this phone. Phones with IR (many Xiaomi, Redmi, Poco, iQOO, Vivo) can control the rest.</div>
-      <div class="spacer"></div>
-      <div class="btn accent">Scan Matter code</div>
-      <div class="btn">Add anyway (for another phone)</div>
-    </div>
-    <figcaption><b>No IR on this phone.</b> Shown instead of the IR test. "Add anyway" saves the device greyed out, as on Home.</figcaption>
-  </figure>
-</div>
-
-<!-- ============ Add fan ============ -->
-<section class="flow"><h2>Add a fan</h2><p>The same steps as the AC: brand → (Matter if the brand has it) → IR test → name and room. The IR test for a fan presses Speed 3, then Light if the fan has one.</p></section>
-
-<!-- ============ Device settings ============ -->
-<section class="flow"><h2>Device settings</h2><p>From the ⋯ on a remote screen, or a long-press on a Home card.</p></section>
-<div class="grid">
-  <figure>
-    <div class="phone short">
-      <div class="bar"><div class="icon">‹</div><div class="center"><h2>Panasonic AC</h2></div><div class="icon">⋯</div></div>
-      <div class="dial" style="width:150px;height:150px"><div class="v"><div class="t" style="font-size:40px">24°</div></div></div>
-      <div class="sheet">
-        <div class="item"><span>Name</span><span class="sub">Panasonic AC ›</span></div>
-        <div class="item"><span>Room</span><span class="sub">Bedroom ›</span></div>
-        <div class="item"><span>How it's connected</span><span class="sub">Matter · IR backup ›</span></div>
-        <div class="item"><span>Move up / down on Home</span><span class="sub">›</span></div>
-        <div class="item danger"><span>Remove device</span><span></span></div>
-      </div>
-    </div>
-    <figcaption><b>Device sheet.</b> Rename, move room, reorder, remove. "How it's connected" is the one place links show: add or redo IR backup, re-pair, see the TV's IP.</figcaption>
-  </figure>
-  <figure>
-    <div class="phone short">
-      <div class="bar"><div class="icon">‹</div><div class="center"><h2>Settings</h2></div><div style="width:40px"></div></div>
-      <div class="item"><span>Theme</span><span class="sub">System ›</span></div>
-      <div class="item"><span>Phone volume keys control the TV</span><div class="sw on"></div></div>
-      <div class="item"><span>Vibrate on press</span><div class="sw on"></div></div>
-      <div class="item"><span>Rooms</span><span class="sub">Rename, reorder ›</span></div>
-      <div class="item"><span>Privacy</span><span class="sub">Local network only ›</span></div>
-      <div class="item"><span>About and licences</span><span class="sub">›</span></div>
-    </div>
-    <figcaption><b>Settings.</b> From a gear on Home. Short on purpose.</figcaption>
-  </figure>
-</div>
-
-<!-- ============ Problems ============ -->
-<section class="flow"><h2>When something is wrong</h2><p>Never a spinner that hangs. Each problem says what happened and the one thing to do, and IR steps in where it can.</p></section>
-<div class="grid">
-  <figure>
-    <div class="phone short">
-      <div class="bar"><div class="icon">‹</div><div class="center"><h2>LG OLED C4</h2><div class="sub">Off</div></div><div class="icon power">⏻</div></div>
-      <div class="hero">📺</div>
-      <div class="big center">The TV is off</div>
-      <div class="sub center">Tap power to turn it on.</div>
-      <div class="btn accent">⏻ Turn on</div>
-      <div class="via">Uses IR on this phone, or Wi-Fi wake if the TV allows it</div>
-    </div>
-    <figcaption><b>TV off.</b> LG drops off Wi-Fi when off, so power-on goes over IR (phones with IR) or Wake-on-LAN (if "Turn on via Wi-Fi" is on in the TV). The pad appears as soon as the TV answers.</figcaption>
-  </figure>
-  <figure>
-    <div class="phone short">
-      <div class="bar"><div class="icon">‹</div><div class="center"><h2>LG OLED C4</h2><div class="sub">Can't reach it</div></div><div class="icon power">⏻</div></div>
-      <div class="warn">Not on the same Wi-Fi as the TV, or the TV's address changed. Looking again…</div>
-      <div class="pad" style="opacity:.4"><div class="hint">Touchpad</div></div>
-      <div class="row"><div class="btn">Wi-Fi settings</div><div class="btn">Find TV again</div></div>
-    </div>
-    <figcaption><b>Unreachable.</b> The app searches again by itself and updates the TV's address. Buttons that IR can do (power, volume) keep working on IR phones.</figcaption>
-  </figure>
-  <figure>
-    <div class="phone short">
-      <div class="bar"><div class="icon">‹</div><div class="center"><h2>Panasonic AC</h2><div class="sub">Bedroom</div></div><div class="icon power">⏻</div></div>
-      <div class="dial" style="width:170px;height:170px"><div class="v"><div class="t" style="font-size:44px">24°</div><div class="m">Cool</div></div></div>
-      <div class="pm"><span>－</span><span>＋</span></div>
-      <div class="seg"><span class="sel">❄ Cool</span><span>💧 Dry</span><span>🌬 Fan</span><span>A Auto</span></div>
-      <div class="seg"><span>Fan</span><span>1</span><span class="sel">2</span><span>3</span><span>Auto</span></div>
-      <div class="spacer"></div>
-      <div class="via">Matter not reachable · sent over IR · point at the AC</div>
-    </div>
-    <figcaption><b>Fell back to IR.</b> Same screen. Only the small line changes. When Matter answers again, the app switches back and reads the real state.</figcaption>
-  </figure>
-</div>
-
-<section class="notes">
-  <b>Decided in v1 review</b>
-  <ul>
-    <li>TV: touchpad by default, D-pad on choice (like the Google TV app).</li>
-    <li>AC: dial with + and − buttons.</li>
-    <li>Home: grouped by room.</li>
-    <li>One device, one card, one screen. The link (Wi-Fi, Matter, IR) is not a device type and is not shown in the main UI. On phones without IR, devices that only take IR are greyed out with the reason.</li>
-    <li>A device can have more than one link. A Matter AC that also has an IR remote keeps IR as a quiet backup, used when Matter or Wi-Fi can't be reached.</li>
-  </ul>
+<section class="flow" id="s-proto">
+  <h2>Try it</h2>
+  <p>A working prototype of the main path. Tap a device, use the touchpad, hold the mic, open the ⋮ menu and switch to the D-pad, change the AC setpoint, open Device settings. Screens push and go back with the real transitions.</p>
+  <div class="figs" data-figs="proto"></div>
 </section>
+
+<section class="flow" id="s-tokens">
+  <h2>Visual system</h2>
+  <p>Defined once at the top of this file as CSS variables, for light and dark. Swatches below are read live from the variables, so they follow the theme switch. Contrast ratios are computed from the same values (AA: 4.5 for text, 3 for controls and large text).</p>
+  <div class="tk" id="tokens"></div>
+</section>
+
+<section class="flow" id="s-start">
+  <h2>Start and Home</h2>
+  <p>App start, loading, the first-run welcome, a full Home and the ways Home goes wrong.</p>
+  <div class="figs" data-figs="start"></div>
+</section>
+
+<section class="flow" id="s-tv">
+  <h2>TV remote</h2>
+  <p>Google TV style: a bar with Back, name, power, keyboard and ⋮; a flexible touchpad with a 44 px dot; Back (64), Home (84) and a 64 px ink mic below. Works the same for LG, Android TV / Google TV and Samsung.</p>
+  <div class="figs" data-figs="tv"></div>
+</section>
+
+<section class="flow" id="s-ac">
+  <h2>Air conditioner</h2>
+  <p>One screen for every AC, over Matter or IR. The link only shows as one quiet line at the bottom.</p>
+  <div class="figs" data-figs="ac"></div>
+</section>
+
+<section class="flow" id="s-fan">
+  <h2>Fan</h2>
+  <p>Five tall speed bars you can hit without looking, then Boost, Sleep and Light, and a timer.</p>
+  <div class="figs" data-figs="fan"></div>
+</section>
+
+<section class="flow" id="s-addtv">
+  <h2>Add a TV</h2>
+  <p>Kind, brand, find on the Wi-Fi, pair. LG and Samsung ask you to press Allow on the TV; Android TV shows a code to type. Every failure says what happened and what to do.</p>
+  <div class="figs" data-figs="addtv"></div>
+</section>
+
+<section class="flow" id="s-addac">
+  <h2>Add an AC or fan</h2>
+  <p>Brand, then Matter (if the brand sells Matter models) or IR code testing. Name and room are the shared last step.</p>
+  <div class="figs" data-figs="addac"></div>
+</section>
+
+<section class="flow" id="s-matter">
+  <h2>Add an AC over Matter</h2>
+  <p>The camera is the main action: point it at the QR code and it locks on by itself. "Paste code" and "Enter code instead" are the fallbacks. Then three plain steps, never a bare spinner.</p>
+  <div class="figs" data-figs="matter"></div>
+</section>
+
+<section class="flow" id="s-sheet">
+  <h2>Settings and sheets</h2>
+  <p>Device settings is a bottom sheet from the ⋮ menu (and long-press on Home). Settings is a pushed screen from the gear.</p>
+  <div class="figs" data-figs="sheet"></div>
+</section>
+
+<section class="flow" id="s-comp">
+  <h2>Components and states</h2>
+  <p>The same pieces as <code class="i2">src/ui</code>, in every state: default, pressed, disabled, loading, selected, error. Tap the pressed examples to feel the press.</p>
+  <div class="figs" data-figs="comp"></div>
+  <div id="comp-sheet" style="margin-top:32px"></div>
+</section>
+
+<section class="flow" id="s-motion">
+  <h2>Motion</h2>
+  <p>Five durations and four easings, used everywhere. Nothing moves that does not explain a change: pushes show where you came from, sheets and menus grow from their trigger, toasts arrive from below, loops only run while something is genuinely in progress.</p>
+  <div id="motion"></div>
+</section>
+
+<section class="flow" id="s-changes">
+  <h2>Token changes for the app</h2>
+  <p>What this mock needs that <code class="i2">src/theme/tokens.ts</code> does not have yet. Everything else is the app's current value.</p>
+  <div id="changes"></div>
+</section>
+</div>
+</div>
+<script>
+/* =====================================================================================
+   6. COMPONENT + SCREEN TEMPLATES (strings come from src/i18n/en and lane/panasonic)
+   ===================================================================================== */
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+const I = (n, c = '') => `<svg class="i ${c}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const spin = '<span class="spinner" role="status" aria-label="Loading"></span>';
+const act = (a, arg, p) => a ? `data-act="${a}"${arg != null ? ` data-arg="${esc(arg)}"` : ''}${p ? ` data-p="${esc(JSON.stringify(p))}"` : ''}` : '';
+const Btn = (label, o = {}) => `<button class="btn ${o.v || 'primary'} ${o.cls || ''}${o.loading ? ' loading' : ''}${o.pressed ? ' is-pressed' : ''}${o.disabled ? ' is-disabled' : ''}" ${o.disabled ? 'aria-disabled="true"' : ''} ${act(o.act, o.arg, o.p)}>${o.loading ? spin : o.icon ? I(o.icon) : ''}<span>${label}</span></button>`;
+const IBtn = (icon, label, a, o = {}) => `<button class="ibtn ${o.cls || ''}${o.pressed ? ' is-pressed' : ''}${o.disabled ? ' is-disabled' : ''}" aria-label="${esc(label)}" ${o.exp != null ? `aria-expanded="${o.exp}"` : ''} ${act(a, o.arg)}>${I(icon)}</button>`;
+const Bar = (o = {}) => `<header class="bar">${o.back === false ? '' : IBtn('back', 'Back', 'back')}<div class="bt"><h1>${o.title || ''}</h1>${o.sub ? `<p>${o.dot ? `<span class="dot ${o.dot}"></span>` : ''}${o.sub}</p>` : ''}</div>${o.actions || ''}</header>`;
+const Head = (title, sub) => `<div class="col gap2" style="gap:6px"><h1 class="t-title">${title}</h1>${sub ? `<p class="t-body ink2">${sub}</p>` : ''}</div>`;
+const Chip = (label, o = {}) => `<button class="chip${o.sel ? ' sel' : ''}${o.pressed ? ' is-pressed' : ''}${o.disabled ? ' is-disabled' : ''}" aria-pressed="${!!o.sel}" ${act(o.act || 'sel', o.arg)}>${o.icon ? I(o.icon) : ''}${label}</button>`;
+const Switch = (on, label, o = {}) => `<button class="tog${o.disabled ? ' is-disabled' : ''}" role="switch" aria-checked="${!!on}" aria-label="${esc(label)}" ${act('tog')}><span class="switch${on ? ' on' : ''}"></span></button>`;
+const Toast = (msg, kind = 'info', action) => `<div class="toast ${kind}" role="status">${kind === 'ok' ? I('check') : kind === 'error' ? I('alert') : I('info')}<span>${msg}</span>${action ? `<button ${act('toast-act')}>${action}</button>` : ''}</div>`;
+const Err = msg => `<div class="errline" role="alert">${I('alert')}<span>${msg}</span></div>`;
+const Seg = (items, i, a) => `<div class="seg" style="--n:${items.length};--i:${i}" role="group"><span class="thumb"></span>${items.map((x, k) => `<button aria-pressed="${k === i}" ${act(a, k)}>${x}</button>`).join('')}</div>`;
+const Banner = (txt, kind = '', ic = 'info') => `<div class="banner ${kind}" role="note">${I(ic)}<span>${txt}</span></div>`;
+const Empty = (ic, title, body, btn) => `<div class="empty"><div class="art">${I(ic)}</div><h2 class="t-head">${title}</h2><p class="t-body ink2">${body}</p>${btn || ''}</div>`;
+const QR = () => { let r = '', s = 7; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280; for (let y = 0; y < 21; y++) for (let x = 0; x < 21; x++) { const f = (x < 7 && y < 7) || (x > 13 && y < 7) || (x < 7 && y > 13); let on; if (f) { const lx = x % 14 % 7 + (x > 13 ? 0 : 0), ly = y % 14 % 7; const ex = x > 13 ? x - 14 : x, ey = y > 13 ? y - 14 : y; on = ex === 0 || ex === 6 || ey === 0 || ey === 6 || (ex > 1 && ex < 5 && ey > 1 && ey < 5); } else on = rnd() > .52; if (on) r += `<rect x="${x}" y="${y}" width="1" height="1"/>`; } return `<svg viewBox="0 0 21 21" fill="#14181e" shape-rendering="crispEdges">${r}</svg>`; };
+
+const D = {
+  tv1: { k: 'tv', brand: 'lg', name: 'LG OLED C4', room: 'Living room', on: true, sum: 'Netflix · Vol 18', ip: '192.168.1.23' },
+  ac1: { k: 'ac', name: 'Panasonic AC', room: 'Living room', on: true, sum: 'Cool · 24°', link: 'matter' },
+  fan1: { k: 'fan', name: 'Atomberg fan', room: 'Living room', on: true, sum: 'Speed 3' },
+  tv2: { k: 'tv', brand: 'samsung', name: 'Samsung TV', room: 'Bedroom', on: false, sum: 'Off', ip: '192.168.1.41' },
+  ac2: { k: 'ac', name: 'Panasonic AC', room: 'Bedroom', on: false, sum: 'Off', link: 'ir' },
+  tv3: { k: 'tv', brand: 'atv', name: 'Airtel box', room: 'Study', on: true, sum: 'YouTube · Vol 9', ip: '192.168.1.57' },
+};
+const BRAND = { lg: 'LG', atv: 'Google TV / Android TV', samsung: 'Samsung' };
+const WAKEFAIL = {
+  lg: "Didn't turn on? On the TV, turn on Settings › General › Devices › TV Management › Turn on via Wi-Fi, or use the TV's remote once.",
+  atv: "Didn't turn on? Some Android TVs and boxes can't be woken over Wi-Fi. Look for Wake on LAN or Remote start in the TV's settings, or use its remote once.",
+  samsung: "Didn't turn on? On the TV, open Settings › General › Network › Expert Settings and turn on Power on with mobile, or use the TV's remote once.",
+};
+const KIND_ICON = { tv: 'tv', ac: 'ac', fan: 'fan' };
+
+const DevCard = (id, o = {}) => { const d = D[id], on = o.on ?? d.on, ir = o.needsIr;
+  return `<div class="card rise${ir ? ' off' : ''}" style="--n:${o.n ?? 0}"><button class="opn" ${act('open', id)} aria-label="${esc(d.name)}, ${esc(ir ? 'Needs a phone with IR' : (on ? d.sum : 'Off'))}"><span class="tile">${I(KIND_ICON[d.k])}</span><span class="meta"><span class="nm">${d.name}</span><span class="sb" data-on="${esc(d.sum)}" data-off="Off">${ir ? 'Needs a phone with IR' : (on ? d.sum : 'Off')}</span></span></button>${Switch(on && !ir, 'Power ' + d.name, { disabled: ir })}</div>`; };
+const SkelCard = () => `<div class="card skel"><span class="sk" style="width:44px;height:44px;border-radius:14px"></span><span class="meta col" style="gap:8px"><span class="sk" style="height:16px;width:58%"></span><span class="sk" style="height:12px;width:36%"></span></span><span class="sk" style="width:52px;height:32px;border-radius:16px"></span></div>`;
+
+const S = {};
+const scr = (inner, o = {}) => `<div class="screen ${o.cls || ''}" ${o.attrs || ''}>${inner}</div>`;
+
+/* ---- start + home ---- */
+S.splash = () => scr(`<div class="grow"></div><div class="mark" aria-hidden="true"><svg viewBox="0 0 64 64"><path class="ring" d="M20 15.5a22 22 0 1024 0"/><path d="M32 6v22"/></svg></div><h1 class="t-title">One Remote</h1><div class="grow"></div><p class="t-cap" style="margin-bottom:8px">Nothing leaves your home network.</p>`, { cls: 'splash' });
+S.home = (p = {}) => { const st = p.state || 'loaded';
+  const head = (sub) => `<header class="bar" style="align-items:flex-start;min-height:56px"><div class="bt">${Head('Home').replace('<h1','<h1 data-t="home"')}${sub}</div><div class="row gap2">${IBtn('gear', 'Settings', 'go', { arg: 'settings' })}${IBtn('plus', 'Add a device', 'go', { arg: 'addKind' })}</div></header>`;
+  if (st === 'loading') return scr(`<header class="bar" style="align-items:flex-start;min-height:56px"><div class="bt">${Head('Home')}<span class="sk" style="display:block;height:13px;width:70px;margin-top:6px"></span></div><div class="row gap2">${IBtn('gear', 'Settings', null, { disabled: true })}${IBtn('plus', 'Add a device', null, { disabled: true })}</div></header><div class="scroll" aria-busy="true" aria-label="Loading"><span class="sk" style="height:13px;width:90px;margin:8px 4px 0"></span>${SkelCard()}${SkelCard()}${SkelCard()}<span class="sk" style="height:13px;width:70px;margin:12px 4px 0"></span>${SkelCard()}${SkelCard()}</div>`, { attrs: 'data-screen="home"' });
+  if (st === 'empty') return scr(`<header class="bar" style="justify-content:flex-end">${IBtn('gear', 'Settings', 'go', { arg: 'settings' })}</header><div class="empty"><div class="mark" style="animation:none;width:96px;height:96px;border-radius:30px" aria-hidden="true"><svg viewBox="0 0 64 64" style="width:56px;height:56px"><path d="M20 15.5a22 22 0 1024 0M32 6v22"/></svg></div><h1 class="t-title" style="margin-top:12px">One Remote</h1><p class="t-body ink2" style="max-width:300px">Your TV, ACs and fans in one place. No account, no ads, nothing leaves your home network.</p></div>${Btn('Add your first device', { act: 'go', arg: 'addKind' })}`, { attrs: 'data-screen="home"' });
+  if (st === 'corrupt') return scr(`<header class="bar" style="justify-content:flex-end">${IBtn('gear', 'Settings', 'go', { arg: 'settings' })}</header>${Empty('alert', "Your saved devices can't be read", 'The saved data looks damaged. It has been left untouched, and changes are paused so nothing is lost.')}`, { attrs: 'data-screen="home"' });
+  if (st === 'noir') return scr(`${head('<p class="t-cap">4 devices</p>')}<div class="scroll">${Banner("This phone has no IR blaster. Devices that only take IR can't be controlled from it.", '', 'ir')}<p class="room">Living room</p>${DevCard('tv1', { n: 0 })}${DevCard('ac1', { n: 1 })}<p class="room">Bedroom</p>${DevCard('ac2', { needsIr: true, n: 2 })}${DevCard('fan1', { needsIr: true, on: false, n: 3 })}</div>`, { attrs: 'data-screen="home"' });
+  return scr(`${head('<p class="t-cap">6 devices</p>')}<div class="scroll"><p class="room">Living room</p>${DevCard('tv1', { n: 0 })}${DevCard('ac1', { n: 1 })}${DevCard('fan1', { n: 2 })}<p class="room">Bedroom</p>${DevCard('tv2', { n: 3 })}${DevCard('ac2', { n: 4, on: false })}<p class="room">Study</p>${DevCard('tv3', { n: 5 })}</div>`, { attrs: 'data-screen="home"' });
+};
+
+/* ---- TV ---- */
+const tvStatus = (st, brand) => ({ ready: ['Wi-Fi · connected', ''], connecting: ['Connecting…', 'warn live'], off: ['Off', 'warn'], waking: ['Turning on…', 'warn live'], wakefail: ['Off', 'warn'], unreachable: ["Can't reach it", 'err'], finding: ['Looking…', 'warn live'], found: ['Wi-Fi · connected', ''], notfound: ["Can't reach it", 'err'], notpaired: ['Pair again', 'err'], ir: ['Sent over IR', 'warn'], keyboard: ['Wi-Fi · connected', ''] }[st] || ['Wi-Fi · connected', '']);
+const live = st => ['ready', 'ir', 'keyboard', 'notpaired'].includes(st);
+function tvBody(st, o = {}) {
+  const brand = o.brand || 'lg';
+  const pads = `<div class="pads"><div class="pad touch${o.dot ? ' static-dot' : ''}" role="application" aria-label="Touchpad. Swipe to move, tap to select. For buttons instead, choose D-pad above."><span class="hint">Swipe to move · Tap to select</span><span class="tdot"></span><span class="tap"></span></div><div class="pad dpad dp"><div class="ring"><button class="k u" aria-label="Up" ${act('key')}>${I('up')}</button><button class="k l" aria-label="Left" ${act('key')}>${I('left')}</button><button class="k r" aria-label="Right" ${act('key')}>${I('right')}</button><button class="k d" aria-label="Down" ${act('key')}>${I('down')}</button><button class="ok" aria-label="OK" ${act('key')}>OK</button></div></div></div>`;
+  const keys = `<div class="keys${o.listening ? ' lst' : ''}"><button class="key b${o.pressed === 'back' ? ' is-pressed' : ''}" aria-label="Back" ${act('key')}>${I('back')}</button><button class="key h" aria-label="Home" ${act('key')}>${I('home')}</button><div class="micwrap"><span class="mlabel" aria-live="polite"><span class="eq"><i></i><i></i><i></i><i></i></span>Listening…</span><button class="mic" aria-label="Hold to talk" data-mic>${I('mic')}</button></div></div>`;
+  if (st === 'ready' || st === 'ir') return `${pads}${keys}${o.problem ? `<p class="t-cap center" role="status">${o.problem}</p>` : ''}`;
+  if (st === 'notpaired') return `<div class="dim">${pads}</div>${Banner('Pair the TV again from ⋯', 'err', 'lock')}${Btn('Pair again', { act: 'go', arg: 'addTvPair', p: { brand, again: true } })}`;
+  if (st === 'connecting') return `<div class="conn-pad"><span class="sk"></span><span class="badge2">${spin}Connecting…</span></div><div class="dim">${keys}</div>`;
+  if (st === 'keyboard') return `<div class="field"><label for="kb">Type on the TV</label><input id="kb" class="input focus" value="stranger th" aria-label="Type on the TV"></div><div class="grow"></div>${Btn('Done', { act: 'kbdone' })}`;
+  const panel = (art, ic, title, body, rest) => `<div class="tv-panel fade"><div class="art ${art}">${I(ic)}</div><h2 class="t-head">${title}</h2>${body}${rest || ''}</div>`;
+  if (st === 'off') return panel('off', 'power', 'The TV is off', '<p class="t-body ink2">Tap power to turn it on.</p>', `${Btn('Turn on', { act: 'turnon' })}<p class="t-cap">Uses IR on this phone, or Wi-Fi wake if the TV allows it</p>`);
+  if (st === 'waking') return panel('off', 'power', 'The TV is off', '<p class="t-body ink2" role="status">Turning on…</p>', `<div style="margin-top:8px">${spin.replace('spinner','spinner lg')}</div>`);
+  if (st === 'wakefail') return panel('off', 'power', 'The TV is off', '<p class="t-body ink2">Tap power to turn it on.</p>', `${Btn('Turn on', { act: 'turnon' })}<p class="t-cap">Uses IR on this phone, or Wi-Fi wake if the TV allows it</p><p class="t-body ink2" role="status" style="text-align:left;margin-top:8px">${WAKEFAIL[brand]}</p>`);
+  const un = (extra, loading) => panel('bad', 'wifioff', "Can't reach it", `<p class="t-body ink2">Not on the same Wi-Fi as the TV, or the TV's address changed. Looking again…</p>`, `<div class="stk">${Btn('Find TV again', { loading, act: 'findagain' })}${Btn('Wi-Fi settings', { v: 'secondary', act: 'toast', arg: 'Opens your phone’s Wi-Fi settings' })}</div>${extra || ''}`);
+  if (st === 'unreachable') return un();
+  if (st === 'finding') return un('<p class="t-cap" role="status">Looking…</p>', true);
+  if (st === 'found') return un(`<p class="t-body ok-ink" role="status" style="font-weight:700">Found the TV at ${o.host || '192.168.1.23'}</p>`);
+  if (st === 'notfound') return un(`<p class="t-body danger-ink" role="alert" style="font-weight:700">Couldn't find the TV on this Wi-Fi</p>`);
+  return '';
+}
+S.tv = (p = {}) => { const id = p.id || 'tv1', d = D[id], st = p.state || 'ready', [txt, dot] = tvStatus(st, d.brand);
+  const actions = `${IBtn('power', 'Power', st === 'off' || st === 'waking' || st === 'wakefail' ? 'turnon' : 'power', { cls: 'pw' })}${live(st) && st !== 'keyboard' ? IBtn('keyboard', 'Keyboard', 'kbd') : ''}${IBtn('more', 'More', 'menu', { exp: !!p.menu })}`;
+  return scr(`${Bar({ title: d.name, sub: txt, dot, actions })}<div class="tv-body${p.listening ? ' listening' : ''}">${tvBody(st, { ...p, brand: d.brand })}</div>`, { attrs: `data-screen="tv" data-id="${id}" data-state="${st}" data-pad="${p.pad || 'touchpad'}" data-brand="${d.brand}"` }); };
+const menuHTML = (pad, liveTv) => `<div class="menu" role="menu">${liveTv ? `<button role="menuitem" ${pad === 'touchpad' ? 'aria-current="true"' : ''} ${act('pad', 'touchpad')}>Touchpad${pad === 'touchpad' ? I('check') : ''}</button><button role="menuitem" ${pad === 'dpad' ? 'aria-current="true"' : ''} ${act('pad', 'dpad')}>D-pad${pad === 'dpad' ? I('check') : ''}</button><button role="menuitem" ${act('inputs')}>Input</button><hr>` : ''}<button role="menuitem" ${act('settings')}>Device settings</button></div>`;
+
+/* ---- AC ---- */
+const MODES = [['Cool', 'snow'], ['Dry', 'drop'], ['Fan', 'wind'], ['Auto', 'auto']];
+const ARC = 2 * Math.PI * 126 * 0.75; /* three quarters of the ring */
+const acDial = (on, t, m) => { const off = ARC * (1 - (t - 16) / 14); return `<div class="dialwrap${on ? '' : ' ac-off'}" style="--arc:${m === 3 ? 'var(--color-accent)' : m === 2 ? 'var(--color-ink2)' : 'var(--color-cool)'}"><svg class="d" viewBox="0 0 290 290" aria-hidden="true"><circle class="tr-ring" cx="145" cy="145" r="126" stroke-dasharray="${ARC} 999"/><circle class="arc" cx="145" cy="145" r="126" stroke-dasharray="${ARC} 999" stroke-dashoffset="${on ? off : ARC}" data-arc/></svg><div class="ctr"><div style="margin-top:-38px"><div class="big" role="img" aria-label="${on ? t + ' degrees, ' + MODES[m][0] : 'Off'}">${on ? `<span class="dg"><span class="n">${Math.floor(t / 10)}</span></span><span class="dg"><span class="n">${t % 10}</span></span><sup>°</sup>` : '<span style="font-size:52px;padding-top:12px">Off</span>'}</div><p class="t-body ink2" style="margin-top:6px;font-weight:600" data-modename>${on ? MODES[m][0] : 'Tap power to turn on'}</p></div></div><div class="stepper">${`<button class="step-b${on ? '' : ' is-disabled'}" aria-label="Lower the temperature" ${act('acstep', -1)}>${I('minus')}</button><button class="step-b${on ? '' : ' is-disabled'}" aria-label="Raise the temperature" ${act('acstep', 1)}>${I('plus')}</button>`}</div></div>`; };
+S.ac = (p = {}) => { const id = p.id || 'ac1', d = D[id], on = p.on ?? d.on, t = p.temp ?? 24, m = p.mode ?? 0, link = p.link || d.link || 'matter';
+  const linkline = p.needsIr ? `<div class="linkline">${I('ir')}Needs a phone with IR</div>` : link === 'matter' ? `<button class="linkline btnlike" ${act('settings')}><span class="dot"></span>Connected · <u>how it's connected</u></button>` : link === 'ir' ? `<div class="linkline">${I('ir')}Sent over IR · point the phone at the AC</div>` : `<div class="linkline fell" role="status">${I('ir')}Matter not reachable · sent over IR · point at the AC</div>`;
+  return scr(`${Bar({ title: d.name, sub: `${d.room} · 27° in the room`, actions: IBtn('power', 'Power', 'acpower', { cls: 'pw' }) })}<div class="grow"></div>${acDial(on, t, m)}<div class="grow"></div>${Seg(MODES.map(x => I(x[1]) + x[0]), m, 'acmode')}<div class="chips" style="justify-content:center">${Chip('Fan auto', { act: 'acfan', arg: 'fan', icon: 'wind' })}${Chip('Swing', { act: 'acchip', icon: 'swing', sel: !!p.swing })}${Chip('Sleep', { act: 'acchip', icon: 'moon', sel: !!p.sleep })}</div>${linkline}`, { attrs: `data-screen="ac" data-id="${id}" data-on="${on ? 1 : 0}" data-t="${t}" data-m="${m}"${p.needsIr ? ' data-lock="1"' : ''}`, cls: p.needsIr ? '' : '' }); };
+
+/* ---- Fan ---- */
+S.fan = (p = {}) => { const id = p.id || 'fan1', d = D[id], on = p.on ?? true, sp = p.speed ?? 3, tm = p.timer ?? 0;
+  return scr(`${Bar({ title: d.name, sub: d.room, actions: IBtn('power', 'Power', 'fanpower', { cls: 'pw' }) })}<div class="fan-hero"><div class="art fan-spin${on ? ' on' : ''}" style="--sp:${sp}" data-fanart>${I('fan')}</div></div><div><p class="sect">Speed</p><div class="speed" style="margin-top:12px" role="group" aria-label="Speed">${[1, 2, 3, 4, 5].map(n => `<button class="${on && n <= sp ? 'lit' : ''}" style="--k:${n - 1}" aria-label="Speed ${n}" aria-pressed="${on && n === sp}" ${act('fanspeed', n)}><span>${n}</span></button>`).join('')}</div></div><div class="chips">${Chip('Boost', { act: 'chip', icon: 'bolt' })}${Chip('Sleep', { act: 'chip', icon: 'moon' })}${Chip('Light', { act: 'chip', icon: 'bulb', sel: !!p.light })}</div><div class="col" style="gap:8px"><p class="sect">Timer</p><div class="chips" data-group>${['Off', '1 h', '2 h', '4 h', '8 h'].map((x, i) => Chip(x, { sel: i === tm, act: 'sel' })).join('')}</div></div><div class="grow"></div>${p.needsIr ? `<div class="linkline">${I('ir')}Needs a phone with IR</div>` : `<div class="linkline">${I('ir')}Sent over IR · point the phone at the fan</div>`}`, { attrs: `data-screen="fan" data-id="${id}" data-on="${on ? 1 : 0}" data-sp="${sp}"` }); };
+
+/* ---- Add: kind, TV ---- */
+S.addKind = (p = {}) => scr(`${Bar({ title: '', back: true })}${Head('Add device', 'What is it?')}${p.noIr ? Banner("This phone has no IR blaster. Devices that only take IR can't be controlled from it.", '', 'ir') : ''}<div class="col gap3">${[['tv', 'TV', 'addTvBrand'], ['ac', 'Air conditioner', 'addBrand'], ['fan', 'Fan', 'addBrand']].map(([k, n, go], i) => `<button class="card optcard press rise" style="--n:${i}" ${act('go', go, { kind: k })}><span class="tile">${I(k)}</span><span class="meta nm">${n}</span>${I('chev', 'chev')}</button>`).join('')}</div><p class="t-cap" style="margin:4px 4px 0">Next you pick the brand. The app finds out how to talk to it.</p>`);
+S.addTvBrand = (p = {}) => { const b = p.brand || 'lg'; return scr(`${Bar({ title: '' })}${Head('Add a TV')}<div class="col gap3" data-group>${Object.entries(BRAND).map(([k, n]) => `<button class="card pick press${k === b ? ' sel' : ''}" aria-pressed="${k === b}" ${act('pickbrand', k)}><span class="tile">${I('tv')}</span><span class="meta nm">${n}</span><span class="rad">${I('check')}</span></button>`).join('')}</div><div class="grow"></div>${Btn('Find my TV', { act: 'go', arg: 'addTvFind', p: { brand: b } })}${Btn("Type the TV's address instead", { v: 'ghost', act: 'go', arg: 'addTvManual', p: { brand: b } })}`, { attrs: `data-brand="${b}"` }); };
+const FOUND = { lg: [['LG OLED C4', '192.168.1.23'], ['[LG] webOS TV OLED55', '192.168.1.62']], atv: [['Airtel Xstream', '192.168.1.57'], ['Mi Box 4K', '192.168.1.70']], samsung: [['Samsung Crystal', '192.168.1.41'], ['[TV] Samsung 55', '192.168.1.80']] };
+const FoundRow = (n, ip, i, brand) => `<button class="card press rise" style="--n:0" ${act('go', D_ADDED.has(ip) ? 'addTvDup' : (brand === 'atv' ? 'addTvCode' : 'addTvPair'), { brand, name: n })}><span class="tile">${I('tv')}</span><span class="meta"><span class="nm">${n}</span><span class="sb">${ip}</span></span>${I('chev', 'chev')}</button>`;
+const D_ADDED = new Set(['192.168.1.23']);
+S.addTvFind = (p = {}) => { const b = p.brand || 'lg', n = p.found ?? 0, still = p.still, alert = p.alert;
+  return scr(`${Bar({ title: '' })}${Head('Looking for your TV', 'On this Wi-Fi')}<div class="radar${still ? ' still' : ''}" aria-hidden="true"><i></i><i></i><i></i><span class="core">${I('wifi')}</span></div>${n === 0 ? `<p class="t-body ink2 center" style="text-align:center">${still ? 'Make sure your phone is on the same Wi-Fi as the TV.' : 'Turn the TV on and keep the phone on the same Wi-Fi as the TV.'}</p>` : ''}<div class="found" data-found>${FOUND[b].slice(0, n).map((f, i) => FoundRow(f[0], f[1], i, b)).join('')}</div><div class="grow"></div><p class="t-cap center" style="text-align:center" role="status">${still ? 'Still looking…' : n ? `${spin.replace('class="spinner"', 'class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:-2px;margin-right:6px"')}Still looking…` : ''}</p><button class="link" style="align-self:center" ${act('go', 'addTvManual', { brand: b })}>Can't find it? Enter the TV's IP address</button>`, { attrs: `data-screen="find" data-brand="${b}" data-n="${n}"${p.auto ? ' data-auto="find"' : ''}`, cls: '' }); };
+S.addTvManual = (p = {}) => { const e = p.err; const msg = { bad: "That isn't an IP address", local: "That address isn't on your home network", none: 'No TV answered at that address' }[e];
+  return scr(`${Bar({ title: '' })}${Head("The TV's IP address")}<p class="t-body ink2" style="margin-top:-8px">On the TV: Settings › Network › your Wi-Fi › Advanced. It looks like 192.168.1.23.</p><div class="field"><label for="ip">IP address</label><input id="ip" class="input${e ? ' err' : ' focus'}" inputmode="decimal" placeholder="192.168.1.23" value="${esc(p.val ?? ({ bad: '192.168.1', local: '8.8.8.8', none: '192.168.1.99' }[e] || ''))}" ${e ? 'aria-invalid="true"' : ''}>${e ? Err(msg) : ''}</div><div class="grow"></div>${Btn('Find the TV', { act: 'ipfind', p: { brand: p.brand || 'lg' }, loading: p.loading })}`, { attrs: 'data-screen="manual"' }); };
+S.addTvPair = (p = {}) => { const ph = p.phase || 'wait', n = p.n ?? 12, brand = p.brand || 'lg', again = p.again, TOT = 30;
+  const ring = `<div class="pair-ring${ph === 'ok' ? ' done' : ph === 'denied' || ph === 'timeout' ? ' bad' : ''}" aria-hidden="true"><svg class="rg" viewBox="0 0 132 132"><circle class="bgc" cx="66" cy="66" r="58"/><circle class="fg" cx="66" cy="66" r="58" stroke-dasharray="364.4" stroke-dashoffset="${364.4 * (n / TOT)}" data-ring/></svg>${ph === 'ok' ? `<svg class="check" viewBox="0 0 24 24" style="width:56px;height:56px"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>` : ph === 'wait' ? `<span class="num" data-num>${TOT - n}</span>` : `<span class="danger-ink">${I('alert').replace('class="i ', 'style="width:48px;height:48px" class="i ')}</span>`}</div>`;
+  const body = ph === 'wait' ? `<h2 class="t-head center" style="text-align:center">Press "Allow" on the TV</h2><p class="t-body ink2" style="text-align:center">A prompt is showing on the TV screen. Use the TV's own remote to accept it. You only do this once.</p><p class="t-body center" style="text-align:center;font-weight:600" role="status" data-wait>Waiting… (${n} s)</p>${n >= 15 ? `<button class="link" style="align-self:center" ${act('retrypair')}>Prompt didn't show? Try again</button>` : ''}` :
+    ph === 'ok' ? `<h2 class="t-head" style="text-align:center">${again ? 'Paired again' : 'Paired'}</h2>` :
+    ph === 'denied' ? `${Err('The TV said no. Try again and choose Allow.')}${Btn('Try again', { act: 'retrypair' })}` :
+    ph === 'timeout' ? `${Err("The TV didn't answer in time.")}${Btn('Try again', { act: 'retrypair' })}` :
+    `${Err(brand === 'atv' ? "Couldn't reach the TV. Check that it is on, on the same Wi-Fi, and has Android TV Remote Service." : "Couldn't reach the TV. Check that it is on and on the same Wi-Fi.")}${Btn('Try again', { act: 'retrypair' })}`;
+  return scr(`${Bar({ title: '' })}${Head('Check your TV')}${ring}<div class="col gap3">${body}</div>`, { attrs: `data-screen="pair" data-brand="${brand}" data-n="${n}"${p.auto ? ' data-auto="pair"' : ''}${again ? ' data-again="1"' : ''}` }); };
+S.addTvCode = (p = {}) => { const e = p.err, code = p.code ?? '4F7'; const cells = [...Array(6)].map((_, i) => `<i class="${i === code.length && !e ? 'cur' : ''}">${code[i] || ''}</i>`).join('');
+  return scr(`${Bar({ title: '' })}${Head('Type the code shown on the TV')}<div class="otp${e ? ' err' : ''}" role="group" aria-label="Pairing code" style="margin:12px 0 0">${cells}</div>${e ? Err("That code didn't match. Check the TV and try again.") : ''}<button class="link" style="align-self:center" ${act('toast', 'A new code is showing on the TV')}>Show a new code</button><div class="grow"></div>${Btn('Pair', { act: 'go', arg: 'addTvPair', p: { brand: 'atv', phase: 'ok', n: 0 }, disabled: code.length < 6 && !e })}`, { attrs: 'data-screen="code"' }); };
+S.addTvDup = () => scr(`${Bar({ title: '' })}${Empty('tv', 'This TV is already added as LG OLED C4', '', Btn('Open it', { act: 'open', arg: 'tv1' }))}`);
+
+/* ---- Add: name and room ---- */
+S.addName = (p = {}) => scr(`${Bar({ title: '' })}${Head('Name it', 'Last step')}<div class="field"><label for="nm">Name</label><input id="nm" class="input${p.err ? '' : ' focus'}" value="${esc(p.name || 'Panasonic AC')}"></div><div class="col" style="gap:8px"><p class="sect">Room</p><div class="chips" data-group>${['Living room', 'Bedroom', 'Study'].map((r, i) => Chip(r, { sel: !p.newRoom && i === 1 })).join('')}${Chip('＋ New room', { sel: !!p.newRoom, act: 'newroom' })}</div></div>${p.newRoom ? `<div class="field rise"><label for="rm">Room name</label><div class="row gap2"><input id="rm" class="input focus" value="Guest room" style="flex:1"><button class="btn primary sm" style="width:auto" ${act('toast', 'Added Guest room')}>Add room</button></div></div>` : ''}<div class="grow"></div>${Btn('Save', { act: 'savedev', p: { name: p.name || 'Panasonic AC' } })}`, { attrs: 'data-screen="name"' });
+
+/* ---- Add: AC / fan ---- */
+S.addBrand = (p = {}) => { const fan = p.kind === 'fan'; return scr(`${Bar({ title: '' })}${Head('Which brand?')}<div class="col gap3">${(fan ? [['Atomberg', 'addIrTest']] : [['Panasonic', 'addMatter']]).map(([n, go]) => `<button class="card press rise" ${act('go', go, { kind: p.kind })}><span class="tile">${I(fan ? 'fan' : 'ac')}</span><span class="meta nm">${n}</span>${fan ? '' : '<span class="badge acc">Matter</span>'}${I('chev', 'chev')}</button>`).join('')}<div class="card is-disabled" style="opacity:.6"><span class="tile">${I('room')}</span><span class="meta nm" style="font-weight:600">Other brands · Not yet supported</span></div></div><button class="link" style="align-self:flex-start" ${act('toast', 'Opens your email app. Nothing is sent automatically.')}>Brand missing? Tell us (opens email, nothing sent automatically)</button>`); };
+S.addMatter = (p = {}) => { const m = p.mode || 'scan';
+  const cam = m === 'denied' ? `<div class="cam denied" role="img" aria-label="Camera: point it at the Matter QR code"><div>${I('cameraoff')}The camera is off for this app. Paste or type the code instead.</div></div>` :
+    m === 'type' ? '' : `<div class="cam${p.locked ? ' locked' : ''}" role="img" aria-label="Camera: point it at the Matter QR code"><span class="hint">Point at the Matter QR code</span><div class="qr">${QR()}</div><div class="br"><b></b><b></b><b></b><b></b></div><span class="beam"></span><span class="lockbadge">${I('check')}Matter code</span></div>`;
+  const typed = m === 'type' ? `<div class="field fade"><label for="mc">Matter setup code</label><input id="mc" class="input${p.err ? ' err' : ' focus'}" placeholder="11 digits, or the text that starts with MT:" value="${p.err ? '1234567' : ''}" aria-label="Matter setup code">${p.err ? Err('Check the code and try again.') : ''}</div>${Btn('Connect', { act: 'matterconnect' })}` : '';
+  return scr(`${Bar({ title: 'Add with a Matter code' })}<div class="scroll" style="gap:16px"><p class="t-body ink2" style="font-size:15px">Your AC works with Matter, so this phone can control it over your home Wi-Fi, with no cloud. In the AC’s current app (MirAIe, Google Home or another), open the AC, choose the option that adds it to another app or turns on pairing mode, and scan the QR code it shows, or the one on the AC’s sticker.</p>${cam}${typed}${p.notMatter ? Err('That is not a Matter code. Point the camera at the AC’s Matter QR code.') : ''}</div>${m === 'type' ? '' : `<div class="col gap2">${Btn('Paste code', { v: 'secondary', icon: 'clip', act: 'matterconnect' })}${Btn('Enter code instead', { v: 'secondary', act: 'matterswap', arg: 'type' })}</div>`}${Btn('Not now', { v: 'ghost', act: 'go', arg: 'addIrTest', p: { kind: 'ac' } })}`, { attrs: `data-screen="matter" data-mode="${m}"${p.auto ? ' data-auto="scan"' : ''}` }); };
+const STEPN = ['Found the AC', 'Adding this phone to the AC', 'The AC answers'];
+const ERRT = { notFound: 'Could not find the AC. Make sure pairing mode is on, the code is fresh and this phone is on the same Wi-Fi.', networkFailed: 'The AC was found but could not be added. Try again.', noResponse: 'The AC was added but is not answering. Check that it is on, then try again.' };
+S.addConnecting = (p = {}) => { const st = p.st || ['act', 'pending', 'pending'], err = p.err;
+  const ic = s => s === 'done' ? I('check') : s === 'fail' ? I('close') : s === 'act' ? spin : '';
+  return scr(`${Bar({ title: '', back: !!err })}${Head('Connecting', 'Keep this phone on the same Wi-Fi as the AC. This can take up to a minute.')}<div class="steps" role="list">${STEPN.map((n, i) => `<div class="stp ${st[i]}" role="listitem" data-step="${i}"><span class="ic">${ic(st[i])}</span><span>${n}</span></div>`).join('')}</div>${err ? `<div class="col gap3 rise">${Err(ERRT[err])}</div>` : ''}<div class="grow"></div>${err ? `${Btn('Try again', { act: 'matterretry' })}${Btn('Not now', { v: 'ghost', act: 'back' })}` : ''}`, { attrs: `data-screen="connecting"${p.auto ? ` data-auto="${p.auto}"` : ''}` }); };
+S.addIrTest = (p = {}) => { const ph = p.phase || 'test', fan = p.kind === 'fan', n = p.n ?? 1, tot = 6;
+  const q = ph === 'test' || ph === 'sending' || ph === 'fail' ? (fan ? 'This sets the fan to speed 3. Did it start or change speed?' : 'This turns the AC on, Cool 24°. Did it beep or turn on?') : fan ? 'Now press Test to toggle the light. Did it change?' : 'Now press Test to set 25°. Did it change?';
+  return scr(`${Bar({ title: '' })}${Head('Test the remote')}<div class="col gap2"><p class="t-cap" style="font-weight:700">${fan ? 'Atomberg' : 'Panasonic'} · try ${n} of ${tot}</p><div class="pbar"><i style="width:${n / tot * 100}%"></i></div></div><div class="irphone${ph === 'sending' ? ' fire' : ''}" aria-hidden="true">${I('ir').replace('class="i ', 'class="i ')}<i></i><i></i><i></i></div><div class="col gap2 center" style="text-align:center"><h2 class="t-head">${fan ? 'Point at the fan, press Test' : 'Point at the AC, press Test'}</h2><p class="t-body ink2">${q}</p>${ph === 'fail' ? Err("Couldn't send the test. Try again") : ''}</div><div class="grow"></div>${ph === 'ask' ? `${Btn('Yes, it worked', { act: 'go', arg: 'addName', p: {} })}${Btn('No, try next', { v: 'secondary', act: 'irnext' })}` : `${Btn('Test', { loading: ph === 'sending', icon: ph === 'sending' ? null : 'play', act: 'irtest' })}`}${Btn('Skip', { v: 'ghost', act: 'go', arg: 'addNoCodes', p: { kind: p.kind } })}`, { attrs: 'data-screen="irtest"' }); };
+S.addNoCodes = (p = {}) => scr(`${Bar({ title: '' })}${Empty('alert', 'No codes yet', `Sorry, we don't have codes for this ${p.kind === 'fan' ? 'fan' : 'AC'} yet.`)}${Btn('Back to Home', { act: 'home' })}`);
+S.addNoIr = () => scr(`${Bar({ title: '' })}${Empty('ir', 'This phone has no IR blaster', 'Only ACs with the Matter logo work from this phone. Phones with IR (many Xiaomi, Redmi, Poco, iQOO, Vivo) can control the rest.')}<div class="col gap2">${Btn('Add with a Matter code', { act: 'go', arg: 'addMatter' })}${Btn('Add anyway (for another phone)', { v: 'secondary', act: 'go', arg: 'addName' })}</div>`);
+
+/* ---- Settings ---- */
+S.settings = (p = {}) => scr(`${Bar({ title: 'Settings' })}<div class="scroll"><div class="col" style="gap:8px"><p class="sect">Theme</p>${Seg(['System', 'Light', 'Dark'], 0, 'themeseg')}</div><div class="group"><div class="li"><span class="meta nm">Phone volume keys control the TV</span>${Switch(true, 'Phone volume keys control the TV')}</div><div class="li"><span class="meta nm">Vibrate on press</span>${Switch(true, 'Vibrate on press')}</div></div><div class="group"><button class="li" ${act('toast', 'Rooms: rename, reorder')}><span class="meta"><span class="nm">Rooms</span><span class="sb">Rename, reorder</span></span>${I('chev', 'chev')}</button><button class="li" ${act('toast', 'Local network only')}><span class="meta"><span class="nm">Privacy</span><span class="sb">Local network only</span></span>${I('chev', 'chev')}</button><button class="li" ${act('toast', 'About and licences')}><span class="meta nm">About and licences</span>${I('chev', 'chev')}</button></div>${Banner('One Remote talks only to devices on your home network. It has no account, no ads and no analytics, and nothing is sent to a server.', 'ok', 'lock')}</div>`);
+
+/* ---- sheets (overlay html) ---- */
+const sheetSettings = (o = {}) => { const id = o.id || 'tv1', d = D[id];
+  const links = d.k === 'tv' ? `<div class="li"><span class="meta"><span class="nm">Wi-Fi</span><span class="sb">${d.ip}</span></span><span class="badge ok">main</span></div>${o.repair ? `<button class="li" ${act('go', 'addTvPair', { brand: d.brand, again: true })}><span class="meta nm">Pair again</span>${I('chev', 'chev')}</button>` : ''}` : `<div class="li"><span class="meta"><span class="nm">Matter</span></span><span class="badge ok">main</span></div><div class="li"><span class="meta"><span class="nm">IR</span></span><span class="badge">backup</span></div><button class="li" ${act('toast', 'IR backup added')}><span class="meta nm">Redo IR backup</span>${I('chev', 'chev')}</button>`;
+  return `<div class="scrim" ${act('sheet-close')}></div><div class="sheet" role="dialog" aria-label="Device settings"><span class="grab"></span><div class="row" style="justify-content:space-between"><h2 class="t-head">Device settings</h2>${IBtn('close', 'Close', 'sheet-close', { cls: 'flat' })}</div><div class="scroll" style="max-height:560px">${o.confirm ? `<div class="col gap4 fade"><p class="t-head">Remove ${d.name}?</p><p class="t-body ink2">Remove ${d.name}? The app forgets it. The device itself is not touched.</p>${Btn('Yes, remove', { v: 'danger', act: 'removed' })}${Btn('Cancel', { v: 'secondary', act: 'sheet-confirm', arg: 0 })}</div>` : `<div class="field"><label for="dn">Name</label><div class="row gap2"><input id="dn" class="input" value="${d.name}" style="flex:1"><button class="btn secondary sm" style="width:auto" ${act('toast', 'Saved', { kind: 'ok' })}>Save name</button></div></div><div class="col" style="gap:8px"><p class="sect">Room</p><div class="chips" data-group>${['Living room', 'Bedroom', 'Study'].map(r => Chip(r, { sel: r === d.room })).join('')}</div></div><div class="col" style="gap:8px"><p class="sect">Order on Home</p><div class="row gap2"><button class="btn secondary sm" style="flex:1;width:auto" ${act('toast', 'Moved up')}>${I('up')}Move up</button><button class="btn secondary sm" style="flex:1;width:auto" ${act('toast', 'Moved down')}>${I('down')}Move down</button></div></div><div class="col" style="gap:8px"><p class="sect">How it's connected</p><div class="group">${links}</div></div>${Btn('Remove device', { v: 'danger', icon: 'trash', act: 'sheet-confirm', arg: 1 })}`}</div></div>`; };
+const sheetInputs = () => `<div class="scrim" ${act('sheet-close')}></div><div class="sheet" role="dialog" aria-label="Inputs"><span class="grab"></span><h2 class="t-head">Inputs</h2><div class="group">${['HDMI 1', 'HDMI 2', 'Live TV'].map((x, i) => `<button class="li" ${act('toast', x)}><span class="meta nm">${x}</span>${i === 0 ? '<span class="badge acc">Now</span>' : ''}</button>`).join('')}<div class="li" style="opacity:.7"><span class="meta nm">HDMI 3, nothing connected</span></div></div>${Btn('Done', { act: 'sheet-close' })}</div>`;
+const sysAlert = () => `<div class="scrim"></div><div class="sysalert" role="alertdialog"><div><h4>“One Remote” would like to find and connect to devices on your local network</h4>One Remote finds and controls your TV on your home Wi-Fi.</div><button>Don’t Allow</button><button style="font-weight:700">OK</button></div>`;
+</script>
+<script>
+/* =====================================================================================
+   7. ENGINE: phones, navigation, overlays, interactions
+   ===================================================================================== */
+const TO = (dev, ms, fn) => { const id = setTimeout(() => { if (dev.isConnected) fn(); }, ms); (dev._t ||= []).push(id); return id; };
+const clearT = dev => { (dev._t || []).forEach(clearTimeout); dev._t = []; };
+const mk = html => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+const soft = (el, html) => { const n = mk(html); el.innerHTML = n.innerHTML; Object.assign(el.dataset, n.dataset); el.className = n.className; };
+const topScr = dev => dev._stack[dev._stack.length - 1];
+const layer = dev => $('.layer', dev);
+const phoneHTML = (inner, overlay = '') => `<div class="device"><div class="statusbar" aria-hidden="true"><span>9:41</span><span>${I('wifi')}<svg class="i fill" viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4" y="9" width="12" height="6" rx="1.5" fill="currentColor" stroke="none"/><rect x="21" y="10" width="2" height="4" rx="1" fill="currentColor" stroke="none"/></svg></span></div><div class="stack">${inner}</div><div class="layer">${overlay}</div><div class="home-ind"></div></div>`;
+
+function buildDevice(def) { const w = document.createElement('div'); w.innerHTML = phoneHTML(def.screen(), def.overlay ? def.overlay() : ''); const dev = w.firstElementChild; dev._stack = [$('.stack', dev).firstElementChild]; dev._def = def; return dev; }
+
+function toast(dev, msg, kind = 'info', action) { $$('.toast', layer(dev)).forEach(t => t.remove()); const t = mk(Toast(msg, kind, action)); layer(dev).append(t); clearTimeout(t._h); t._h = setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 180); }, action ? 5000 : 2600); }
+function closeMenu(dev) { const m = $('.menu', dev); if (!m || m.classList.contains('out')) return; m.classList.add('out'); setTimeout(() => m.remove(), 170); $$('[data-act="menu"]', dev).forEach(b => b.setAttribute('aria-expanded', 'false')); }
+function openSheet(dev, html) { closeSheet(dev, true); layer(dev).insertAdjacentHTML('beforeend', html); }
+function closeSheet(dev, now) { const parts = $$('.scrim, .sheet', layer(dev)); parts.forEach(p => { if (now) p.remove(); else { p.classList.add('out'); setTimeout(() => p.remove(), 320); } }); }
+
+function push(dev, name, p) { const prev = topScr(dev), el = mk(S[name](p || {})); el.classList.add('push'); $('.stack', dev).append(el); dev._stack.push(el); closeMenu(dev); closeSheet(dev, true);
+  TO(dev, 400, () => { el.classList.remove('push'); prev.classList.add('dead'); }); initScreen(dev, el); return el; }
+function pop(dev) { if (dev._stack.length < 2) return; closeMenu(dev); const t = dev._stack.pop(), prev = topScr(dev); clearAuto(dev); prev.classList.remove('dead'); prev.classList.add('under-back'); t.classList.add('pop-out'); setTimeout(() => { t.remove(); prev.classList.remove('under-back'); }, 400); }
+function popRoot(dev) { while (dev._stack.length > 2) { dev._stack.pop().remove(); } pop(dev); }
+function swap(dev, html) { const old = topScr(dev), el = mk(html); el.classList.add('settle'); $('.stack', dev).append(el); dev._stack[dev._stack.length - 1] = el; setTimeout(() => old.remove(), 300); initScreen(dev, el); }
+function clearAuto(dev) { clearT(dev); }
+
+/* screen autoplay: only when a screen carries data-auto */
+function initScreen(dev, el) { if (!dev._active) return; const a = el.dataset.auto; if (a === 'find') autoFind(dev, el); if (a === 'pair') autoPair(dev, el); if (a === 'scan') autoScan(dev, el); if (a && !['find', 'pair', 'scan'].includes(a)) autoConnect(dev, el, a); }
+function autoFind(dev, el) { const b = el.dataset.brand; [[1100, 1], [2700, 2]].forEach(([ms, n]) => TO(dev, ms, () => { if (topScr(dev) !== el) return; soft(el, S.addTvFind({ brand: b, found: n, auto: false })); })); }
+function autoPair(dev, el) { const tick = () => { if (topScr(dev) !== el) return; const n = +el.dataset.n + 1; if (n >= 30) return pairResult(dev, 'timeout'); el.dataset.n = n; const ring = $('[data-ring]', el); if (ring) ring.style.strokeDashoffset = 364.4 * (n / 30); const num = $('[data-num]', el); if (num) num.textContent = 30 - n; const w = $('[data-wait]', el); if (w) w.textContent = `Waiting… (${n} s)`; if (n === 15) soft(el, S.addTvPair({ brand: el.dataset.brand, n, again: el.dataset.again, phase: 'wait' })), el.dataset.auto = 'pair'; TO(dev, 1000, tick); }; TO(dev, 1000, tick); }
+function pairResult(dev, r) { const el = topScr(dev); if (!el || el.dataset.screen !== 'pair') return; clearT(dev); const brand = el.dataset.brand, again = el.dataset.again;
+  if (r === 'allow') { soft(el, S.addTvPair({ brand, n: 0, phase: 'ok', again: !!again })); TO(dev, 1300, () => { if (again) { popRoot(dev); setTimeout(() => toast(dev, 'Paired again', 'ok'), 380); } else push(dev, 'addName', { name: dev._found || 'LG OLED C4' }); }); }
+  else soft(el, S.addTvPair({ brand, n: 30, phase: r === 'deny' ? 'denied' : r === 'timeout' ? 'timeout' : 'unreach' })); }
+function autoScan(dev, el) { TO(dev, 2600, () => { const c = $('.cam', el); if (!c || topScr(dev) !== el) return; c.classList.add('locked'); TO(dev, 1000, () => push(dev, 'addConnecting', { auto: dev._outcome || 'success' })); }); }
+function autoConnect(dev, el, outcome) {
+  const set = (i, s) => { const e = $(`[data-step="${i}"]`, el); if (!e) return; e.className = 'stp ' + s; $('.ic', e).innerHTML = s === 'done' ? I('check') : s === 'fail' ? I('close') : s === 'act' ? spin : ''; };
+  const fail = (i, code) => { const st = ['pending', 'pending', 'pending'].map((_, k) => k < i ? 'done' : k === i ? 'fail' : 'pending'); soft(el, S.addConnecting({ st, err: code })); };
+  TO(dev, 300, () => set(0, 'act'));
+  TO(dev, 1900, () => outcome === 'notFound' ? fail(0, 'notFound') : (set(0, 'done'), set(1, 'act')));
+  TO(dev, 4000, () => { if (outcome === 'networkFailed') return fail(1, 'networkFailed'); if (outcome === 'success' || outcome === 'noResponse') { set(1, 'done'); set(2, 'act'); } });
+  TO(dev, 5800, () => { if (outcome === 'noResponse') return fail(2, 'noResponse'); if (outcome === 'success') { set(2, 'done'); TO(dev, 1100, () => push(dev, 'addName', { name: 'Panasonic AC' })); } });
+}
+
+/* ---- TV helpers ---- */
+function setTv(scrn, state, extra = {}) { const id = scrn.dataset.id; soft(scrn, S.tv({ id, state, pad: scrn.dataset.pad, ...extra })); }
+function acRefresh(scrn, dir) { const t = +scrn.dataset.t, on = scrn.dataset.on === '1', m = +scrn.dataset.m; const dw = $('.dialwrap', scrn); if (!on) return;
+  const big = $('.big', scrn), old = big.dataset.v || String(t - dir); const nd = String(t).split(''), od = String(old).split('');
+  big.innerHTML = nd.map((d, i) => d !== od[i] ? `<span class="dg ${dir > 0 ? 'up' : 'dn'}"><span class="o">${od[i] ?? ''}</span><span class="n">${d}</span></span>` : `<span class="dg"><span class="n">${d}</span></span>`).join('') + '<sup>°</sup>'; big.dataset.v = t; big.setAttribute('aria-label', `${t} degrees, ${MODES[m][0]}`);
+  $('[data-arc]', scrn).style.strokeDashoffset = ARC * (1 - (t - 16) / 14);
+  $$('.step-b', scrn)[0].classList.toggle('is-disabled', t <= 16); $$('.step-b', scrn)[1].classList.toggle('is-disabled', t >= 30); }
+
+const ACT = {
+  back: dev => pop(dev),
+  home: dev => popRoot(dev),
+  go: (dev, el, arg, p) => { const sc = el.closest('.screen'); if (p && 'brand' in p && sc && sc.dataset.brand) p = { ...p, brand: sc.dataset.brand }; if (arg === 'addTvFind' || arg === 'addTvPair' || arg === 'addMatter' || arg === 'addConnecting') p = { ...(p || {}), auto: true }; if (p && p.name) dev._found = p.name; push(dev, arg, p); },
+  open: (dev, el, id) => { const d = D[id]; if (el.closest('.card.off')) return toast(dev, 'Needs a phone with IR', 'error'); push(dev, d.k, { id }); },
+  tog: (dev, el) => { const sw = $('.switch', el), on = !sw.classList.contains('on'); sw.classList.toggle('on', on); el.setAttribute('aria-checked', on); const sb = el.closest('.card')?.querySelector('.sb[data-on]'); if (sb) sb.textContent = on ? sb.dataset.on : sb.dataset.off; },
+  menu: (dev, el) => { if ($('.menu', dev)) return closeMenu(dev); const sc = topScr(dev); layer(dev).insertAdjacentHTML('beforeend', menuHTML(sc.dataset.pad, live(sc.dataset.state))); el.setAttribute('aria-expanded', 'true'); },
+  pad: (dev, el, arg) => { topScr(dev).dataset.pad = arg; closeMenu(dev); },
+  inputs: dev => { closeMenu(dev); openSheet(dev, sheetInputs()); },
+  settings: dev => { closeMenu(dev); const sc = topScr(dev); dev._sid = sc.dataset.id; dev._repair = sc.dataset.state === 'notpaired' || dev._repairFlag; openSheet(dev, sheetSettings({ id: dev._sid, repair: dev._repair })); },
+  'sheet-close': dev => closeSheet(dev),
+  'sheet-confirm': (dev, el, arg) => { const s = $('.sheet .scroll', dev); const n = mk(sheetSettings({ id: dev._sid || 'tv1', confirm: arg === '1', repair: dev._repair })); s.innerHTML = $('.scroll', n).innerHTML; },
+  removed: dev => { closeSheet(dev); popRoot(dev); setTimeout(() => toast(dev, 'Device removed', 'ok'), 400); },
+  key: (dev, el) => { if (el.classList.contains('key')) { el.classList.remove('sent'); void el.offsetWidth; el.classList.add('sent'); } },
+  power: (dev, el) => { const sc = topScr(dev), st = sc.dataset.state; if (st === 'ready') setTv(sc, 'off'); else toast(dev, "Can't reach the TV right now", 'error', 'Try again'); },
+  turnon: (dev) => { const sc = topScr(dev); setTv(sc, 'waking'); TO(dev, 1900, () => dev._failWake ? setTv(sc, 'wakefail') : setTv(sc, 'ready')); },
+  findagain: dev => { const sc = topScr(dev); setTv(sc, 'finding'); TO(dev, 1600, () => { if (dev._found1) { setTv(sc, 'found'); TO(dev, 1300, () => setTv(sc, 'ready')); } else { dev._found1 = true; setTv(sc, 'notfound'); } }); },
+  kbd: dev => { closeMenu(dev); setTv(topScr(dev), 'keyboard'); },
+  kbdone: dev => setTv(topScr(dev), 'ready'),
+  toast: (dev, el, arg, p) => toast(dev, arg, p?.kind || 'info'),
+  'toast-act': dev => $$('.toast', layer(dev)).forEach(t => t.remove()),
+  sel: (dev, el) => { const g = el.closest('[data-group]'); if (g) $$('[aria-pressed]', g).forEach(b => { b.setAttribute('aria-pressed', 'false'); b.classList.remove('sel'); }); const on = g ? true : el.getAttribute('aria-pressed') !== 'true'; el.setAttribute('aria-pressed', on); el.classList.toggle('sel', on); },
+  chip: (dev, el) => ACT.sel(dev, el),
+  acchip: (dev, el) => ACT.sel(dev, el),
+  acfan: (dev, el) => { const o = ['Fan auto', 'Fan 1', 'Fan 2', 'Fan 3']; const i = (o.indexOf(el.textContent.trim()) + 1) % o.length; el.innerHTML = I('wind') + o[i]; },
+  acstep: (dev, el, arg) => { const sc = topScr(dev); if (sc.dataset.on !== '1') return; const t = Math.max(16, Math.min(30, +sc.dataset.t + +arg)); if (t === +sc.dataset.t) return; sc.dataset.t = t; acRefresh(sc, +arg); },
+  acmode: (dev, el, arg) => { const sc = topScr(dev); sc.dataset.m = arg; const seg = $('.seg', sc); seg.style.setProperty('--i', arg); $$('button', seg).forEach((b, i) => b.setAttribute('aria-pressed', i == arg)); $('.dialwrap', sc).style.setProperty('--arc', arg == 3 ? 'var(--color-accent)' : arg == 2 ? 'var(--color-ink2)' : 'var(--color-cool)'); const mn = $('[data-modename]', sc); if (mn) mn.textContent = MODES[arg][0]; $('.big', sc).setAttribute('aria-label', `${sc.dataset.t} degrees, ${MODES[arg][0]}`); },
+  acpower: dev => { const sc = topScr(dev), on = sc.dataset.on !== '1'; sc.dataset.on = on ? '1' : '0'; const nw = mk(acDial(on, +sc.dataset.t, +sc.dataset.m)); nw.classList.add('fade'); $('.dialwrap', sc).replaceWith(nw); if (on) { const b = $('.big', nw); b.dataset.v = sc.dataset.t; } },
+  fanspeed: (dev, el, arg) => { const sc = topScr(dev); sc.dataset.on = '1'; sc.dataset.sp = arg; $$('.speed button', sc).forEach((b, i) => { b.classList.toggle('lit', i < +arg); b.setAttribute('aria-pressed', i + 1 == arg); }); const a = $('[data-fanart]', sc); a.classList.add('on'); a.style.setProperty('--sp', arg); },
+  fanpower: dev => { const sc = topScr(dev), on = sc.dataset.on !== '1'; sc.dataset.on = on ? '1' : '0'; $$('.speed button', sc).forEach((b, i) => { b.classList.toggle('lit', on && i < +sc.dataset.sp); }); $('[data-fanart]', sc).classList.toggle('on', on); },
+  pickbrand: (dev, el, arg) => { const sc = topScr(dev); sc.dataset.brand = arg; $$('.pick', sc).forEach(b => { const on = b === el; b.classList.toggle('sel', on); b.setAttribute('aria-pressed', on); }); },
+  ipfind: (dev, el, arg, p) => { const sc = topScr(dev), v = $('#ip', sc).value.trim(); const ok = /^(\d{1,3}\.){3}\d{1,3}$/.test(v) && v.split('.').every(n => +n < 256); const priv = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(v); const e = !ok ? 'bad' : !priv ? 'local' : null;
+    if (e) { soft(sc, S.addTvManual({ err: e, val: v, brand: p.brand })); $('.field', sc).classList.add('shake'); return; }
+    soft(sc, S.addTvManual({ val: v, loading: true, brand: p.brand })); TO(dev, 1400, () => { if (v.endsWith('.99')) { soft(sc, S.addTvManual({ err: 'none', val: v, brand: p.brand })); $('.field', sc).classList.add('shake'); } else push(dev, 'addTvPair', { brand: p.brand, auto: true }); }); },
+  retrypair: dev => { const sc = topScr(dev); soft(sc, S.addTvPair({ brand: sc.dataset.brand, n: 0, auto: true, again: !!sc.dataset.again })); clearT(dev); autoPair(dev, sc); },
+  newroom: (dev, el) => { const sc = topScr(dev); soft(sc, S.addName({ newRoom: true, name: $('#nm', sc).value })); },
+  savedev: dev => { toast(dev, 'Saved', 'ok'); TO(dev, 900, () => popRoot(dev)); },
+  matterconnect: dev => push(dev, 'addConnecting', { auto: dev._outcome || 'success' }),
+  matterswap: (dev, el, arg) => { const sc = topScr(dev); soft(sc, S.addMatter({ mode: arg })); sc.classList.add('fade'); clearT(dev); },
+  matterretry: dev => { dev._outcome = 'success'; const sc = topScr(dev); soft(sc, S.addConnecting({ auto: 'success' })); sc.dataset.auto = 'success'; autoConnect(dev, sc, 'success'); },
+  irtest: dev => { const sc = topScr(dev); soft(sc, S.addIrTest({ phase: 'sending', n: +(sc.dataset.n || 1) })); TO(dev, 1600, () => soft(topScr(dev), S.addIrTest({ phase: 'ask' }))); },
+  irnext: dev => soft(topScr(dev), S.addIrTest({ phase: 'test', n: 2 })),
+  themeseg: (dev, el, arg) => { setTheme(['system', 'light', 'dark'][arg]); const seg = $('.seg', el.closest('.screen')); seg.style.setProperty('--i', arg); $$('button', seg).forEach((b, i) => b.setAttribute('aria-pressed', i == arg)); },
+};
+document.addEventListener('click', e => { const dev = e.target.closest('.device'); if (!dev) return; if ($('.menu', dev) && !e.target.closest('.menu') && !e.target.closest('[data-act="menu"]')) closeMenu(dev);
+  const el = e.target.closest('[data-act]'); if (!el || !dev.contains(el) || el.disabled || el.classList.contains('is-disabled')) return;
+  const a = el.dataset.act; if (ACT[a]) ACT[a](dev, el, el.dataset.arg, el.dataset.p ? JSON.parse(el.dataset.p) : null, e); });
+document.addEventListener('click', e => { if (e.target.closest('.menu')) { const b = e.target.closest('.menu button'); if (b) { const dev = e.target.closest('.device'); if (b.dataset.act !== 'pad') closeMenu(dev); } } });
+/* hold-to-talk */
+let micEl = null;
+const micOn = e => { const m = e.target.closest?.('[data-mic]'); if (!m) return; micEl = m.closest('.tv-body'); micEl.classList.add('listening'); };
+const micOff = () => { if (micEl) { micEl.classList.remove('listening'); micEl = null; } };
+document.addEventListener('pointerdown', micOn); ['pointerup', 'pointercancel'].forEach(t => document.addEventListener(t, micOff));
+document.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && e.target.matches?.('[data-mic]') && !e.repeat) { e.preventDefault(); micOn(e); } });
+document.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') micOff(); });
+/* touchpad */
+document.addEventListener('pointerdown', e => { const pad = e.target.closest('.touch'); if (!pad) return; const move = ev => { const r = pad.getBoundingClientRect(); pad.style.setProperty('--x', (ev.clientX - r.left) + 'px'); pad.style.setProperty('--y', (ev.clientY - r.top) + 'px'); };
+  move(e); pad.classList.add('active'); pad.setPointerCapture(e.pointerId); const sx = e.clientX, sy = e.clientY; let moved = false;
+  const mv = ev => { if (Math.hypot(ev.clientX - sx, ev.clientY - sy) > 8) moved = true; move(ev); };
+  const up = () => { pad.classList.remove('active'); pad.removeEventListener('pointermove', mv); pad.removeEventListener('pointerup', up); pad.removeEventListener('pointercancel', up); if (!moved) { const t = $('.tap', pad); t.classList.remove('go'); void t.offsetWidth; t.classList.add('go'); } };
+  pad.addEventListener('pointermove', mv); pad.addEventListener('pointerup', up); pad.addEventListener('pointercancel', up); });
+
+/* =====================================================================================
+   8. FIGURES
+   ===================================================================================== */
+const FIGS = {};
+const fig = (sec, def) => (FIGS[sec] ||= []).push(def);
+const SIM = (label, fn) => ({ label, fn });
+const OV = s => () => s;
+
+fig('proto', { title: 'Prototype', cap: 'Tap a card to push its remote. Back pops. Toggle a card to power it. On the TV: drag on the pad, hold the mic, ⋮ then D-pad, Device settings opens the sheet. Power turns the TV off, Turn on wakes it, Find TV again retries.', screen: () => S.home(), replay: true, auto: true });
+
+/* start */
+fig('start', { title: 'Start: splash, skeleton, Home', cap: 'The mark draws in over 1.1 s, then Home appears as skeleton cards with the exact shapes of the real ones, then the cards rise in 45 ms apart. Skeleton shimmer is the only looping motion.', screen: () => S.splash(), replay: true, auto: true,
+  setup: dev => { TO(dev, 2100, () => swap(dev, S.home({ state: 'loading' }))); TO(dev, 3900, () => swap(dev, S.home())); } });
+fig('start', { title: 'Home', cap: 'Rooms, one card per device, a power toggle on each card. Tap the card for the remote, press and hold for device settings.', screen: () => S.home(), replay: true });
+fig('start', { title: 'Home, loading', cap: 'Skeleton while the saved devices are read. Gear and plus are visible but disabled; a screen reader hears "Loading".', screen: () => S.home({ state: 'loading' }) });
+fig('start', { title: 'Home, empty / welcome', cap: 'First run and the empty Home are the same screen. One sentence of reassurance, one button.', screen: () => S.home({ state: 'empty' }) });
+fig('start', { title: 'Home, phone without IR', cap: 'Devices that only take IR stay visible and say why. The Matter AC and the Wi-Fi TV work as usual.', screen: () => S.home({ state: 'noir' }) });
+fig('start', { title: 'Home, saved data unreadable', cap: 'Data is never overwritten. The explanation is the whole screen; the gear still works.', screen: () => S.home({ state: 'corrupt' }) });
+fig('start', { title: 'Home, pressed card + toast', cap: 'A card held down scales to 0.985 and darkens one step. A toast is how every quick failure is reported.', screen: () => S.home().replace('class="card rise" style="--n:1"', 'class="card is-pressed" style="--n:1"'), overlay: OV(Toast("Couldn't reach the AC. Try again", 'error', 'Try again')) });
+
+/* tv */
+const tvFig = (title, cap, p, extra = {}) => fig('tv', { title, cap, screen: () => S.tv(p), ...extra });
+tvFig('TV, ready (touchpad)', 'The default. Drag to move, tap to select (the dot is 44 px and follows your finger). Back 64, Home 84 and the 64 px ink mic are always in thumb reach. Try it.', {}, { replay: false });
+tvFig('TV, ⋮ menu', 'The dropdown grows from the ⋮ button (260 ms, ease-enter). The current pad style is dimmed and ticked. Tapping outside closes it.', { menu: true }, { overlay: OV(menuHTML('touchpad', true)) });
+tvFig('TV, D-pad', 'Same screen, pad swapped. Switching cross-fades and scales the pads (260 ms); the choice is remembered per TV.', { pad: 'dpad' });
+tvFig('TV, finger on the pad', 'The dot appears under the finger at 44 px with a soft halo and fades 160 ms after release. A tap sends a ripple.', { dot: true });
+tvFig('TV, holding the mic', 'Hold to talk: the mic scales to 1.12 and turns accent, two rings pulse out every 1.5 s, the pad dims. Release to stop. Try it on the first TV.', { listening: true });
+tvFig('TV, microphone blocked', 'The problem line sits under the keys. No dialog.', { problem: "Allow the microphone for One Remote in your phone's settings." }, { overlay: OV(Toast("Can't reach the TV right now", 'error')) });
+tvFig('TV, connecting', 'The pad is a skeleton with a spinner badge, keys are dimmed until the socket is up.', { state: 'connecting' });
+fig('tv', { title: 'TV, off', cap: 'LG drops off Wi-Fi when off. Turn on uses IR (phones with IR) or Wi-Fi wake. Choose how the next attempt goes, then tap Turn on.', screen: () => S.tv({ state: 'off' }), setup: dev => { dev._failWake = false; },
+  sim: [SIM('Wake works', d => d._failWake = false), SIM('Wake fails', d => d._failWake = true)] });
+tvFig('TV, turning on', 'Spinner and "Turning on…". The pad appears as soon as the TV answers.', { state: 'waking' });
+fig('tv', { title: 'TV, wake failed', cap: 'The hint is specific to the TV kind. Pick one to see its copy.', screen: () => S.tv({ state: 'wakefail' }), sim: [SIM('LG', d => swap(d, S.tv({ state: 'wakefail', id: 'tv1' }))), SIM('Android TV', d => swap(d, S.tv({ state: 'wakefail', id: 'tv3' }))), SIM('Samsung', d => swap(d, S.tv({ state: 'wakefail', id: 'tv2' })))] });
+tvFig("TV, can't reach it", 'The app keeps looking by itself. Find TV again shows a spinner, then either "Found the TV at…" and returns to the pad, or "Couldn\'t find the TV on this Wi-Fi". Try it: the first attempt fails.', { state: 'unreachable' });
+tvFig('TV, pair again', 'The TV stopped trusting this phone. The pad is dimmed, one banner and one button take you to the same pairing flow as adding.', { state: 'notpaired' });
+tvFig('TV, keyboard', 'The keyboard replaces the pad. Done returns to it.', { state: 'keyboard' });
+tvFig('TV, inputs sheet', 'A bottom sheet over the screen. Inputs with nothing connected are listed but quiet.', {}, { overlay: () => sheetInputs() });
+tvFig('Android TV / Google TV', 'The Airtel box. Same remote, same keys; only pairing (a code) and the wake hint differ.', { id: 'tv3' });
+tvFig('Samsung', 'Same remote again. Pairing is the "Allow" prompt, like LG.', { id: 'tv2' });
+tvFig('TV, errors as toasts', 'Short failures use a toast: "Can\'t reach the TV right now", "The TV didn\'t answer", "Pair the TV again from ⋯". They leave on their own after 2.6 s.', {}, { overlay: OV(Toast("The TV didn't answer", 'error', 'Try again')) });
+
+/* ac */
+const skelAc = () => scr(`${Bar({ title: 'Panasonic AC', sub: '<span class="sk" style="display:inline-block;height:12px;width:120px"></span>' })}<div class="dialwrap"><span class="sk" style="position:absolute;inset:0;border-radius:50%;opacity:.7"></span></div><div class="grow"></div><span class="sk" style="height:56px;border-radius:999px"></span><div class="row gap2" style="justify-content:center"><span class="sk" style="height:48px;width:110px;border-radius:999px"></span><span class="sk" style="height:48px;width:96px;border-radius:999px"></span><span class="sk" style="height:48px;width:96px;border-radius:999px"></span></div><span class="sk" style="height:20px;width:60%;align-self:center"></span>`);
+fig('ac', { title: 'AC, Matter', cap: 'Try − and +: the arc eases to the new value (260 ms), the digit rolls up or down (160 ms) and the buttons stop at 16 and 30. The mode switch slides.', screen: () => S.ac() });
+fig('ac', { title: 'AC, setpoint change (autoplay)', cap: 'The same, played for you: +, +, then −, then Dry.', screen: () => S.ac(), replay: true, auto: true, setup: dev => { const c = (ms, a, arg) => TO(dev, ms, () => ACT[a](dev, null, arg)); c(900, 'acstep', 1); c(1500, 'acstep', 1); c(2100, 'acstep', -1); c(2900, 'acmode', 1); c(3900, 'acmode', 0); } });
+fig('ac', { title: 'AC, off', cap: 'The arc empties, the number becomes "Off", the steppers are disabled. Power fades the dial back.', screen: () => S.ac({ on: false, id: 'ac2', link: 'ir' }) });
+fig('ac', { title: 'AC, over IR', cap: 'The link is one calm line. The AC cannot report back over IR, so the room temperature is not shown as live.', screen: () => S.ac({ link: 'ir', id: 'ac2', on: true, temp: 22 }) });
+fig('ac', { title: 'AC, fell back to IR', cap: 'Matter stopped answering. Same screen; the line turns warm and tells you to point the phone. When Matter returns it switches back by itself.', screen: () => S.ac({ link: 'fell' }) });
+fig('ac', { title: 'AC, send failed', cap: 'A toast with the action in the toast. Nothing else on the screen changes.', screen: () => S.ac({ temp: 25 }), overlay: OV(Toast("Couldn't send. Try again", 'error', 'Try again')) });
+fig('ac', { title: 'AC, needs a phone with IR', cap: 'The controls are visible but inert, so you can see what the AC would offer.', screen: () => S.ac({ id: 'ac2', link: 'ir', on: false, needsIr: true }) });
+fig('ac', { title: 'AC, loading', cap: 'Skeleton shaped like the dial while the first state is read.', screen: skelAc });
+
+/* fan */
+const skelFan = () => scr(`${Bar({ title: 'Atomberg fan', sub: '<span class="sk" style="display:inline-block;height:12px;width:90px"></span>' })}<div class="fan-hero"><span class="sk" style="width:112px;height:112px;border-radius:36px"></span></div><div class="speed" style="margin-top:20px">${[0, 1, 2, 3, 4].map(k => `<span class="sk" style="flex:1;border-radius:18px;height:calc(32% + ${k} * 17%)"></span>`).join('')}</div><div class="row gap2"><span class="sk" style="height:48px;width:100px;border-radius:999px"></span><span class="sk" style="height:48px;width:100px;border-radius:999px"></span></div>`);
+fig('fan', { title: 'Fan', cap: 'Tap a bar: it fills from the bottom (260 ms) and the fan icon spins faster with the speed. Boost, Sleep, Light and Timer are chips.', screen: () => S.fan() });
+fig('fan', { title: 'Fan, off', cap: 'Bars empty, fan still. Picking any speed turns it on.', screen: () => S.fan({ on: false }) });
+fig('fan', { title: 'Fan, needs a phone with IR', cap: 'Same screen with the status line explaining the limit.', screen: () => S.fan({ needsIr: true, on: false }) });
+fig('fan', { title: 'Fan, loading', cap: 'Skeleton with the same five bars.', screen: skelFan });
+
+/* add tv */
+fig('addtv', { title: 'Add a TV, whole flow', cap: 'Plus on Home → TV → brand → Find → pick a TV → Allow on the TV → Name it. Screens push; the radar and the countdown run on their own.', screen: () => S.home(), replay: true, auto: true, setup: dev => { dev._failWake = false; setTimeout(() => { if (dev.isConnected) push(dev, 'addKind'); }, 700); },
+  sim: [SIM('On the TV: Allow', d => pairResult(d, 'allow')), SIM('Deny', d => pairResult(d, 'deny')), SIM('Time out', d => pairResult(d, 'timeout')), SIM("Can't reach", d => pairResult(d, 'unreach'))] });
+fig('addtv', { title: 'Add device', cap: 'You pick what it is, never how it connects.', screen: () => S.addKind() });
+fig('addtv', { title: 'Add device, phone without IR', cap: 'The same list with the IR limit said up front.', screen: () => S.addKind({ noIr: true }) });
+fig('addtv', { title: 'Brand', cap: 'LG, Google TV / Android TV and Samsung. A pick shows a tick; the radio fills with a 160 ms ease.', screen: () => S.addTvBrand() });
+fig('addtv', { title: 'Searching', cap: 'Radar rings ping every 2.4 s while the app looks. TVs slide in as they answer.', screen: () => S.addTvFind({ auto: true }), replay: true, auto: true });
+fig('addtv', { title: 'Found two TVs', cap: 'The first reply is shown at once. An already added TV opens its own remote instead of adding twice.', screen: () => S.addTvFind({ found: 2 }) });
+fig('addtv', { title: 'Nothing found yet', cap: 'After a while the copy changes to the likely cause and the manual address link is the way out.', screen: () => S.addTvFind({ still: true }) });
+fig('addtv', { title: 'iPhone: local network prompt', cap: 'First time only, over the search screen. The sentence is the app\'s NSLocalNetworkUsageDescription.', screen: () => S.addTvFind({ auto: false, found: 0 }), overlay: OV(sysAlert()) });
+fig('addtv', { title: "TV's IP address", cap: 'The backup. The field is focused with an accent ring.', screen: () => S.addTvManual() });
+fig('addtv', { title: 'Address, not an IP', cap: 'Errors say what is wrong, in the field. The row shakes once (260 ms).', screen: () => S.addTvManual({ err: 'bad' }) });
+fig('addtv', { title: 'Address, not on this network', cap: 'Only addresses on the home network are tried.', screen: () => S.addTvManual({ err: 'local' }) });
+fig('addtv', { title: 'Address, no TV answered', cap: 'Try 192.168.1.99 or 8.8.8.8 in the first phone of this section\'s flow to see these live.', screen: () => S.addTvManual({ err: 'none' }) });
+fig('addtv', { title: 'Pair: press Allow', cap: 'LG and Samsung. The ring drains over 30 s with the seconds in the middle, and after 15 s a link offers another try.', screen: () => S.addTvPair({ n: 0, auto: true }), replay: true, auto: true, setup: dev => { dev._active = true; autoPair(dev, topScr(dev)); },
+  sim: [SIM('Allow on the TV', d => pairResult(d, 'allow')), SIM('Deny', d => pairResult(d, 'deny')), SIM('Time out', d => pairResult(d, 'timeout'))] });
+fig('addtv', { title: 'Pair: success', cap: 'The ring turns green and the check draws (420 ms) before the Name step slides in. Re-pairing says "Paired again" and returns to the remote.', screen: () => S.addTvPair({ phase: 'ok', n: 0 }) });
+fig('addtv', { title: 'Pair: TV said no', cap: 'The ring turns red; one sentence, one button.', screen: () => S.addTvPair({ phase: 'denied', n: 30 }) });
+fig('addtv', { title: 'Pair: no answer', cap: 'After 30 s.', screen: () => S.addTvPair({ phase: 'timeout', n: 30 }) });
+fig('addtv', { title: 'Pair: unreachable (Android TV)', cap: 'The Android TV variant names the Remote Service.', screen: () => S.addTvPair({ phase: 'unreach', n: 30, brand: 'atv' }) });
+fig('addtv', { title: 'Pair: Android TV code', cap: 'Six boxes for the code on the TV; Pair stays disabled until it is full.', screen: () => S.addTvCode({ code: '4F7' }) });
+fig('addtv', { title: 'Code did not match', cap: 'Boxes outline in red; Show a new code asks the TV for another.', screen: () => S.addTvCode({ code: '4F7K2A', err: true }) });
+fig('addtv', { title: 'Already added', cap: 'The duplicate case: go to the existing remote.', screen: () => S.addTvDup() });
+fig('addtv', { title: 'Name and room', cap: 'The shared last step. The name is pre-filled. A new room is created right here.', screen: () => S.addName({ name: 'LG OLED C4' }) });
+fig('addtv', { title: 'Name and room, save failed', cap: 'Nothing is lost; the toast carries the retry.', screen: () => S.addName({ name: 'LG OLED C4' }), overlay: OV(Toast("Couldn't save the device. Try again.", 'error', 'Try again')) });
+
+/* add ac / fan */
+fig('addac', { title: 'Brand (AC)', cap: 'Only brands we can control are tappable. Panasonic carries a Matter badge. The rest is one quiet row.', screen: () => S.addBrand({ kind: 'ac' }) });
+fig('addac', { title: 'Brand (fan)', cap: 'Same screen for fans.', screen: () => S.addBrand({ kind: 'fan' }) });
+fig('addac', { title: 'IR test: ready', cap: 'Walks that brand\'s known remotes one by one. A progress bar, one instruction, one big button.', screen: () => S.addIrTest({ phase: 'test' }) });
+fig('addac', { title: 'IR test: sending', cap: 'The signal rings leave the phone while the button shows a spinner.', screen: () => S.addIrTest({ phase: 'sending' }) });
+fig('addac', { title: 'IR test: did it work?', cap: 'After Yes, one more check (25°) confirms it. No tries the next remote.', screen: () => S.addIrTest({ phase: 'ask' }) });
+fig('addac', { title: 'IR test: could not send', cap: 'An inline error, the button stays.', screen: () => S.addIrTest({ phase: 'fail' }) });
+fig('addac', { title: 'IR test (live)', cap: 'Test, then answer. Try it.', screen: () => S.addIrTest({ phase: 'test' }), replay: true });
+fig('addac', { title: 'No codes', cap: 'After the last remote. Plain, no charge, no guessing.', screen: () => S.addNoCodes() });
+fig('addac', { title: 'No IR on this phone', cap: 'Shown instead of the IR test. Add anyway saves the device greyed out.', screen: () => S.addNoIr() });
+fig('addac', { title: 'Name and room, new room', cap: '＋ New room reveals a field and Add room under the chips.', screen: () => S.addName({ newRoom: true }) });
+
+/* matter */
+fig('matter', { title: 'Add with Matter, whole flow', cap: 'The camera looks for the QR code, locks on (corners snap in and turn green), then the three steps run and Name it follows. Choose how the AC behaves, then Rescan.', screen: () => S.addMatter({ auto: true }), replay: true, auto: true, setup: dev => { dev._outcome = 'success'; },
+  sim: [SIM('AC works', d => { d._outcome = 'success'; }), SIM('AC not found', d => { d._outcome = 'notFound'; }), SIM('Cannot add phone', d => { d._outcome = 'networkFailed'; }), SIM('AC silent', d => { d._outcome = 'noResponse'; })] });
+fig('matter', { title: 'Scanning', cap: 'The beam sweeps the frame (1.8 s, alternating). The QR code is the app\'s real target; Paste code and Enter code instead sit below as secondary buttons.', screen: () => S.addMatter() });
+fig('matter', { title: 'Code found', cap: 'The frame tightens to the code with a spring (260 ms), corners go green and a badge appears. The scan then continues by itself.', screen: () => S.addMatter({ locked: true }) });
+fig('matter', { title: 'Camera not allowed', cap: 'The viewfinder becomes a quiet explanation; paste and type are now the way in.', screen: () => S.addMatter({ mode: 'denied' }) });
+fig('matter', { title: 'Not a Matter code', cap: 'A different QR code was scanned. The camera keeps running.', screen: () => S.addMatter({ notMatter: true }) });
+fig('matter', { title: 'Enter code instead', cap: 'The camera folds away and the field takes focus.', screen: () => S.addMatter({ mode: 'type' }) });
+fig('matter', { title: 'Code did not work', cap: 'Inline error under the field.', screen: () => S.addMatter({ mode: 'type', err: true }) });
+fig('matter', { title: 'Connecting, step 2', cap: 'Done steps get a green check that pops (260 ms spring); the active step has the spinner; the rest wait.', screen: () => S.addConnecting({ st: ['done', 'act', 'pending'] }) });
+fig('matter', { title: 'Connected', cap: 'All three steps are done. The app moves on to Name it after a beat.', screen: () => S.addConnecting({ st: ['done', 'done', 'done'] }) });
+fig('matter', { title: 'Failed at step 1', cap: 'It says which step failed and what to do.', screen: () => S.addConnecting({ st: ['fail', 'pending', 'pending'], err: 'notFound' }) });
+fig('matter', { title: 'Failed at step 2', cap: 'Try again restarts the steps; Not now backs out.', screen: () => S.addConnecting({ st: ['done', 'fail', 'pending'], err: 'networkFailed' }) });
+fig('matter', { title: 'Failed at step 3', cap: 'The AC was added but is not answering.', screen: () => S.addConnecting({ st: ['done', 'done', 'fail'], err: 'noResponse' }) });
+
+/* sheets + settings */
+fig('sheet', { title: 'Device settings (TV)', cap: 'Rises from the bottom in 380 ms over a scrim; closes in 260 ms. Name, room, order, and the one place links show.', screen: () => S.tv(), overlay: () => sheetSettings({ id: 'tv1' }), setup: dev => { dev._sid = 'tv1'; } });
+fig('sheet', { title: 'Device settings (AC)', cap: 'Matter is the main link, IR the backup.', screen: () => S.ac(), overlay: () => sheetSettings({ id: 'ac1' }), setup: dev => { dev._sid = 'ac1'; } });
+fig('sheet', { title: 'Device settings, pair again', cap: 'When the TV stops trusting the phone, Pair again appears under "How it\'s connected".', screen: () => S.tv({ state: 'notpaired' }), overlay: () => sheetSettings({ id: 'tv1', repair: true }), setup: dev => { dev._sid = 'tv1'; dev._repair = true; } });
+fig('sheet', { title: 'Remove device', cap: 'The destructive action asks once, in plain words.', screen: () => S.tv(), overlay: () => sheetSettings({ id: 'tv1', confirm: true }), setup: dev => { dev._sid = 'tv1'; } });
+fig('sheet', { title: 'Settings', cap: 'Short on purpose. The theme segment is live: it switches this page.', screen: () => S.settings() });
+
+/* comp: toast gallery phone */
+fig('comp', { title: 'Toasts', cap: 'Info is ink on the surface, ok has a green tick, error is a deep red. Each arrives from 14 px below (260 ms) and leaves in 160 ms.', screen: () => scr(`${Bar({ title: 'Toasts' })}<div class="col gap3" style="margin-top:8px">${Btn('Info', { v: 'secondary', act: 'toast', arg: 'Moved up' })}${Btn('Success', { v: 'secondary', act: 'toast', arg: 'Saved', p: { kind: 'ok' } })}${Btn('Error', { v: 'secondary', act: 'toast', arg: "Can't reach the TV right now", p: { kind: 'error' } })}</div>`) });
+
+/* =====================================================================================
+   9. MOUNT, REPLAY, OBSERVE
+   ===================================================================================== */
+function start(dev) { dev._active = true; const def = dev._def; if (def.setup) def.setup(dev); initScreen(dev, topScr(dev)); }
+function renderFig(host, def) {
+  const f = document.createElement('figure'); f.className = 'fig';
+  f.innerHTML = `<div class="fh"><h3>${def.title}</h3>${def.replay || def.auto ? `<button class="rp" aria-label="Replay ${esc(def.title)}">${I('refresh')}Replay</button>` : ''}</div><div class="slot"></div><figcaption>${def.cap}</figcaption>${def.sim ? `<div class="sim"><span>Simulate:</span>${def.sim.map((s, i) => `<button data-sim="${i}">${s.label}</button>`).join('')}</div>` : ''}`;
+  host.append(f); const slot = $('.slot', f);
+  const mount = (go) => { if (slot.firstChild) { clearT(slot.firstChild); } slot.replaceChildren(); const dev = buildDevice(def); slot.append(dev); f._dev = dev; if (go) start(dev); else if (!def.auto) start(dev); return dev; };
+  mount(false); f._mount = mount;
+  const rp = $('.rp', f); if (rp) rp.onclick = () => mount(true);
+  $$('[data-sim]', f).forEach(b => b.onclick = () => def.sim[b.dataset.sim].fn(f._dev));
+  return f;
+}
+const ALL = [];
+Object.entries(FIGS).forEach(([sec, defs]) => { const host = $(`[data-figs="${sec}"]`); defs.forEach(d => ALL.push(renderFig(host, d))); });
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting && !e.target._started) { e.target._started = true; const dev = e.target._dev; if (dev._def.auto) { e.target._mount(true); } } }), { threshold: .35 });
+ALL.forEach(f => { if (f._dev._def.auto) io.observe(f); });
+$('#replay-all').onclick = () => ALL.forEach(f => { if (f._dev._def.replay || f._dev._def.auto) f._mount(true); });
+
+/* =====================================================================================
+   10. PAGE CONTROLS, TOKEN DISPLAY, MOTION TABLE, CHANGES
+   ===================================================================================== */
+function setTheme(m) { if (m === 'system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = m; $$('[data-theme-set]').forEach(b => b.setAttribute('aria-pressed', b.dataset.themeSet === m)); requestAnimationFrame(renderTokens); }
+$$('[data-theme-set]').forEach(b => b.onclick = () => setTheme(b.dataset.themeSet));
+$$('[data-motion-set]').forEach(b => b.onclick = () => { const m = b.dataset.motionSet; if (m === 'reduce') document.documentElement.dataset.motion = 'reduce'; else document.documentElement.removeAttribute('data-motion'); $$('[data-motion-set]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+const fit = () => document.documentElement.style.setProperty('--zoom', Math.min(1, (innerWidth - 32) / 390).toFixed(3));
+fit(); addEventListener('resize', fit);
+
+const cv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const rgb = c => { c = c.trim(); if (c[0] === '#') { if (c.length === 4) c = '#' + [...c.slice(1)].map(x => x + x).join(''); return [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)); } const m = c.match(/[\d.]+/g); return m ? m.slice(0, 3).map(Number) : null; };
+const lum = ([r, g, b]) => { const f = v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }; return .2126 * f(r) + .7152 * f(g) + .0722 * f(b); };
+const ratio = (a, b) => { const x = lum(rgb(a)), y = lum(rgb(b)), hi = Math.max(x, y), lo = Math.min(x, y); return (hi + .05) / (lo + .05); };
+function renderTokens() {
+  const names = ['bg', 'surface', 'surface2', 'ink', 'ink2', 'line', 'accent', 'accent-ink', 'cool', 'warm', 'ok', 'danger', 'ok-ink', 'danger-ink'];
+  const sw = names.map(n => `<div class="sw-i"><i style="background:var(--color-${n})"></i><span><b>color.${n.replace(/-(\w)/g, (_, c) => c.toUpperCase())}</b>${cv('--color-' + n)}</span></div>`).join('');
+  const pairs = [['ink', 'bg', 4.5, 'Body text on the screen'], ['ink', 'surface', 4.5, 'Text on cards'], ['ink2', 'bg', 4.5, 'Secondary text on the screen'], ['ink2', 'surface', 4.5, 'Secondary text on cards'], ['ink2', 'surface2', 4.5, 'Secondary text on fills'], ['accent', 'bg', 4.5, 'Link text'], ['accent-ink', 'accent', 4.5, 'Primary button label'], ['ok-ink', 'surface', 4.5, 'Success text'], ['danger-ink', 'surface', 4.5, 'Error text'], ['ink2', 'surface', 3, 'Switch off track vs card (control)'], ['line', 'bg', 1, 'Hairlines (decorative, not required)']];
+  const rows = pairs.map(([f, b, need, what]) => { const r = ratio(cv('--color-' + f), cv('--color-' + b)); return `<tr><td>${what}</td><td><code>${f} on ${b}</code></td><td>${r.toFixed(2)}</td><td>${r >= need ? 'AA pass' : need === 1 ? 'n/a' : '<b>fails</b>'}</td></tr>`; }).join('');
+  $('#tokens').innerHTML = `<div><h3>Colour</h3><div class="sw-grid">${sw}</div></div>
+  <div><h3>Contrast (live)</h3><table class="spec"><tr><th>Use</th><th>Pair</th><th>Ratio</th><th></th></tr>${rows}</table></div>
+  <div><h3>Type: system font, a weight picks the face</h3><div class="panel" style="padding:20px;display:block"><p class="t-title">Title 30 / 700</p><p class="t-head" style="margin-top:8px">Heading 21 / 700</p><p class="t-body" style="margin-top:8px">Body 16 / 400, line 1.4</p><p class="t-body" style="font-weight:700;margin-top:4px">Body bold 16 / 700</p><p class="t-cap" style="margin-top:4px">Caption 13 / 400</p><p style="font-size:76px;font-weight:700;letter-spacing:-.03em;line-height:1.05;margin:8px 0 0;font-variant-numeric:tabular-nums">24°</p><p class="t-cap">Display 76 / 700, only the AC setpoint</p></div></div>
+  <div><h3>Space (4 px steps), radius, touch</h3><div class="scale">${[1, 2, 3, 4, 5, 6, 8, 10, 12].map(n => `<div><i style="width:${n * 4}px"></i>space ${n} = ${n * 4}</div>`).join('')}</div><div class="scale" style="grid-template-columns:repeat(4,auto);display:flex;flex-wrap:wrap;gap:14px;margin-top:16px">${[['sm', 10], ['md', 18], ['lg', 26], ['pill', 999], ['sheet', 28]].map(([n, v]) => `<div style="flex-direction:column;align-items:flex-start"><i class="r" style="border-radius:${v}px;background:var(--color-surface)"></i>radius.${n} ${v}</div>`).join('')}</div><p style="font-size:14px;color:var(--stage-ink2)">touch.min 48 (every target) · touch.key 56 (buttons, inputs) · keys 64 and 84</p></div>
+  <div><h3>Elevation</h3><div class="panel" style="padding:24px;display:flex;gap:28px;flex-wrap:wrap">${[['card', 'var(--shadow-card)'], ['pop', 'var(--shadow-pop)'], ['sheet', 'var(--shadow-sheet)']].map(([n, s]) => `<div style="width:96px;height:72px;border-radius:18px;background:var(--color-surface);box-shadow:${s};display:grid;place-items:center;font-size:13px">${n}</div>`).join('')}</div></div>`;
+}
+renderTokens();
+
+const MOT = [['instant', 'dur-instant', '90 ms', 'standard', 'Press feedback: buttons, keys, chips scale to 0.92 to 0.97 on touch-down'], ['fast', 'dur-fast', '160 ms', 'standard', 'Toggle, chip colour, digit roll, selection ticks, every exit (toast, menu)'], ['base', 'dur-base', '260 ms', 'enter / standard', 'Menu, toast in, pad swap, cross-fades, arc, speed bars, success pops'], ['slow', 'dur-slow', '380 ms', 'enter / exit', 'Screen push and back, bottom sheet in (sheet out is 260 ms)'], ['ambient', 'dur-ambient', '1500 ms', 'loop', 'Skeleton shimmer, mic and radar pulse, scan beam. Loops stop with reduced motion']];
+const EAS = [['standard', '.2, 0, 0, 1', 'Moves between two rest points'], ['enter', '.05, .7, .1, 1', 'Arriving: fast start, soft landing'], ['exit', '.3, 0, .8, .15', 'Leaving: slow start, quick end'], ['spring', '.34, 1.45, .64, 1', 'Press release and success pops, with a small overshoot']];
+$('#motion').innerHTML = `<table class="spec"><tr><th>Duration token</th><th>Value</th><th>Used for</th></tr>${MOT.map(m => `<tr><td><code>motion.${m[0]}</code></td><td>${m[2]}</td><td>${m[4]}</td></tr>`).join('')}</table>
+<div style="height:24px"></div><table class="spec"><tr><th>Easing token</th><th>cubic-bezier</th><th>Used for</th></tr>${EAS.map(m => `<tr><td><code>ease.${m[0]}</code></td><td>${m[1]}</td><td>${m[2]}</td></tr>`).join('')}</table>
+<div style="height:24px"></div><div class="figs"><div style="width:min(520px,100%)"><div class="row" style="justify-content:space-between;margin-bottom:8px"><b>Compare the curves</b><button class="rp" id="mplay">${I('play')}Play</button></div><div class="motion-demo" id="mdemo">${EAS.map(e => `<div class="lane" style="--d:var(--dur-slow);--e:var(--ease-${e[0]})"><b></b><span>${e[0]}</span></div>`).join('')}</div></div>
+<div style="max-width:520px;color:var(--stage-ink2);font-size:14px"><b style="color:var(--stage-ink)">Rules</b><ul style="padding-left:18px;margin:8px 0 0"><li>Moves are a push, a rise or a scale from the trigger. Nothing slides for decoration.</li><li>Looping motion only while something is in progress (searching, listening, connecting, loading).</li><li>Reduced motion: pushes, sheets, toasts and menus become fades, pulses and loops stop, spinners become a slow blink. Force it with the page control above.</li><li>Press feedback is immediate (90 ms) and never waits for the network.</li></ul></div></div>`;
+$('#mplay').onclick = () => { const d = $('#mdemo'); d.style.setProperty('--lw', $('.lane', d).clientWidth + 'px'); d.classList.remove('go'); void d.offsetWidth; requestAnimationFrame(() => d.classList.add('go')); };
+
+const CH = [['color.okInk', '(none, ok #1f9d63 used as text)', '#17744a light / #4cc88c dark', 'ok green is 3.5:1 on white as text; this is 5.8:1'], ['color.dangerInk', '(none, danger #e5484d used as text)', '#c4262c light / #ff8b8f dark', 'danger red is 3.8:1 on white as text; this is 5.6:1'], ['color.scrim', 'none', 'rgba(13,15,18,.45) light / rgba(0,0,0,.6) dark', 'Behind sheets'], ['color.accentSoft, okSoft, dangerSoft, warmSoft', 'none', 'colour at 12 to 16% over surface (precompute for RN)', 'Banners, tinted discs, pressed ghost buttons, the fell-back IR line'], ['radius.sheet', 'none', '28', 'Top corners of bottom sheets'], ['touch.key', 'touch.min 48', 'add 56', 'Button and input height (the mock\'s Button is 56 high). Chips, segments and toast actions rise from 44 to 48 = touch.min'], ['shadow.pop, shadow.sheet', 'shadow.card only', 'pop: 0 10 28 .18 + 0 2 6 .08 · sheet: 0 -10 40 .22', 'Menu and toast; bottom sheet. Dark mode adds a 1 px line instead of relying on shadow'], ['motion.duration', 'none', 'instant 90, fast 160, base 260, slow 380, ambient 1500', 'Every animation. Add to tokens.ts and read through one hook'], ['motion.easing', 'none', 'standard (.2,0,0,1) · enter (.05,.7,.1,1) · exit (.3,0,.8,.15) · spring (.34,1.45,.64,1)', 'Use with Easing.bezier in Reanimated'], ['motion.reduced', 'none', 'AccessibilityInfo.isReduceMotionEnabled: pushes and sheets fade, loops stop', 'Required for prefers-reduced-motion'], ['size.display', 'size.title 30 is the largest', 'add 76 / 700, tracking -.03em, tabular numerals', 'AC setpoint only'], ['size.title tracking', '0', '-.015em', 'Tighter at 30'], ['Card', 'shadow only', 'shadow.card plus a 1 px line ring (color.line)', 'Cards stay visible in dark mode and on matching backgrounds'], ['Icons', 'text glyphs (⌨ ⋮ ← 📺 ❄️)', 'one stroke icon set (24 px, 2 px stroke, round), as SVG', 'Consistent weight on Android and iPhone. The mock\'s symbols are the set to draw'], ['Toggle off track', 'color.ink2', 'unchanged', 'Already AA for controls (4.9:1)']];
+$('#changes').innerHTML = `<table class="spec"><tr><th>Token</th><th>App now</th><th>Proposed</th><th>Why</th></tr>${CH.map(r => `<tr><td><code>${r[0]}</code></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('')}</table><p style="margin-top:24px;color:var(--stage-ink2);max-width:760px">Copy that is new in this mock (not yet in <code class="i2">src/i18n/en</code>): "Nothing leaves your home network." on the splash, "Paired" after a first pairing, "Device removed", "Needs a phone with IR" as a toast, the "Tap power to turn on" line under an AC that is off, and the "Now" badge on the current input.</p>`;
+
+/* component specimens */
+$('#comp-sheet').innerHTML = `<div class="panel">
+<div class="col gap3"><h4>Button: primary</h4>${Btn('Find my TV')}${Btn('Pressed', { pressed: true })}${Btn('Disabled', { disabled: true })}${Btn('Looking…', { loading: true })}</div>
+<div class="col gap3"><h4>Button: secondary, ghost, danger</h4>${Btn('Paste code', { v: 'secondary', icon: 'clip' })}${Btn('Pressed', { v: 'secondary', pressed: true })}${Btn('Not now', { v: 'ghost' })}${Btn('Remove device', { v: 'danger', icon: 'trash' })}</div>
+<div class="col gap3"><h4>Chip</h4><div class="chips">${Chip('Bedroom')}${Chip('Study', { sel: true })}${Chip('Pressed', { pressed: true })}${Chip('Disabled', { disabled: true })}</div><h4 style="margin-top:12px">Toggle</h4><div class="row gap4">${Switch(false, 'Off')}${Switch(true, 'On')}${Switch(true, 'Disabled', { disabled: true })}</div></div>
+<div class="col gap3"><h4>Input</h4><div class="field"><label>Name</label><input class="input" value="Panasonic AC"></div><div class="field"><label>IP address</label><input class="input focus" value="192.168.1."></div><div class="field"><label>IP address</label><input class="input err" value="192.168.1">${Err("That isn't an IP address")}</div></div>
+<div class="col gap3"><h4>Toast</h4>${Toast('Saved', 'ok')}${Toast('Moved up')}${Toast("Couldn't send. Try again", 'error', 'Try again')}</div>
+<div class="col gap3"><h4>Banner</h4>${Banner("This phone has no IR blaster. Devices that only take IR can't be controlled from it.", '', 'ir')}${Banner('Pair the TV again from ⋯', 'err', 'lock')}${Banner('Paired again', 'ok', 'check')}</div>
+<div class="col gap3"><h4>Card</h4>${DevCard('tv1', { n: 0 }).replace('rise', '')}${DevCard('ac1').replace('class="card rise"', 'class="card is-pressed"')}${DevCard('ac2', { needsIr: true }).replace('rise', '')}</div>
+<div class="col gap3"><h4>Skeleton and spinner</h4>${SkelCard()}<div class="row gap4">${spin.replace('spinner', 'spinner lg')}<span class="t-body ink2">Looking…</span></div></div>
+</div>`;
+</script>
 </body>
 </html>
