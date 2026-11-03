@@ -12,6 +12,8 @@ export interface IconButtonProps {
   /** No disc or ring: just the icon (sheet close, bar actions on a bare background). */
   flat?: boolean;
   expanded?: boolean;
+  /** On/off state (power buttons): the button becomes a switch that reports `checked`. */
+  checked?: boolean;
   disabled?: boolean;
   testID?: string;
 }
@@ -24,11 +26,15 @@ export function IconButton(props: IconButtonProps): ReactElement {
       accessibilityLabel={props.label}
       disabled={props.disabled}
       expanded={props.expanded}
+      checked={props.checked}
+      accessibilityRole={props.checked === undefined ? 'button' : 'switch'}
       testID={props.testID}
       radius="pill"
       bg={props.flat ? undefined : 'surface'}
       border={props.flat ? undefined : 'line'}
-      pressedBg="surface2Pressed"
+      pressedBg="surface2"
+      pressScale={0.92}
+      disabledOpacity={0.4}
     >
       <Box w={48} h={48} align="center" justify="center">
         <Icon name={props.icon} color={props.tone === 'power' ? 'dangerInk' : 'ink'} />

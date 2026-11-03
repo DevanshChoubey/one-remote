@@ -32,19 +32,21 @@ const LOOK: Record<
 export function Button(props: ButtonProps): ReactElement {
   const look = LOOK[props.variant ?? 'primary'];
   const small = props.size === 'small' || props.variant === 'ghost';
-  const blocked = props.disabled === true || props.loading === true;
+  const loading = props.loading === true;
+  const blocked = props.disabled === true || loading;
   return (
     <Touchable
       onPress={props.onPress}
       accessibilityLabel={props.accessibilityLabel ?? props.label}
       disabled={blocked}
       selected={props.selected}
-      busy={props.loading === true ? true : undefined}
+      busy={loading ? true : undefined}
+      noDim={loading && props.disabled !== true}
       bg={look.bg}
       border={look.border}
       radius="pill"
       pressedBg={look.pressed}
-      alignSelf={props.size === 'small' ? 'flex-start' : undefined}
+      alignSelf={small ? 'flex-start' : undefined}
     >
       <Row gap={2} align="center" justify="center" px={small ? 5 : 6} minH={small ? 48 : 56}>
         {props.loading ? (
