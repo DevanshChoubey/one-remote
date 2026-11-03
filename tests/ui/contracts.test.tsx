@@ -139,16 +139,17 @@ describe('shared component contracts', () => {
       expect(screen.queryByText('Moved up')).toBeNull();
     });
 
-    it('logs no error when the provider unmounts with a toast pending', async () => {
-      const error = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    it('clears its dismiss timer when the provider unmounts with a toast pending', async () => {
       const { unmount } = await render(wrap(<Trigger first="Saved" />));
+      const set = jest.spyOn(global, 'setTimeout');
+      const clear = jest.spyOn(global, 'clearTimeout');
       await fireEvent.press(screen.getByLabelText('one'));
+      const dismiss = set.mock.results.find((_, i) => set.mock.calls[i]?.[1] === 4000)?.value;
+      expect(dismiss).toBeDefined();
       await unmount();
-      await act(async () => {
-        jest.advanceTimersByTime(10000);
-      });
-      expect(error).not.toHaveBeenCalled();
-      error.mockRestore();
+      expect(clear).toHaveBeenCalledWith(dismiss);
+      set.mockRestore();
+      clear.mockRestore();
     });
 
     it('useToast throws outside the provider', async () => {
@@ -169,12 +170,14 @@ describe('shared component contracts', () => {
         ),
       );
       expect(screen.getByText('Input')).toBeTruthy();
-      await fireEvent.press(screen.getAllByLabelText(t('common.close'))[0]!);
-      expect(onClose).toHaveBeenCalledTimes(1);
+      const closers = screen.getAllByLabelText(t('common.close'));
+      expect(closers.length).toBeGreaterThanOrEqual(1);
+      for (const closer of closers) await fireEvent.press(closer);
+      expect(onClose).toHaveBeenCalledTimes(closers.length);
       await act(async () => {
         screen.getByTestId('sheet').props.onRequestClose();
       });
-      expect(onClose).toHaveBeenCalledTimes(2);
+      expect(onClose).toHaveBeenCalledTimes(closers.length + 1);
     });
 
     it('renders nothing when closed', async () => {
@@ -234,7 +237,7 @@ describe('shared component contracts', () => {
     );
   });
 
-  it('useState-free smoke: Chip without onToggle is a plain labelled label', async () => {
+  it('Chip without onToggle is a plain labelled label', async () => {
     function Probe(): ReactElement {
       const [n] = useState(1);
       return <Chip label={`n${n}`} state="neutral" />;

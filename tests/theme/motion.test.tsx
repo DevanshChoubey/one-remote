@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
-import { Text } from 'react-native';
+import { AccessibilityInfo, Text } from 'react-native';
 import { ThemeProvider, useMotion } from '@/theme';
 
 function Probe(): ReactElement {
@@ -48,5 +48,27 @@ describe('useMotion', () => {
       </ThemeProvider>,
     );
     expect(read()).toMatchObject({ reduced: false, lift: 14 });
+  });
+
+  it('follows the system reduce-motion setting when it changes', async () => {
+    let emit: (on: boolean) => void = () => undefined;
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false);
+    jest.spyOn(AccessibilityInfo, 'addEventListener').mockImplementation((_event, handler) => {
+      emit = handler as (on: boolean) => void;
+      return { remove: jest.fn() } as unknown as ReturnType<
+        typeof AccessibilityInfo.addEventListener
+      >;
+    });
+    await render(
+      <ThemeProvider>
+        <Probe />
+      </ThemeProvider>,
+    );
+    expect(read()).toMatchObject({ reduced: false });
+    await act(async () => {
+      emit(true);
+    });
+    expect(read()).toMatchObject({ reduced: true, lift: 0 });
+    jest.restoreAllMocks();
   });
 });
