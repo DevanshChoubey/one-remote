@@ -298,13 +298,35 @@ describe('DeviceHub', () => {
     expect(hub.view('ac1').state).toBeUndefined();
   });
 
-  it('forgets a reported state once no one watches, so a later look does not show it as live', async () => {
+  it('renew forgets a reported state and observes afresh, even while Home still subscribes', async () => {
+    const { hub, matter } = setup();
+    const views: View[] = [];
+    hub.subscribe('ac1', (v) => views.push(v)); // Home, which never leaves
+    matter.emit('ac1', { kind: 'ac', state: acState, roomTemp: 27 });
+    expect(hub.view('ac1').state).toBeDefined();
+    hub.renew('ac1');
+    expect(hub.view('ac1').state).toBeUndefined();
+    expect(views[views.length - 1]?.state).toBeUndefined();
+    // Still observed: a fresh report reaches the subscriber.
+    matter.emit('ac1', { kind: 'ac', state: acState, roomTemp: 25 });
+    expect(hub.view('ac1').state).toMatchObject({ roomTemp: 25 });
+  });
+
+  it('keeps a reported state when a subscriber leaves (refresh and Home rely on it)', async () => {
     const { hub, matter } = setup();
     const stop = hub.subscribe('ac1', () => undefined);
     matter.emit('ac1', { kind: 'ac', state: acState, roomTemp: 27 });
-    expect(hub.view('ac1').state).toBeDefined();
     stop();
-    expect(hub.view('ac1').state).toBeUndefined();
+    hub.refresh();
+    expect(hub.view('ac1').state).toBeDefined();
+  });
+
+  it('renew keeps the last state sent over a link that cannot report', async () => {
+    const { hub, matter } = setup();
+    matter.failNext('notSent');
+    await hub.send('ac1', acSet);
+    hub.renew('ac1');
+    expect(hub.view('ac1').state).toEqual({ kind: 'ac', state: acState, lastSent: true });
   });
 
   it('reported state wins', async () => {

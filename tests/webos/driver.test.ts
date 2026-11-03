@@ -556,6 +556,19 @@ describe('webos driver: review focus', () => {
     stop();
   });
 
+  it('4. TV off, looked at again within 30 s of the search: off again after 3000 ms', async () => {
+    const r = rig({ tvs: [] });
+    const first = r.observe();
+    await advance(3000);
+    expect(first.reports).toEqual([{ kind: 'tv', state: { power: false } }]);
+    first.stop();
+    await advance(5000);
+    const next = r.observe();
+    await advance(4000);
+    expect(next.reports).toEqual([{ kind: 'tv', state: { power: false } }]);
+    next.stop();
+  });
+
   it('4. TV off, then on: reports the real state again', async () => {
     const tv = tvAt();
     tv.setPower(false);
@@ -702,12 +715,12 @@ describe('webos driver: fix round 1', () => {
     stop();
   });
 
-  it('connected, with neither the power API nor the foreground app answering, is on after 4 s', async () => {
+  it('connected, with neither the power API nor the foreground app answering, is on after 3 s', async () => {
     const r = rig({ tvs: [tvAt({ failUris: [URI.power, URI.foreground] })] });
     const { reports, stop } = r.observe();
-    await advance(3000);
+    await advance(2500);
     expect(reports).toEqual([]);
-    await advance(1500);
+    await advance(1000);
     expect(reports[0]).toMatchObject({ state: { power: true } });
     stop();
   });

@@ -554,6 +554,26 @@ describe('TvScreen', () => {
     expect(screen.getAllByText(t('tv.unreachableTitle')).length).toBeGreaterThan(0);
   });
 
+  it('does not show an old "on" as live on return, though Home still subscribes', async () => {
+    const r = await rig();
+    let onChange: ((s: string) => void) | undefined;
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, cb) => {
+      onChange = cb as (s: string) => void;
+      return { remove: jest.fn() };
+    });
+    const home = r.s.hub.subscribe('tv1', () => undefined);
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await act(async () => {
+      r.webos.emit('tv1', { kind: 'tv', state: { power: true } });
+    });
+    expect(screen.getByTestId('tv-pad-area')).toBeTruthy();
+    await act(async () => onChange?.('background'));
+    await act(async () => onChange?.('active'));
+    expect(screen.queryByTestId('tv-pad-area')).toBeNull();
+    expect(screen.getAllByText(t('tv.statusConnecting')).length).toBeGreaterThan(0);
+    home();
+  });
+
   it('says "Sent over IR" after an IR fallback', async () => {
     const r = await rig();
     jest.spyOn(r.s.hub, 'view').mockImplementation((id) => ({

@@ -33,8 +33,9 @@ export interface WebosDriverOpts {
 
 const OFF_AFTER_MS = 3000;
 const POWER_FALLBACK_MS = 1500;
-/** Connected, and neither the power API nor the foreground app answered: take it as on. */
-const POWER_LAST_RESORT_MS = 4000;
+/** Connected, and neither the power API nor the foreground app answered: take it as on (within the
+ * screen's 5 s connecting window, a 1.5 s connect included). */
+const POWER_LAST_RESORT_MS = 3000;
 const REDISCOVER_EVERY_MS = 30000;
 const PROMPT_COOLDOWN_MS = 60000;
 
@@ -369,6 +370,13 @@ export function createWebosDriver(
     const throttled =
       e.lastRediscoverAt !== undefined && now - e.lastRediscoverAt < REDISCOVER_EVERY_MS;
     if ((throttled && !mismatch) || probing) {
+      // A new look forgot the last state: say "off" after the usual wait rather than nothing.
+      if (!e.state && !e.offTimer) {
+        e.offTimer = setTimeout(() => {
+          e.offTimer = undefined;
+          emitOff(e);
+        }, OFF_AFTER_MS);
+      }
       scheduleBackoff(e);
       return;
     }
@@ -540,7 +548,13 @@ export function createWebosDriver(
           (p) => {
             if (s.stopped) return;
             const on = isPoweredOn(p);
-            if (on !== undefined) update(e, s, { power: on });
+            if (on !== undefined) {
+              // The power API answers after all: it wins over the foreground app from now on.
+              s.powerKnown = true;
+              s.powerFromApp = false;
+              s.fallbackDue = false;
+              update(e, s, { power: on });
+            }
             beat();
           },
           (err: unknown) => {

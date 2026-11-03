@@ -130,6 +130,25 @@ export class DeviceHub {
     }
   }
 
+  /**
+   * A new look at the device's screen: forget what it reported and ask its links afresh, so an old
+   * answer is never shown as live. Other subscribers (Home) keep observing, so this does not wait
+   * for the last one to leave. The last state sent to a link that cannot report stays.
+   */
+  renew(deviceId: string): void {
+    this.device(deviceId);
+    const state = this.states.get(deviceId);
+    if (state && !('lastSent' in state)) this.states.delete(deviceId);
+    if (!this.subscribers.has(deviceId)) return;
+    this.stopObserving(deviceId);
+    try {
+      this.startObserving(deviceId);
+    } catch (e) {
+      console.error('DeviceHub could not observe', deviceId, e);
+    }
+    this.notify(deviceId);
+  }
+
   view(deviceId: string): DeviceView {
     const device = this.device(deviceId);
     const available = device.links.filter((l) => this.drivers.get(l.kind)?.available());
@@ -343,10 +362,6 @@ export class DeviceHub {
   private stopObserving(deviceId: string): void {
     this.observers.get(deviceId)?.forEach((stop) => stop());
     this.observers.delete(deviceId);
-    // What a device reported is only true while someone listens: a later look must not show it as
-    // live. The last state we sent to a link that cannot report stays (it is all there is).
-    const state = this.states.get(deviceId);
-    if (state && !('lastSent' in state)) this.states.delete(deviceId);
   }
 
   private notify(deviceId: string): void {

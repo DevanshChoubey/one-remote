@@ -135,6 +135,8 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
       const t = nowMs();
       setOpenedAt(t);
       setNow(t);
+      setView(null);
+      setWakeSentAt(undefined);
     }
   }
 
@@ -148,6 +150,11 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
         // The device was removed meanwhile; the route shows "not found".
       }
     };
+    try {
+      hub.renew(deviceId);
+    } catch {
+      // The device was removed meanwhile; the route shows "not found".
+    }
     show();
     const stop = hub.subscribe(deviceId, (v) => {
       setView(v);
