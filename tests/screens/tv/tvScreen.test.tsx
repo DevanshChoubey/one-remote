@@ -246,7 +246,7 @@ describe('TvScreen', () => {
     await fireEvent.press(screen.getByLabelText(t('tv.turnOn')));
     await advance(0);
     expect(r.sent()).toEqual([{ kind: 'tv.powerOn' }]);
-    expect(screen.getByText(t('tv.waking'))).toBeTruthy();
+    expect(screen.getAllByText(t('tv.waking')).length).toBeGreaterThan(0);
     await advance(20000);
     expect(screen.getByText(/Turn on via Wi-Fi/)).toBeTruthy();
   });
@@ -326,6 +326,7 @@ describe('TvScreen', () => {
   it('puts Keyboard and the ⋮ button in the header', async () => {
     const r = await rig();
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await on(r);
     expect(screen.getByLabelText(t('tv.keyboard'))).toBeTruthy();
     expect(screen.getByLabelText(t('tv.more'))).toBeTruthy();
   });
@@ -368,6 +369,7 @@ describe('TvScreen', () => {
   it('closes the ⋮ menu after an item is picked', async () => {
     const r = await rig();
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await on(r);
     await fireEvent.press(screen.getByLabelText(t('tv.more')));
     await fireEvent.press(screen.getByLabelText(t('tv.dpad')));
     await advance(0);
@@ -401,7 +403,7 @@ describe('TvScreen', () => {
     const r = await rig();
     const open = jest.spyOn(Linking, 'sendIntent').mockResolvedValue(undefined);
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
-    expect(screen.getByText(t('tv.unreachableTitle'))).toBeTruthy();
+    expect(screen.getAllByText(t('tv.unreachableTitle')).length).toBeGreaterThan(0);
     r.findAgain.mockResolvedValueOnce('192.168.1.40');
     await fireEvent.press(screen.getByLabelText(t('tv.findAgain')));
     expect(r.findAgain).toHaveBeenCalledWith(expect.objectContaining({ id: 'tv1' }));
@@ -443,6 +445,7 @@ describe('TvScreen', () => {
     jest.spyOn(r.s.prefs, 'set').mockRejectedValue(new Error('disk'));
     const err = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await on(r);
     await fireEvent.press(screen.getByLabelText(t('tv.more')));
     await fireEvent.press(screen.getByLabelText(t('tv.dpad')));
     await advance(0);
@@ -452,6 +455,7 @@ describe('TvScreen', () => {
   it('still sends typed text when the keyboard goes away before the debounce ends', async () => {
     const r = await rig();
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await on(r);
     await fireEvent.press(screen.getByLabelText(t('tv.keyboard')));
     await fireEvent.changeText(screen.getByLabelText(t('tv.keyboardField')), 'ab');
     await act(async () => {
@@ -475,7 +479,7 @@ describe('TvScreen', () => {
     const r = await rig();
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
     await advance(5000);
-    expect(screen.getByText(t('tv.unreachableTitle'))).toBeTruthy();
+    expect(screen.getAllByText(t('tv.unreachableTitle')).length).toBeGreaterThan(0);
   });
 
   it('says "Sent over IR" after an IR fallback', async () => {
@@ -667,5 +671,73 @@ describe('TvScreen shell', () => {
     const r = await rig();
     await renderWith(r.s, <TvScreen deviceId="tv1" />, { reducedMotion: true });
     expect(screen.getAllByText(t('tv.statusConnecting')).length).toBeGreaterThan(0);
+  });
+});
+
+describe('TvScreen status captions', () => {
+  it('says Off with a warn dot when the TV is off', async () => {
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await act(async () => {
+      r.webos.emit('tv1', { kind: 'tv', state: { power: false } });
+    });
+    expect(screen.getByText(t('tv.statusOff'))).toBeTruthy();
+  });
+
+  it('says Turning on… while waking and Off after a failed wake', async () => {
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await act(async () => {
+      r.webos.emit('tv1', { kind: 'tv', state: { power: false } });
+    });
+    await fireEvent.press(screen.getByLabelText(t('tv.turnOn')));
+    await advance(0);
+    expect(screen.getAllByText(t('tv.waking')).length).toBe(2);
+    await advance(20000);
+    expect(screen.getByText(t('tv.statusOff'))).toBeTruthy();
+  });
+
+  it("says Can't reach it, then Looking… while finding", async () => {
+    mockNetType = 'CELLULAR';
+    const r = await rig();
+    let done: (h: string | null) => void = () => undefined;
+    r.findAgain.mockReturnValueOnce(new Promise<string | null>((res) => (done = res)));
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    expect(screen.getAllByText(t('tv.unreachableTitle')).length).toBe(2);
+    await fireEvent.press(screen.getByLabelText(t('tv.findAgain')));
+    expect(screen.getByText(t('tv.finding'))).toBeTruthy();
+    await act(async () => done(null));
+  });
+
+  it('says Pair again, not connected, when the TV stops trusting the phone', async () => {
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await on(r);
+    expect(screen.getByText(t('tv.statusConnected'))).toBeTruthy();
+    r.webos.failNext('notPaired');
+    await fireEvent.press(screen.getByLabelText(t('tv.home')));
+    await advance(0);
+    expect(screen.getAllByText(t('tv.statusPairAgain')).length).toBeGreaterThan(0);
+    expect(screen.queryByText(t('tv.statusConnected'))).toBeNull();
+    expect(screen.getByText(t('tv.touchpadHint'))).toBeTruthy();
+  });
+
+  it('offers only Device settings in the menu and no keyboard while connecting', async () => {
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    expect(screen.queryByLabelText(t('tv.keyboard'))).toBeNull();
+    await fireEvent.press(screen.getByLabelText(t('tv.more')));
+    expect(screen.getByLabelText(t('device.open'))).toBeTruthy();
+    expect(screen.queryByLabelText(t('tv.dpad'))).toBeNull();
+  });
+
+  it('shows the offer body above the cannot-turn-on line, and tones the find note', async () => {
+    const r = await rig({ tv: { inputList: true, text: true, powerOn: false, voice: false } });
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await act(async () => {
+      r.webos.emit('tv1', { kind: 'tv', state: { power: false } });
+    });
+    expect(screen.getByText(t('tv.offBody'))).toBeTruthy();
+    expect(screen.getByText(t('tv.cantTurnOn'))).toBeTruthy();
   });
 });

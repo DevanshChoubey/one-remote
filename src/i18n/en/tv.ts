@@ -20,6 +20,8 @@ export default {
   voiceSent: 'Sent to the TV',
   statusConnected: 'Wi-Fi · connected',
   statusConnecting: 'Connecting…',
+  statusOff: 'Off',
+  statusPairAgain: 'Pair again',
   statusIr: 'Sent over IR',
   keyboardField: 'Type on the TV',
   keyboardDone: 'Done',

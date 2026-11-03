@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { t } from '@/i18n';
 import type { ColorToken } from '@/theme';
-import { Box, Button, Column, Icon, Txt } from '@/ui';
+import { Box, Button, Column, Icon, Spinner, Txt } from '@/ui';
 import type { IconName } from '@/ui';
 
 /** The 96 px art tile of the TV's whole-screen states. */
@@ -30,7 +30,7 @@ export function TvOffPanel(props: {
   wakeHintKey: string;
 }): ReactElement {
   return (
-    <Column gap={3} align="center" p={6} testID="tv-off">
+    <Column flex={1} gap={3} align="center" justify="center" px={4} testID="tv-off">
       <PanelArt icon="power" tone={props.mode === 'wakeFailed' ? 'warm' : 'ink2'} />
       <Txt variant="heading">{t('tv.offTitle')}</Txt>
       {props.mode === 'waking' ? (
@@ -38,12 +38,15 @@ export function TvOffPanel(props: {
           <Txt live color="ink2">
             {t('tv.waking')}
           </Txt>
-          <Button label={t('tv.turnOn')} onPress={props.onTurnOn} loading />
+          <Spinner size="lg" />
         </>
       ) : !props.canTurnOn ? (
-        <Txt live color="ink2">
-          {t('tv.cantTurnOn')}
-        </Txt>
+        <>
+          <Txt color="ink2">{t('tv.offBody')}</Txt>
+          <Txt live color="ink2">
+            {t('tv.cantTurnOn')}
+          </Txt>
+        </>
       ) : (
         <>
           <Txt color="ink2">{t('tv.offBody')}</Txt>

@@ -92,7 +92,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   const [inputsOpen, setInputsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [finding, setFinding] = useState(false);
-  const [findNote, setFindNote] = useState<string | null>(null);
+  const [findNote, setFindNote] = useState<{ text: string; ok: boolean } | null>(null);
   const [pickedPad, setPickedPad] = useState<Pad | null>(null);
   const [trustLost, setTrustLost] = useState(false);
   const [sent, setSent] = useState(false);
@@ -210,17 +210,23 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     tv.findAgain(device).then(
       (host) => {
         setFinding(false);
-        setFindNote(host === null ? t('tv.notFound') : t('tv.foundAt', { host }));
+        setFindNote(
+          host === null
+            ? { text: t('tv.notFound'), ok: false }
+            : { text: t('tv.foundAt', { host }), ok: true },
+        );
       },
       (e: unknown) => {
         console.error('Could not look for the TV', e);
         setFinding(false);
-        setFindNote(t('tv.notFound'));
+        setFindNote({ text: t('tv.notFound'), ok: false });
       },
     );
   };
 
-  const live = mode === 'ready' || mode === 'connecting';
+  // Pad styles, Input and Keyboard need a settled link; Power also works while connecting.
+  const live = mode === 'ready';
+  const linkUp = mode === 'ready' || mode === 'connecting';
   const voiceOn = caps?.voice === true;
   const hasMic = voiceOn || (caps?.text !== false && dictation);
 
@@ -273,14 +279,23 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     return () => sub.remove();
   }, [menuOpen]);
 
+  const blockedByWifi = mode === 'unreachable' && !onWifi;
   const status: TvStatus | null =
-    mode === 'connecting'
-      ? { text: t('tv.statusConnecting'), tone: 'warn', live: true }
-      : mode === 'ready'
-        ? view?.status.fellBack && view.status.via === 'ir'
-          ? { text: t('tv.statusIr'), tone: 'warn' }
-          : { text: t('tv.statusConnected'), tone: 'ok' }
-        : null;
+    mode === 'off' || mode === 'wakeFailed'
+      ? { text: t('tv.statusOff'), tone: 'warn' }
+      : mode === 'waking'
+        ? { text: t('tv.waking'), tone: 'warn', live: true }
+        : mode === 'unreachable' && (blockedByWifi || !trustLost)
+          ? finding
+            ? { text: t('tv.finding'), tone: 'warn', live: true }
+            : { text: t('tv.unreachableTitle'), tone: 'err' }
+          : trustLost
+            ? { text: t('tv.statusPairAgain'), tone: 'err' }
+            : mode === 'connecting'
+              ? { text: t('tv.statusConnecting'), tone: 'warn', live: true }
+              : view?.status.fellBack && view.status.via === 'ir'
+                ? { text: t('tv.statusIr'), tone: 'warn' }
+                : { text: t('tv.statusConnected'), tone: 'ok' };
 
   const pairAgain = (): void => {
     setRepairing(true);
@@ -324,7 +339,6 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   );
 
   const body = ((): ReactElement => {
-    const blockedByWifi = mode === 'unreachable' && !onWifi;
     if (mode === 'unreachable' && (blockedByWifi || !trustLost)) {
       return (
         <UnreachablePanel
@@ -348,7 +362,17 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     if (trustLost) {
       return (
         <Column flex={1} gap={4}>
-          <Box flex={1} bg="surface2" border="line" radius="lg" opacity={0.45} />
+          <Box
+            flex={1}
+            bg="surface2"
+            border="line"
+            radius="lg"
+            opacity={0.45}
+            align="center"
+            justify="center"
+          >
+            <Txt color="ink2">{t('tv.touchpadHint')}</Txt>
+          </Box>
           <Banner tone="error" icon="lock" text={t('tv.errNotPaired')} testID="tv-not-paired" />
           <Button label={t('addTv.pairAgain')} onPress={pairAgain} />
         </Column>
@@ -393,7 +417,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
             icon="power"
             tone="power"
             label={t('tv.power')}
-            onPress={() => (live ? key('power') : turnOn())}
+            onPress={() => (linkUp ? key('power') : turnOn())}
           />
           {live && caps?.text !== false ? (
             <IconButton
