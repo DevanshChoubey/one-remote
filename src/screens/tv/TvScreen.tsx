@@ -140,9 +140,11 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     }
   }
 
-  // Live state: only while this screen is in front and the app is in the foreground.
+  // Live state: only while this screen is in front and the app is in the foreground. Keyed on the
+  // device being known, not on its object: a store write builds a new one, and must not renew.
+  const known = device !== undefined;
   useEffect(() => {
-    if (!watching || !device) return;
+    if (!watching || !known) return;
     const show = (): void => {
       try {
         setView(hub.view(deviceId));
@@ -162,7 +164,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
       if (v.state?.kind === 'tv' && v.state.state.power) setWakeSentAt(undefined);
     });
     return stop;
-  }, [watching, hub, deviceId, device]);
+  }, [watching, hub, deviceId, known]);
 
   useEffect(() => {
     if (!watching) return;

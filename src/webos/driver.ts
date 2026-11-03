@@ -374,7 +374,8 @@ export function createWebosDriver(
       if (!e.state && !e.offTimer) {
         e.offTimer = setTimeout(() => {
           e.offTimer = undefined;
-          emitOff(e);
+          // Something at the address asked to pair: that is not "the TV is off".
+          if (!e.sawPrompt) emitOff(e);
         }, OFF_AFTER_MS);
       }
       scheduleBackoff(e);

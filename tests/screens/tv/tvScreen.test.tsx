@@ -574,6 +574,22 @@ describe('TvScreen', () => {
     home();
   });
 
+  it('does not renew on a store write: a TV that is on stays on', async () => {
+    const r = await rig();
+    const renew = jest.spyOn(r.s.hub, 'renew');
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await on(r);
+    expect(renew).toHaveBeenCalledTimes(1);
+    const [tv] = (await r.s.store.devices()).filter((d) => d.id === 'tv1');
+    if (!tv) throw new Error('no tv1');
+    await act(async () => {
+      await r.s.store.upsertDevice({ ...tv, name: 'Bedroom TV' });
+    });
+    await advance(6000);
+    expect(renew).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('tv-pad-area')).toBeTruthy();
+  });
+
   it('says "Sent over IR" after an IR fallback', async () => {
     const r = await rig();
     jest.spyOn(r.s.hub, 'view').mockImplementation((id) => ({
