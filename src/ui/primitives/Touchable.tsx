@@ -33,6 +33,11 @@ export interface TouchableProps {
   bg?: ColorToken;
   border?: ColorToken;
   radius?: RadiusToken;
+  /**
+   * A round button of this diameter: the surface gets the exact radius. Android draws the 999 pill
+   * radius on a large bordered surface as an octagon.
+   */
+  circle?: number;
   /** Stretches to fill its parent (scrims). */
   fill?: boolean;
   /** Disabled but not dimmed (a button that is busy keeps its colour and shows a spinner). */
@@ -116,6 +121,9 @@ export function Touchable(props: TouchableProps): ReactElement {
             minWidth: theme.touch.min,
             ...(props.border ? { borderColor: theme.color[props.border], borderWidth: 1 } : null),
             ...(props.radius ? { borderRadius: theme.radius[props.radius] } : null),
+            ...(props.circle !== undefined
+              ? { width: props.circle, height: props.circle, borderRadius: props.circle / 2 }
+              : null),
           },
           animated,
         ]}
