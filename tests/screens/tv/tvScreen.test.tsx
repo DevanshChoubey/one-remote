@@ -209,6 +209,27 @@ describe('TvScreen', () => {
     expect(screen.getByText(t('tv.touchpadHint'))).toBeTruthy();
   });
 
+  it('opens the input sheet only after the menu has left, and plays the sheet exit', async () => {
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await on(r);
+    await fireEvent.press(screen.getByLabelText(t('tv.more')));
+    await fireEvent.press(screen.getByLabelText(t('tv.input')));
+    // The menu is still leaving: no second Modal yet.
+    expect(screen.queryByTestId('tv-inputs')).toBeNull();
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+    expect(screen.getByTestId('tv-inputs')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText(t('tv.inputsDone')));
+    // It stays mounted while it slides out, then goes.
+    expect(screen.getByTestId('tv-inputs')).toBeTruthy();
+    await act(async () => {
+      jest.advanceTimersByTime(600);
+    });
+    expect(screen.queryByTestId('tv-inputs')).toBeNull();
+  });
+
   it('lists the TV inputs and switches to the one picked', async () => {
     const r = await rig();
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
@@ -226,6 +247,10 @@ describe('TvScreen', () => {
     });
     await fireEvent.press(screen.getByLabelText(t('tv.more')));
     await fireEvent.press(screen.getByLabelText(t('tv.input')));
+    // The sheet opens once the menu's exit has finished.
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
     expect(screen.getByText(t('tv.inputsTitle'))).toBeTruthy();
     expect(screen.getByLabelText(t('tv.inputEmpty', { label: 'PlayStation' }))).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('HDMI 1'));
@@ -239,6 +264,10 @@ describe('TvScreen', () => {
     await on(r);
     await fireEvent.press(screen.getByLabelText(t('tv.more')));
     await fireEvent.press(screen.getByLabelText(t('tv.input')));
+    // The sheet opens once the menu's exit has finished.
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
     expect(screen.getByText(t('tv.inputsNone'))).toBeTruthy();
     await fireEvent.press(screen.getByLabelText(t('tv.inputsDone')));
     expect(r.sent()).toEqual([]);
@@ -633,6 +662,10 @@ describe('TvScreen shell', () => {
     });
     await fireEvent.press(screen.getByLabelText(t('tv.more')));
     await fireEvent.press(screen.getByLabelText(t('tv.input')));
+    // The sheet opens once the menu's exit has finished.
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
     expect(screen.getByTestId('tv-inputs')).toBeTruthy();
     expect(screen.getAllByText(t('tv.inputNow'))).toHaveLength(1);
     expect(

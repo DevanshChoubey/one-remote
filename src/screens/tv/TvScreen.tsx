@@ -88,8 +88,22 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   const [wakeSentAt, setWakeSentAt] = useState<number | undefined>(undefined);
   const [view, setView] = useState<DeviceView | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  // Each sheet stays mounted through its exit: `open` turns false first, `onClosed` unmounts.
   const [keyboard, setKeyboard] = useState(false);
+  const [keyboardMounted, setKeyboardMounted] = useState(false);
   const [inputsOpen, setInputsOpen] = useState(false);
+  const [inputsMounted, setInputsMounted] = useState(false);
+  // Picking Input closes the menu first; the sheet opens once the menu's Modal is gone (iOS cannot
+  // present a second Modal over one that is still leaving).
+  const inputAfterMenu = useRef(false);
+  const openKeyboard = (): void => {
+    setKeyboardMounted(true);
+    setKeyboard(true);
+  };
+  const openInputs = (): void => {
+    setInputsMounted(true);
+    setInputsOpen(true);
+  };
   const [menuOpen, setMenuOpen] = useState(false);
   const [finding, setFinding] = useState(false);
   const [findNote, setFindNote] = useState<{ text: string; ok: boolean } | null>(null);
@@ -429,7 +443,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
               label={t('tv.keyboard')}
               onPress={() => {
                 setMenuOpen(false);
-                setKeyboard(true);
+                openKeyboard();
               }}
             />
           ) : null}
@@ -446,6 +460,11 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
       <TvMenu
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
+        onClosed={() => {
+          if (!inputAfterMenu.current) return;
+          inputAfterMenu.current = false;
+          if (live) openInputs();
+        }}
         live={live}
         pad={pad}
         onPad={(next) => {
@@ -455,15 +474,17 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
         onInput={() => {
           setMenuOpen(false);
           if (caps?.inputList === false) key('input');
-          else setInputsOpen(true);
+          else inputAfterMenu.current = true;
         }}
         onSettings={() => {
           setMenuOpen(false);
           router.push(`/device-sheet/${deviceId}`);
         }}
       />
-      {inputsOpen ? (
+      {inputsMounted ? (
         <InputSheet
+          open={inputsOpen}
+          onClosed={() => setInputsMounted(false)}
           inputs={view?.state?.kind === 'tv' ? view.state.state.inputs : undefined}
           {...(view?.state?.kind === 'tv' && view.state.state.currentInputId !== undefined
             ? { currentInputId: view.state.state.currentInputId }
@@ -475,8 +496,10 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
           onDone={() => setInputsOpen(false)}
         />
       ) : null}
-      {keyboard ? (
+      {keyboardMounted ? (
         <KeyboardSheet
+          open={keyboard}
+          onClosed={() => setKeyboardMounted(false)}
           onText={(text) => send({ kind: 'tv.text', text })}
           onDone={() => setKeyboard(false)}
         />

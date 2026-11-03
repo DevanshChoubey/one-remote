@@ -1,5 +1,5 @@
 import * as SplashScreen from 'expo-splash-screen';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { t } from '@/i18n';
@@ -11,6 +11,8 @@ const SAFETY_MS = 3000;
 export interface LaunchOverlayProps {
   /** The home data has loaded. */
   ready: boolean;
+  /** Called once the overlay has faded out and unmounted itself. */
+  onGone?: () => void;
 }
 
 /**
@@ -25,6 +27,10 @@ export function LaunchOverlay(props: LaunchOverlayProps): ReactElement | null {
   const [forced, setForced] = useState(false);
   const opacity = useSharedValue(1);
   const fastMs = motion.duration.fast;
+  const onGoneRef = useRef(props.onGone);
+  useEffect(() => {
+    onGoneRef.current = props.onGone;
+  }, [props.onGone]);
 
   useEffect(() => {
     SplashScreen.hideAsync().catch(() => undefined);
@@ -41,7 +47,10 @@ export function LaunchOverlay(props: LaunchOverlayProps): ReactElement | null {
   useEffect(() => {
     if (!leaving) return undefined;
     opacity.value = withTiming(0, motion.timing('fast', 'exit'));
-    const timer = setTimeout(() => setGone(true), fastMs);
+    const timer = setTimeout(() => {
+      setGone(true);
+      onGoneRef.current?.();
+    }, fastMs);
     return () => clearTimeout(timer);
   }, [leaving, opacity, motion, fastMs]);
 

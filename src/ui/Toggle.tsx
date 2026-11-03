@@ -12,6 +12,8 @@ export interface ToggleProps {
   disabled?: boolean;
   /** Keeps the spoken label but shows only the switch (e.g. on a card that already names it). */
   hideLabel?: boolean;
+  /** Disabled but not dimmed: the parent (an off card) already dims it. */
+  noDim?: boolean;
 }
 
 const TRACK_W = 52;
@@ -64,6 +66,7 @@ export function Toggle(props: ToggleProps): ReactElement {
       accessibilityRole="switch"
       checked={props.value}
       disabled={props.disabled}
+      noDim={props.noDim}
       pressScale={1}
     >
       <Row align="center" justify={props.hideLabel ? 'end' : 'between'} gap={3}>

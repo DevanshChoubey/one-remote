@@ -7,6 +7,8 @@ const DEBOUNCE_MS = 300;
 
 /** A text field whose whole content goes to the TV, 300 ms after the last change. */
 export function KeyboardSheet(props: {
+  open: boolean;
+  onClosed: () => void;
   onText: (text: string) => void;
   onDone: () => void;
 }): ReactElement {
@@ -31,6 +33,10 @@ export function KeyboardSheet(props: {
   };
   // Leaving the sheet (Done, or the TV going away) still sends what was typed last.
   useEffect(() => flush, []);
+  // Closing by any route (the TV going away included) sends what was typed at once.
+  useEffect(() => {
+    if (!props.open) flush();
+  }, [props.open]);
 
   const done = (): void => {
     flush();
@@ -39,7 +45,8 @@ export function KeyboardSheet(props: {
 
   return (
     <Sheet
-      open
+      open={props.open}
+      onClosed={props.onClosed}
       onClose={done}
       title={t('tv.keyboard')}
       testID="tv-keyboard"

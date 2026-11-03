@@ -28,6 +28,27 @@ describe('lane B: type sizes', () => {
     expect(styleOf('Heads up').fontSize).toBe(lightTokens.size.banner);
   });
 
+  it('an error Banner is a polite live region and an info one is not', async () => {
+    const { rerender } = await render(wrap(<Banner text="Bad" tone="error" testID="b" />));
+    expect(screen.getByTestId('b').props.accessibilityLiveRegion).toBe('polite');
+    await rerender(wrap(<Banner text="Fine" testID="b" />));
+    expect(screen.getByTestId('b').props.accessibilityLiveRegion).toBeUndefined();
+  });
+
+  it('the dial digit boxes grow with the system font scale', async () => {
+    // Jest's window has a font scale of 2.
+    await render(
+      wrap(
+        <Dial value={24} min={16} max={30} on tone="cool" caption="Cool" accessibilityLabel="AC" />,
+      ),
+    );
+    let node = screen.getByText('2').parent;
+    while (node && flat(node.props.style).width === undefined) node = node.parent;
+    const style = flat(node?.props.style);
+    expect(style.width).toBe(43 * 2);
+    expect(style.height).toBe(80 * 2);
+  });
+
   it('OptionCard name is 18', async () => {
     await render(wrap(<OptionCard title="LG" icon="tv" onPress={jest.fn()} />));
     expect(styleOf('LG').fontSize).toBe(lightTokens.size.cardName);

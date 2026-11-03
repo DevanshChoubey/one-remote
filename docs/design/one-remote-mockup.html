@@ -978,7 +978,7 @@ const phoneHTML = (inner, overlay = '') => `<div class="device"><div class="stat
 
 function buildDevice(def) { const w = document.createElement('div'); w.innerHTML = phoneHTML(def.screen(), def.overlay ? def.overlay() : ''); const dev = w.firstElementChild; dev._stack = [$('.stack', dev).firstElementChild]; dev._def = def; if (def.dark) dev.classList.add('dk'); return dev; }
 
-function toast(dev, msg, kind = 'info', action) { $$('.toast', layer(dev)).forEach(t => t.remove()); const t = mk(Toast(msg, kind, action)); layer(dev).append(t); clearTimeout(t._h); t._h = setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 180); }, action ? 5000 : 2600); }
+function toast(dev, msg, kind = 'info', action) { $$('.toast', layer(dev)).forEach(t => t.remove()); const t = mk(Toast(msg, kind, action)); layer(dev).append(t); clearTimeout(t._h); t._h = setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 180); }, action ? 6000 : 4000); }
 function closeMenu(dev) { const m = $('.menu', dev); if (!m || m.classList.contains('out')) return; m.classList.add('out'); setTimeout(() => m.remove(), 170); $$('[data-act="menu"]', dev).forEach(b => b.setAttribute('aria-expanded', 'false')); }
 function openSheet(dev, html) { closeSheet(dev, true); layer(dev).insertAdjacentHTML('beforeend', html); }
 function closeSheet(dev, now) { const parts = $$('.scrim, .sheet', layer(dev)); parts.forEach(p => { if (now) p.remove(); else { p.classList.add('out'); setTimeout(() => p.remove(), 320); } }); }
@@ -1120,7 +1120,7 @@ tvFig('TV, keyboard', 'The keyboard replaces the pad. Done returns to it.', { st
 tvFig('TV, inputs sheet', 'A bottom sheet over the screen. Inputs with nothing connected are listed but quiet.', {}, { overlay: () => sheetInputs() });
 tvFig('Android TV / Google TV', 'The Airtel box. Same remote, same keys; only pairing (a code) and the wake hint differ.', { id: 'tv3' });
 tvFig('Samsung', 'Same remote again. Pairing is the "Allow" prompt, like LG.', { id: 'tv2' });
-tvFig('TV, errors as toasts', 'Short failures use a toast: "Can\'t reach the TV right now", "The TV didn\'t answer", "Pair the TV again from ⋯". They leave on their own after 2.6 s.', {}, { overlay: OV(Toast("The TV didn't answer", 'error', 'Try again')) });
+tvFig('TV, errors as toasts', 'Short failures use a toast: "Can\'t reach the TV right now", "The TV didn\'t answer", "Pair the TV again from ⋯". They leave on their own after 4 s (6 s with an action).', {}, { overlay: OV(Toast("The TV didn't answer", 'error', 'Try again')) });
 
 /* ac */
 const skelAc = () => scr(`${Bar({ title: 'Panasonic AC', sub: '<span class="sk" style="display:inline-block;height:12px;width:120px"></span>' })}<div class="dialwrap"><span class="sk" style="position:absolute;inset:0;border-radius:50%;opacity:.7"></span></div><div class="grow"></div><span class="sk" style="height:56px;border-radius:999px"></span><div class="row gap2" style="justify-content:center"><span class="sk" style="height:48px;width:110px;border-radius:999px"></span><span class="sk" style="height:48px;width:96px;border-radius:999px"></span><span class="sk" style="height:48px;width:96px;border-radius:999px"></span></div><span class="sk" style="height:20px;width:60%;align-self:center"></span>`);

@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import { AppProviders } from '@/screens/AppProviders';
 import { LaunchOverlay } from '@/screens/launch/LaunchOverlay';
@@ -11,9 +12,12 @@ import { Box } from '@/ui';
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 /** Reads the home data here so a store change re-renders only the overlay, not the stack. */
-function LaunchGate(): React.JSX.Element {
+function LaunchGate(): React.JSX.Element | null {
   const { loaded } = useHomeData();
-  return <LaunchOverlay ready={loaded} />;
+  const [gone, setGone] = useState(false);
+  // Once the overlay has gone the gate unmounts, so it stops re-reading the store.
+  if (gone) return null;
+  return <LaunchOverlay ready={loaded} onGone={() => setGone(true)} />;
 }
 
 function RootStack(): React.JSX.Element {

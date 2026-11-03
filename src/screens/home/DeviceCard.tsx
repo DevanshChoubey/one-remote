@@ -23,7 +23,7 @@ export function DeviceCard(props: DeviceCardProps): ReactElement {
   const disabled = !view.usable;
   const summary = needsIr ? t('home.needsIr') : cardSummary(view);
   const press = (): void => {
-    if (needsIr) toast.show(t('home.needsIr'));
+    if (needsIr) toast.show(t('home.needsIr'), { kind: 'error' });
     else if (!disabled) props.onOpen(device.id);
   };
   return (
@@ -33,7 +33,6 @@ export function DeviceCard(props: DeviceCardProps): ReactElement {
           // A card that cannot be used still opens its settings on a long press (to remove it).
           onPress={press}
           onLongPress={() => props.onSettings(device.id)}
-          dimmed={disabled}
           pressScale={0.985}
           pressedBg="surface2"
           radius="md"
@@ -62,6 +61,7 @@ export function DeviceCard(props: DeviceCardProps): ReactElement {
           hideLabel
           onChange={() => props.onTogglePower(device.id)}
           disabled={disabled}
+          noDim
         />
       ) : null}
     </Card>

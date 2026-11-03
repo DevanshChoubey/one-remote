@@ -112,6 +112,14 @@ describe('HomeScreen', () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
+  it('shows the needs-IR toast as an error', async () => {
+    const s = setup({ irAvailable: false });
+    await seed(s, [dev('i1', 'tv', 'liv', 0, [ir])]);
+    await renderHome(s);
+    await fireEvent.press(await screen.findByLabelText(`Name i1, ${t('home.needsIr')}`));
+    expect(screen.getByTestId('toast').props.accessibilityLiveRegion).toBe('assertive');
+  });
+
   it('opens a usable device', async () => {
     const s = setup();
     await seed(s, [dev('l1', 'tv', 'liv', 0, [matter])]);
@@ -127,7 +135,9 @@ describe('HomeScreen', () => {
     await fireEvent(await screen.findByLabelText('Name l1'), 'longPress');
     expect(mockPush).toHaveBeenCalledWith('/device-sheet/l1');
     const card = screen.getByLabelText(`Name i1, ${t('home.needsIr')}`);
-    expect(StyleSheet.flatten(card.props.style).opacity).toBe(0.6);
+    // The card dims once (0.6); the touchable inside does not dim a second time.
+    expect(StyleSheet.flatten(card.props.style).opacity).toBe(1);
+    expect(StyleSheet.flatten(screen.getByTestId('device-card-i1').props.style).opacity).toBe(0.6);
     expect(card.props.accessibilityHint).toBe(t('home.longPressHint'));
     await fireEvent.press(card);
     expect(mockPush).not.toHaveBeenCalledWith('/device/i1');

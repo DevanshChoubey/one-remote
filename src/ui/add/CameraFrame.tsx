@@ -106,9 +106,10 @@ export function CameraFrame(props: CameraFrameProps): ReactElement {
 
   const box = useAnimatedStyle(() => ({ width: size.value, height: size.value }));
   const beam = useAnimatedStyle(() => ({ transform: [{ translateY: sweep.value }] }));
+  const { reduced: reducedMotion } = motion;
   const badgeStyle = useAnimatedStyle(() => ({
     opacity: badge.value,
-    transform: [{ translateY: motion.reduced ? 0 : 10 * (1 - badge.value) }],
+    transform: [{ translateY: reducedMotion ? 0 : 10 * (1 - badge.value) }],
   }));
 
   const fill = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as const;

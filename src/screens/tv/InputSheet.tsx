@@ -6,6 +6,8 @@ import { Button, Group, ListItem, Sheet, Txt } from '@/ui';
 /** The TV's inputs in a sheet; picking one switches the TV to it and closes the sheet. The one the
  *  TV shows now is marked, and inputs with nothing plugged in are listed but cannot be picked. */
 export function InputSheet(props: {
+  open: boolean;
+  onClosed: () => void;
   inputs: TvInput[] | undefined;
   currentInputId?: string;
   onPick: (inputId: string) => void;
@@ -14,7 +16,8 @@ export function InputSheet(props: {
   const inputs = props.inputs ?? [];
   return (
     <Sheet
-      open
+      open={props.open}
+      onClosed={props.onClosed}
       onClose={props.onDone}
       title={t('tv.inputsTitle')}
       testID="tv-inputs"

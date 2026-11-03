@@ -241,8 +241,31 @@ describe('Brand missing', () => {
 
 describe('the Matter step', () => {
   const matterStep = (p: MatterStepProps): React.JSX.Element => (
-    <Button label="Pair" onPress={() => p.onDone({ kind: 'matter', nodeId: 'n1' })} />
+    <Button
+      label="Pair"
+      onPress={() => {
+        p.onLink({ kind: 'matter', nodeId: 'n1' });
+        p.onDone({ kind: 'matter', nodeId: 'n1' });
+      }}
+    />
   );
+
+  it('saves a commissioned device when the flow is left before it is named', async () => {
+    const { s } = await setup({ hasIr: true, matter: true });
+    const onlyLink = (p: MatterStepProps): React.JSX.Element => (
+      <Button label="Joined" onPress={() => p.onLink({ kind: 'matter', nodeId: 'n9' })} />
+    );
+    await renderWith(s, <AddApplianceFlow kind="ac" renderMatterStep={onlyLink} />);
+    await fireEvent.press(await screen.findByLabelText('Panasonic'));
+    await press('Joined');
+    screen.unmount();
+    await waitFor(async () =>
+      expect((await s.store.devices())[0]).toMatchObject({
+        links: [{ kind: 'matter', nodeId: 'n9' }],
+        roomId: 'r1',
+      }),
+    );
+  });
 
   it('offers it when plugged in, then an IR backup that can be skipped', async () => {
     const { s } = await setup({ hasIr: true, matter: true });

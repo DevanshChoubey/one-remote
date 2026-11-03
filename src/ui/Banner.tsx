@@ -22,7 +22,14 @@ const LOOK: Record<NonNullable<BannerProps['tone']>, { bg: ColorToken; icon: Ico
 export function Banner(props: BannerProps): ReactElement {
   const look = LOOK[props.tone ?? 'info'];
   return (
-    <Box bg={look.bg} radius="md" px={4} py={3} testID={props.testID}>
+    <Box
+      bg={look.bg}
+      radius="md"
+      px={4}
+      py={3}
+      testID={props.testID}
+      accessibilityLiveRegion={props.tone === 'error' ? 'polite' : undefined}
+    >
       <Row gap={3} align="start">
         <Icon name={props.icon ?? look.icon} size={20} color="ink" />
         <Box flex={1}>

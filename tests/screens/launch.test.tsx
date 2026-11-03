@@ -110,4 +110,14 @@ describe('LaunchOverlay', () => {
     });
     expect(screen.queryByTestId('launch-overlay')).toBeNull();
   });
+
+  it('reports once that it has gone, so the gate above it can unmount', async () => {
+    const onGone = jest.fn();
+    await render(wrap(<LaunchOverlay ready onGone={onGone} />, true));
+    expect(onGone).not.toHaveBeenCalled();
+    await act(async () => {
+      jest.advanceTimersByTime(3200);
+    });
+    expect(onGone).toHaveBeenCalledTimes(1);
+  });
 });

@@ -10,6 +10,7 @@ export type Pad = 'touchpad' | 'dpad';
 export function TvMenu(props: {
   open: boolean;
   onClose: () => void;
+  onClosed?: () => void;
   /** Pad and input items show only while the TV is live. */
   live: boolean;
   pad: Pad;
@@ -40,5 +41,13 @@ export function TvMenu(props: {
         },
       ]
     : [{ key: 'settings', label: t('device.open'), onPress: props.onSettings }];
-  return <Menu open={props.open} onClose={props.onClose} items={items} testID="tv-menu" />;
+  return (
+    <Menu
+      open={props.open}
+      onClose={props.onClose}
+      {...(props.onClosed ? { onClosed: props.onClosed } : {})}
+      items={items}
+      testID="tv-menu"
+    />
+  );
 }

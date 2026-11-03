@@ -47,7 +47,7 @@ async function open(
   const onDone = jest.fn();
   await renderWith(
     { ...makeServices(), matter: stub(commission as unknown as MatterSetup['commission']) },
-    <MatterStep brandId="panasonic" onDone={onDone} onSkip={jest.fn()} />,
+    <MatterStep brandId="panasonic" onLink={jest.fn()} onDone={onDone} onSkip={jest.fn()} />,
     opts,
   );
   return { onDone };
@@ -110,7 +110,7 @@ describe('MatterStep camera', () => {
         matter: stub(jest.fn() as unknown as MatterSetup['commission']),
       },
       <Profiler id="matter" onRender={() => (commits += 1)}>
-        <MatterStep brandId="panasonic" onDone={jest.fn()} onSkip={jest.fn()} />
+        <MatterStep brandId="panasonic" onLink={jest.fn()} onDone={jest.fn()} onSkip={jest.fn()} />
       </Profiler>,
     );
     await act(async () => mockOnScan?.({ data: 'https://example.com' }));

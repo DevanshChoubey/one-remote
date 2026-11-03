@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 import type { ReactElement, ReactNode } from 'react';
-import { Keyboard, Platform } from 'react-native';
+import { AccessibilityInfo, Keyboard, Platform } from 'react-native';
 import { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { useMotion, useTheme } from '@/theme';
@@ -40,6 +40,34 @@ interface Shown {
 const BASE_BOTTOM = 30;
 
 const ToastContext = createContext<ToastApi | null>(null);
+
+interface ToastShared {
+  shown: Shown | null;
+  leaving: boolean;
+  hide: () => void;
+  /** A Sheet (its own native window) registers while it is mounted and draws the toast itself. */
+  registerHost: () => () => void;
+}
+const ToastSharedContext = createContext<ToastShared | null>(null);
+
+/** For a Sheet: draw the toast inside its own window while it is mounted. */
+export function useToastHost(): { active: boolean; node: ReactElement | null } {
+  const shared = useContext(ToastSharedContext);
+  const register = shared?.registerHost;
+  useEffect(() => (register ? register() : undefined), [register]);
+  if (!shared) return { active: false, node: null };
+  return {
+    active: true,
+    node: shared.shown ? (
+      <ToastView
+        key={shared.shown.id}
+        shown={shared.shown}
+        leaving={shared.leaving}
+        hide={shared.hide}
+      />
+    ) : null,
+  };
+}
 
 const LOOK: Record<
   ToastKind,
@@ -100,11 +128,36 @@ export function ToastProvider(props: { children: ReactNode }): ReactElement {
   // No timer may fire after the provider is gone.
   useEffect(() => clear, [clear]);
 
+  // While a Sheet hosts the toast the root one stays hidden, so it is never drawn twice.
+  const [hosts, setHosts] = useState(0);
+  const registerHost = useCallback((): (() => void) => {
+    setHosts((n) => n + 1);
+    return () => setHosts((n) => n - 1);
+  }, []);
+
+  // Error toasts are spoken on iOS too (it has no live regions).
+  const spoken = shown?.id;
+  const spokenMessage = shown?.message;
+  const spokenKind = shown?.opts.kind;
+  useEffect(() => {
+    if (spoken !== undefined && spokenKind === 'error' && spokenMessage) {
+      AccessibilityInfo.announceForAccessibility(spokenMessage);
+    }
+  }, [spoken, spokenKind, spokenMessage]);
+
   const api = useMemo<ToastApi>(() => ({ show, hide }), [show, hide]);
+  const shared = useMemo<ToastShared>(
+    () => ({ shown, leaving, hide, registerHost }),
+    [shown, leaving, hide, registerHost],
+  );
   return (
     <ToastContext.Provider value={api}>
-      {props.children}
-      {shown ? <ToastView key={shown.id} shown={shown} leaving={leaving} hide={hide} /> : null}
+      <ToastSharedContext.Provider value={shared}>
+        {props.children}
+        {shown && hosts === 0 ? (
+          <ToastView key={shown.id} shown={shown} leaving={leaving} hide={hide} />
+        ) : null}
+      </ToastSharedContext.Provider>
     </ToastContext.Provider>
   );
 }
@@ -170,7 +223,7 @@ function ToastView(props: { shown: Shown; leaving: boolean; hide: () => void }):
       px={2}
       justify="center"
       accessibilityRole={kind === 'error' ? 'alert' : undefined}
-      accessibilityLiveRegion={kind === 'error' ? undefined : 'polite'}
+      accessibilityLiveRegion={kind === 'error' ? 'assertive' : 'polite'}
       animatedStyle={animatedStyle}
     >
       <Row gap={3} align="center">

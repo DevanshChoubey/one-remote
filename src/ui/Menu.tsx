@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useContext, useEffect, useState } from 'react';
+import { Fragment, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { Modal } from 'react-native';
 import { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -22,6 +22,11 @@ export interface MenuProps {
   onClose: () => void;
   items: readonly MenuItem[];
   testID?: string;
+  /**
+   * Called once the exit animation has finished after `open` turned false (at once under reduced
+   * motion). Open a follow-up Modal from here: two native Modals cannot be presented at once on iOS.
+   */
+  onClosed?: () => void;
 }
 
 const PANEL_W = 220;
@@ -44,15 +49,37 @@ export function Menu(props: MenuProps): ReactElement | null {
   // Mount as soon as `open` turns true (adjusting state while rendering, not in an effect).
   if (props.open && !mounted) setMounted(true);
   const unmount = useCallback((): void => setMounted(false), []);
+  const onClosedRef = useRef(props.onClosed);
   useEffect(() => {
+    onClosedRef.current = props.onClosed;
+  }, [props.onClosed]);
+  const wasOpen = useRef(props.open);
+  const closingRef = useRef(false);
+  const notify = useCallback((): void => onClosedRef.current?.(), []);
+  const finishClose = useCallback((): void => {
+    if (!closingRef.current) return;
+    closingRef.current = false;
+    notify();
+  }, [notify]);
+  useEffect(() => {
+    const closing = wasOpen.current && !props.open;
+    wasOpen.current = props.open;
     if (props.open) {
+      closingRef.current = false;
       progress.value = withTiming(1, motion.timing('base', 'enter'));
-    } else {
-      progress.value = withTiming(0, motion.timing('fast', 'exit'), (finished) => {
-        if (finished) runOnJS(unmount)();
-      });
+      return;
     }
-  }, [props.open, progress, motion, unmount]);
+    if (closing) closingRef.current = true;
+    progress.value = withTiming(0, motion.timing('fast', 'exit'), (finished) => {
+      if (!finished) return;
+      runOnJS(unmount)();
+      if (!reduced) runOnJS(finishClose)();
+    });
+    if (closing && reduced) {
+      closingRef.current = false;
+      notify();
+    }
+  }, [props.open, progress, motion, reduced, unmount, notify, finishClose]);
 
   const style = useAnimatedStyle(() => {
     if (reduced) return { opacity: progress.value };
@@ -104,7 +131,9 @@ export function Menu(props: MenuProps): ReactElement | null {
             <Fragment key={item.key}>
               {item.dividerBefore ? <Box h={1} bg="line" m={1} /> : null}
               <Touchable
-                onPress={item.onPress}
+                onPress={() => {
+                  if (props.open) item.onPress();
+                }}
                 accessibilityLabel={item.label}
                 selected={item.current}
                 pressedBg="surface2"

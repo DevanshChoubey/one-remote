@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
+import { useWindowDimensions } from 'react-native';
 import Animated, {
   useAnimatedProps,
   useAnimatedStyle,
@@ -117,7 +118,7 @@ export function Dial(props: DialProps): ReactElement {
               if (e.nativeEvent.actionName === 'decrement') props.onDecrement?.();
             }}
             accessibilityLiveRegion="polite"
-            style={{ height: DIGIT_H, alignItems: 'center', justifyContent: 'center' }}
+            style={{ minHeight: DIGIT_H, alignItems: 'center', justifyContent: 'center' }}
           >
             {props.on ? (
               <Row justify="center">
@@ -160,6 +161,11 @@ interface DigitState {
 /** One digit of the number: on a change the old one leaves and the new one enters (70 %, fast). */
 function Digit(props: { char: string; dir: 1 | -1 }): ReactElement {
   const motion = useMotion();
+  // The digits grow with the system font size, so their boxes must too or they are clipped.
+  const { fontScale } = useWindowDimensions();
+  const scale = Math.max(1, fontScale);
+  const digitW = Math.round(DIGIT_W * scale);
+  const digitH = Math.round(DIGIT_H * scale);
   const [s, setS] = useState<DigitState>({ cur: props.char, prev: null, dir: props.dir, key: 0 });
   if (s.cur !== props.char) {
     setS({ cur: props.char, prev: s.cur, dir: props.dir, key: s.key + 1 });
@@ -178,7 +184,7 @@ function Digit(props: { char: string; dir: 1 | -1 }): ReactElement {
     return () => clearTimeout(timer);
   }, [key, progress, motion, fast]);
 
-  const shift = reduced ? 0 : DIGIT_H * 0.7;
+  const shift = reduced ? 0 : digitH * 0.7;
   const dir = s.dir;
   const enter = useAnimatedStyle(() => ({
     opacity: progress.value,
@@ -189,7 +195,7 @@ function Digit(props: { char: string; dir: 1 | -1 }): ReactElement {
     transform: [{ translateY: -progress.value * dir * shift }],
   }));
   return (
-    <Animated.View style={{ width: DIGIT_W, height: DIGIT_H, overflow: 'hidden' }}>
+    <Animated.View style={{ width: digitW, height: digitH, overflow: 'hidden' }}>
       {s.prev !== null ? (
         <AnimatedBox
           float={{ top: 0, right: 0, bottom: 0, left: 0 }}

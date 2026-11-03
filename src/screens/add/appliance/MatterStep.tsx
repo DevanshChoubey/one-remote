@@ -103,8 +103,10 @@ export function MatterStep(props: MatterStepProps): ReactElement {
       .then(
         (link) => {
           if (mine !== run.current) return;
-          // Let the finished checklist be seen before the next step.
+          // The device is in the fabric now: hand its link over at once so leaving during the hold
+          // can never lose it. Only the step change waits, so the finished checklist is seen.
           setPhase({ name: 'success' });
+          props.onLink(link);
           later(() => {
             if (mine === run.current) props.onDone(link);
           }, SUCCESS_MS);

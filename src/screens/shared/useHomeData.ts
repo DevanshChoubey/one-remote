@@ -42,7 +42,10 @@ export function useHomeData(): HomeData {
         },
         (e: unknown) => {
           console.error('Could not load the home', e);
-          if (alive) setData((d) => ({ ...d, loaded: true, failed: true }));
+          // A stale failure must not overwrite a newer read that already succeeded.
+          if (!alive || mine < applied) return;
+          applied = mine;
+          setData((d) => ({ ...d, loaded: true, failed: true }));
         },
       );
     };

@@ -1,6 +1,6 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
-import { StyleSheet } from 'react-native';
+import { AccessibilityInfo, StyleSheet } from 'react-native';
 import { darkTokens, lightTokens, ThemeProvider } from '@/theme';
 import { Button, Mark, Menu, Sheet, ToastProvider, useToast } from '@/ui';
 
@@ -80,6 +80,35 @@ describe('overlays', () => {
       expect(StyleSheet.flatten(screen.getByTestId('toast').props.style).bottom).toBe(50);
     });
 
+    it('speaks an error toast: assertive live region and a screen-reader announcement', async () => {
+      const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+      await render(wrap(<Raise message="Nope" opts={{ kind: 'error' }} />));
+      await fireEvent.press(screen.getByLabelText('raise'));
+      expect(screen.getByTestId('toast').props.accessibilityLiveRegion).toBe('assertive');
+      expect(announce).toHaveBeenCalledWith('Nope');
+      announce.mockRestore();
+    });
+
+    it('is drawn once, inside the Sheet window while a Sheet is open', async () => {
+      const make = (open: boolean) =>
+        wrap(
+          <>
+            <Raise message="Saved" />
+            <Sheet open={open} onClose={jest.fn()} title="Inputs" testID="sheet">
+              <Button label="x" onPress={jest.fn()} />
+            </Sheet>
+          </>,
+        );
+      const view = await render(make(true));
+      await fireEvent.press(screen.getByLabelText('raise'));
+      expect(screen.getAllByTestId('toast')).toHaveLength(1);
+      expect(within(screen.getByTestId('sheet')).getByTestId('toast')).toBeTruthy();
+      // The Sheet goes: the root host takes the same toast over.
+      await view.rerender(make(false));
+      expect(screen.getAllByTestId('toast')).toHaveLength(1);
+      expect(screen.getByText('Saved')).toBeTruthy();
+    });
+
     it('plays its exit inside the last fast of its time and is gone at the end', async () => {
       await render(wrap(<Raise message="Bye" />, { reducedMotion: false }));
       await fireEvent.press(screen.getByLabelText('raise'));
@@ -96,19 +125,49 @@ describe('overlays', () => {
   });
 
   describe('Sheet', () => {
-    it('closes from Android back exactly once', async () => {
+    it('closes from Android back exactly once, even when back is pressed again during the exit', async () => {
+      jest.useFakeTimers();
       const onClose = jest.fn();
-      await render(
+      const make = (open: boolean) =>
         wrap(
-          <Sheet open onClose={onClose} title="Inputs" testID="sheet">
+          <Sheet open={open} onClose={onClose} title="Inputs" testID="sheet">
             <Button label="x" onPress={jest.fn()} />
           </Sheet>,
-        ),
-      );
+          { reducedMotion: false },
+        );
+      const view = await render(make(true));
       await act(async () => {
         screen.getByTestId('sheet').props.onRequestClose();
       });
       expect(onClose).toHaveBeenCalledTimes(1);
+      await view.rerender(make(false));
+      await act(async () => {
+        screen.getByTestId('sheet').props.onRequestClose();
+      });
+      expect(onClose).toHaveBeenCalledTimes(1);
+      jest.useRealTimers();
+    });
+
+    it('ignores the scrim, close button and back while its exit plays', async () => {
+      jest.useFakeTimers();
+      const onClose = jest.fn();
+      const make = (open: boolean) =>
+        wrap(
+          <Sheet open={open} onClose={onClose} title="Inputs" testID="sheet">
+            <Button label="x" onPress={jest.fn()} />
+          </Sheet>,
+          { reducedMotion: false },
+        );
+      const view = await render(make(true));
+      await view.rerender(make(false));
+      await act(async () => {
+        screen.getByTestId('sheet').props.onRequestClose();
+        screen.getByTestId('sheet').props.onRequestClose();
+      });
+      await fireEvent.press(screen.getAllByLabelText('Close')[0]!);
+      await fireEvent.press(screen.getAllByLabelText('Close')[1]!);
+      expect(onClose).not.toHaveBeenCalled();
+      jest.useRealTimers();
     });
 
     it('puts its body in a scroll view and keeps the title, footer and body', async () => {
@@ -180,6 +239,29 @@ describe('overlays', () => {
       jest.useRealTimers();
     });
 
+    it('does not fire for a sheet that never opened, nor on a motion change while shut', async () => {
+      jest.useFakeTimers();
+      const onClosed = jest.fn();
+      const make = (reducedMotion: boolean) =>
+        wrap(
+          <Sheet open={false} onClose={jest.fn()} onClosed={onClosed} title="Inputs">
+            {body}
+          </Sheet>,
+          { reducedMotion },
+        );
+      const view = await render(make(false));
+      await act(async () => {
+        jest.advanceTimersByTime(600);
+      });
+      await view.rerender(make(true));
+      await view.rerender(make(false));
+      await act(async () => {
+        jest.advanceTimersByTime(600);
+      });
+      expect(onClosed).not.toHaveBeenCalled();
+      jest.useRealTimers();
+    });
+
     it('fires at once under reduced motion, and not when it never opened', async () => {
       const onClosed = jest.fn();
       const make = (open: boolean) =>
@@ -219,6 +301,39 @@ describe('overlays', () => {
         screen.getByTestId('menu-modal').props.onRequestClose();
       });
       expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('fires onClosed after its exit, and ignores a pick made during the exit', async () => {
+      jest.useFakeTimers();
+      const onClosed = jest.fn();
+      const pick = jest.fn();
+      const its = [{ key: 'a', label: 'Light', onPress: pick }];
+      const make = (open: boolean) =>
+        wrap(
+          <Menu open={open} onClose={jest.fn()} onClosed={onClosed} items={its} testID="menu" />,
+          {
+            reducedMotion: false,
+          },
+        );
+      const view = await render(make(true));
+      await view.rerender(make(false));
+      expect(onClosed).not.toHaveBeenCalled();
+      await fireEvent.press(screen.getByLabelText('Light'));
+      expect(pick).not.toHaveBeenCalled();
+      await act(async () => {
+        jest.advanceTimersByTime(400);
+      });
+      expect(onClosed).toHaveBeenCalledTimes(1);
+      jest.useRealTimers();
+    });
+
+    it('fires onClosed at once under reduced motion', async () => {
+      const onClosed = jest.fn();
+      const make = (open: boolean) =>
+        wrap(<Menu open={open} onClose={jest.fn()} onClosed={onClosed} items={items} />);
+      const view = await render(make(true));
+      await view.rerender(make(false));
+      expect(onClosed).toHaveBeenCalledTimes(1);
     });
 
     it('ignores back while its exit plays, then unmounts', async () => {

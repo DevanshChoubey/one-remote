@@ -21,7 +21,7 @@ export function Group(props: GroupProps): ReactElement {
           {props.label}
         </Txt>
       ) : null}
-      <Box bg="surface" border="line" radius="md">
+      <Box bg="surface" border="line" radius="md" overflow="hidden">
         {rows.map((row, i) => (
           <Fragment key={i}>
             {i > 0 ? <Box h={1} bg="line" /> : null}

@@ -33,15 +33,16 @@ jest.mock('expo-clipboard', () => ({ getStringAsync: () => Promise.resolve('') }
 async function open(
   m: MatterSetup,
   opts: { scheme?: 'light' | 'dark'; reducedMotion?: boolean } = {},
-): Promise<{ onDone: jest.Mock; onSkip: jest.Mock }> {
+): Promise<{ onDone: jest.Mock; onSkip: jest.Mock; onLink: jest.Mock }> {
+  const onLink = jest.fn();
   const onDone = jest.fn();
   const onSkip = jest.fn();
   await renderWith(
     { ...makeServices(), matter: m },
-    <MatterStep brandId="panasonic" onDone={onDone} onSkip={onSkip} />,
+    <MatterStep brandId="panasonic" onLink={onLink} onDone={onDone} onSkip={onSkip} />,
     opts,
   );
-  return { onDone, onSkip };
+  return { onDone, onSkip, onLink };
 }
 
 describe('MatterStep', () => {
@@ -113,6 +114,20 @@ describe('MatterStep', () => {
     expect(screen.getByLabelText(t('matter.step.responds'))).toBeTruthy();
     expect(onDone).not.toHaveBeenCalled();
     await waitFor(() => expect(onDone).toHaveBeenCalledWith(link), { timeout: 4000 });
+  });
+
+  it('hands the link over at once, and leaving during the success hold loses nothing', async () => {
+    const commission = jest.fn(async () => link);
+    const { onDone, onLink } = await open(stub(commission as unknown as MatterSetup['commission']));
+    await fireEvent.press(await screen.findByText(t('matter.enter')));
+    await fireEvent.changeText(await screen.findByLabelText(t('matter.codeLabel')), '34970112332');
+    await fireEvent.press(screen.getByText(t('matter.connect')));
+    await waitFor(() => expect(onLink).toHaveBeenCalledWith(link));
+    expect(onDone).not.toHaveBeenCalled();
+    screen.unmount();
+    await new Promise((r) => setTimeout(r, 1200));
+    expect(onLink).toHaveBeenCalledTimes(1);
+    expect(onDone).not.toHaveBeenCalled();
   });
 
   it('draws the step card on the dark surface', async () => {
