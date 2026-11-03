@@ -6,6 +6,8 @@ import { t } from '@/i18n';
 import { useMotion } from '@/theme';
 import { AnimatedBox, Box, Mark, Txt } from '@/ui';
 
+const SAFETY_MS = 3000;
+
 export interface LaunchOverlayProps {
   /** The home data has loaded. */
   ready: boolean;
@@ -20,6 +22,7 @@ export function LaunchOverlay(props: LaunchOverlayProps): ReactElement | null {
   const motion = useMotion();
   const [drawn, setDrawn] = useState(false);
   const [gone, setGone] = useState(false);
+  const [forced, setForced] = useState(false);
   const opacity = useSharedValue(1);
   const fastMs = motion.duration.fast;
 
@@ -28,7 +31,13 @@ export function LaunchOverlay(props: LaunchOverlayProps): ReactElement | null {
   }, []);
 
   const onDone = useCallback((): void => setDrawn(true), []);
-  const leaving = props.ready && drawn;
+  // Safety net: a store read that never settles, or a mark animation that is cut short, must not
+  // keep the app covered for ever.
+  useEffect(() => {
+    const timer = setTimeout(() => setForced(true), SAFETY_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  const leaving = forced || (props.ready && drawn);
   useEffect(() => {
     if (!leaving) return undefined;
     opacity.value = withTiming(0, motion.timing('fast', 'exit'));
@@ -43,6 +52,7 @@ export function LaunchOverlay(props: LaunchOverlayProps): ReactElement | null {
       testID="launch-overlay"
       float={{ top: 0, left: 0, right: 0, bottom: 0 }}
       bg="bg"
+      accessibilityLabel={t('common.loading')}
       align="center"
       justify="center"
       gap={5}

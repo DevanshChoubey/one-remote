@@ -78,6 +78,26 @@ describe('LaunchOverlay', () => {
     expect(screen.queryByTestId('launch-overlay')).toBeNull();
   });
 
+  it('forces itself away after 3 s even if never ready and the mark never reports', async () => {
+    await render(wrap(<LaunchOverlay ready={false} />, false));
+    await act(async () => {
+      jest.advanceTimersByTime(2900);
+    });
+    expect(screen.getByTestId('launch-overlay')).toBeTruthy();
+    await act(async () => {
+      jest.advanceTimersByTime(100);
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(200);
+    });
+    expect(screen.queryByTestId('launch-overlay')).toBeNull();
+  });
+
+  it('is labelled while it covers the app', async () => {
+    await render(wrap(<LaunchOverlay ready={false} />, true));
+    expect(screen.getByLabelText(t('common.loading'))).toBeTruthy();
+  });
+
   it('waits for ready', async () => {
     const view = await render(wrap(<LaunchOverlay ready={false} />, true));
     await act(async () => {

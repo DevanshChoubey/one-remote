@@ -68,6 +68,10 @@ export function Menu(props: MenuProps): ReactElement | null {
     };
   });
 
+  // While the exit plays (`open` already false) a scrim press or Android back must do nothing.
+  const close = (): void => {
+    if (props.open) props.onClose();
+  };
   if (!props.open && !mounted) return null;
   const top = BELOW_STATUS_BAR + (insets?.top ?? 0);
   return (
@@ -75,12 +79,13 @@ export function Menu(props: MenuProps): ReactElement | null {
       transparent
       animationType="none"
       visible
-      onRequestClose={props.onClose}
+      onRequestClose={close}
+      testID={props.testID ? `${props.testID}-modal` : undefined}
       statusBarTranslucent
     >
       <Box flex={1}>
         <Box float={{ top: 0, left: 0, right: 0, bottom: 0 }}>
-          <Touchable onPress={props.onClose} accessibilityLabel={t('common.close')} fill>
+          <Touchable onPress={close} accessibilityLabel={t('common.close')} fill>
             <Box flex={1} />
           </Touchable>
         </Box>

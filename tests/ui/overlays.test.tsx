@@ -158,6 +158,44 @@ describe('overlays', () => {
     });
   });
 
+  describe('Sheet onClosed', () => {
+    const body = <Button label="body" onPress={jest.fn()} />;
+    it('fires after the exit animation with full motion, not before', async () => {
+      jest.useFakeTimers();
+      const onClosed = jest.fn();
+      const make = (open: boolean) =>
+        wrap(
+          <Sheet open={open} onClose={jest.fn()} onClosed={onClosed} title="Inputs">
+            {body}
+          </Sheet>,
+          { reducedMotion: false },
+        );
+      const view = await render(make(true));
+      await view.rerender(make(false));
+      expect(onClosed).not.toHaveBeenCalled();
+      await act(async () => {
+        jest.advanceTimersByTime(600);
+      });
+      expect(onClosed).toHaveBeenCalledTimes(1);
+      jest.useRealTimers();
+    });
+
+    it('fires at once under reduced motion, and not when it never opened', async () => {
+      const onClosed = jest.fn();
+      const make = (open: boolean) =>
+        wrap(
+          <Sheet open={open} onClose={jest.fn()} onClosed={onClosed} title="Inputs">
+            {body}
+          </Sheet>,
+        );
+      const view = await render(make(false));
+      expect(onClosed).not.toHaveBeenCalled();
+      await view.rerender(make(true));
+      await view.rerender(make(false));
+      expect(onClosed).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('Menu', () => {
     const items = [
       { key: 'a', label: 'Light', onPress: jest.fn() },
@@ -170,13 +208,40 @@ describe('overlays', () => {
       expect(StyleSheet.flatten(screen.getByTestId('menu').props.style).transform).toBeUndefined();
     });
 
-    it('under full motion starts scaled down and closes from Android back', async () => {
+    it('under full motion starts at scale 0.9 and closes from Android back once', async () => {
       const onClose = jest.fn();
       await render(
         wrap(<Menu open onClose={onClose} items={items} testID="menu" />, { reducedMotion: false }),
       );
       const style = StyleSheet.flatten(screen.getByTestId('menu').props.style);
-      expect(Array.isArray(style.transform)).toBe(true);
+      expect(style.transform).toEqual(expect.arrayContaining([{ scale: 0.9 }]));
+      await act(async () => {
+        screen.getByTestId('menu-modal').props.onRequestClose();
+      });
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores back while its exit plays, then unmounts', async () => {
+      jest.useFakeTimers();
+      const onClose = jest.fn();
+      const view = await render(
+        wrap(<Menu open onClose={onClose} items={items} testID="menu" />, { reducedMotion: false }),
+      );
+      await view.rerender(
+        wrap(<Menu open={false} onClose={onClose} items={items} testID="menu" />, {
+          reducedMotion: false,
+        }),
+      );
+      expect(screen.getByTestId('menu')).toBeTruthy();
+      await act(async () => {
+        screen.getByTestId('menu-modal').props.onRequestClose();
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(400);
+      });
+      expect(screen.queryByTestId('menu')).toBeNull();
+      expect(onClose).not.toHaveBeenCalled();
+      jest.useRealTimers();
     });
   });
 

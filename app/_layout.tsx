@@ -10,16 +10,21 @@ import { Box } from '@/ui';
 // Keep the native splash up until the launch overlay is on screen (it hides it).
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
+/** Reads the home data here so a store change re-renders only the overlay, not the stack. */
+function LaunchGate(): React.JSX.Element {
+  const { loaded } = useHomeData();
+  return <LaunchOverlay ready={loaded} />;
+}
+
 function RootStack(): React.JSX.Element {
   const theme = useTheme();
   const motion = useMotion();
-  const { loaded } = useHomeData();
   return (
     <Box flex={1} bg="bg">
       <Stack screenOptions={stackOptions(theme, motion)}>
         <Stack.Screen name="device-sheet/[id]" options={SHEET_ROUTE_OPTIONS} />
       </Stack>
-      <LaunchOverlay ready={loaded} />
+      <LaunchGate />
     </Box>
   );
 }

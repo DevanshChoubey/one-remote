@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import {
   KeyboardAvoidingView,
@@ -21,6 +21,12 @@ export interface SheetProps {
   children: ReactNode;
   footer?: ReactNode;
   testID?: string;
+  /**
+   * Called once the exit animation has finished after `open` turned false (at once under reduced
+   * motion). A route that renders the Sheet sets `open` false and leaves from here, so the exit
+   * is seen.
+   */
+  onClosed?: () => void;
 }
 
 /**
@@ -38,16 +44,28 @@ export function Sheet(props: SheetProps): ReactElement | null {
 
   // Mount as soon as `open` turns true (adjusting state while rendering, not in an effect).
   if (props.open && !mounted) setMounted(true);
-  const unmount = useCallback((): void => setMounted(false), []);
+  const onClosedRef = useRef(props.onClosed);
   useEffect(() => {
+    onClosedRef.current = props.onClosed;
+  }, [props.onClosed]);
+  const wasOpen = useRef(props.open);
+  const unmount = useCallback((): void => setMounted(false), []);
+  const notify = useCallback((): void => onClosedRef.current?.(), []);
+  useEffect(() => {
+    const closing = wasOpen.current && !props.open;
+    wasOpen.current = props.open;
     if (props.open) {
       progress.value = withTiming(1, motion.timing(reduced ? 'base' : 'slow', 'enter'));
-    } else {
-      progress.value = withTiming(0, motion.timing('base', 'exit'), (finished) => {
-        if (finished) runOnJS(unmount)();
-      });
+      return;
     }
-  }, [props.open, progress, motion, reduced, unmount]);
+    progress.value = withTiming(0, motion.timing('base', 'exit'), (finished) => {
+      if (!finished) return;
+      runOnJS(unmount)();
+      if (!reduced) runOnJS(notify)();
+    });
+    // Reduced motion: the caller may leave at once; the fade is only seen if it stays.
+    if (closing && reduced) notify();
+  }, [props.open, progress, motion, reduced, unmount, notify]);
 
   const scrimStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
   const panelStyle = useAnimatedStyle(() =>
