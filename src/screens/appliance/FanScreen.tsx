@@ -9,7 +9,6 @@ import {
   Box,
   Chip,
   Button,
-  Column,
   EmptyState,
   IconButton,
   Row,
@@ -18,7 +17,15 @@ import {
   Txt,
   useToast,
 } from '@/ui';
-import { LinkLine, SpeedBars, SpinningIcon } from '@/ui/appliance';
+import {
+  LinkLine,
+  RemoteBody,
+  RemoteGrow,
+  RemoteSection,
+  SpeedBars,
+  SpeedBarsSkeleton,
+  SpinningIcon,
+} from '@/ui/appliance';
 import { useHomeData } from '../shared/useHomeData';
 import { fanView } from './fanModel';
 import { useLastSent } from './useLastSent';
@@ -33,7 +40,9 @@ const TIMERS: FanState['timerHours'][] = [0, 1, 2, 4, 8];
 export function FanScreen(props: { deviceId: string }): ReactElement {
   const router = useRouter();
   const found = useDeviceView(props.deviceId);
-  if (found.state === 'loading') return <FanSkeleton onBack={() => router.back()} />;
+  if (found.state === 'loading') {
+    return <FanSkeleton name={found.name} onBack={() => router.back()} />;
+  }
   if (found.state === 'failed') {
     return (
       <Screen title={t('common.appName')} onBack={() => router.back()}>
@@ -48,25 +57,34 @@ export function FanScreen(props: { deviceId: string }): ReactElement {
     );
   }
   if (found.state === 'gone') {
+    // Mock `S.gone`: one quiet sentence under the back bar.
     return (
       <Screen title={t('common.appName')} onBack={() => router.back()}>
-        <EmptyState art="alert" tone="ink2" title={t('fan.notFound')} fill />
+        <Txt color="ink2" live>
+          {t('fan.notFound')}
+        </Txt>
       </Screen>
     );
   }
   return <FanRemote view={found.view} />;
 }
 
-function FanSkeleton(props: { onBack: () => void }): ReactElement {
+/** Mock `skelFan`: the bar (name, a sub-line bar), the hero, the five bars and two chips. */
+function FanSkeleton(props: { name?: string; onBack: () => void }): ReactElement {
   return (
-    <Screen onBack={props.onBack} scroll>
-      <Column gap={5} align="center">
-        <Box testID="fan-skeleton">
-          <Skeleton width={112} height={112} radius="art" />
-        </Box>
-        <Skeleton width="100%" height={250} radius="md" />
-        <Skeleton width="60%" height={20} />
-      </Column>
+    <Screen title={props.name} onBack={props.onBack} subtitle={<Skeleton width={90} height={12} />}>
+      <RemoteBody>
+        <Row justify="center">
+          <Box testID="fan-skeleton">
+            <Skeleton width={112} height={112} radius="art" />
+          </Box>
+        </Row>
+        <SpeedBarsSkeleton />
+        <Row gap={2}>
+          <Skeleton width={100} height={48} radius="pill" />
+          <Skeleton width={100} height={48} radius="pill" />
+        </Row>
+      </RemoteBody>
     </Screen>
   );
 }
@@ -80,7 +98,6 @@ function FanRemote({ view }: { view: DeviceView }): ReactElement {
   const { stored, save } = useLastSent(view.device.id, irFirst, view.state?.kind === 'fan');
   const shown = fanView(view, stored?.kind === 'fan' ? stored.state : undefined);
   const { caps } = shown;
-  const usable = view.usable;
   const deviceId = view.device.id;
   const lastChange = useRef<Partial<FanState> | null>(null);
   const retry = useRef<() => void>(() => undefined);
@@ -92,21 +109,37 @@ function FanRemote({ view }: { view: DeviceView }): ReactElement {
       }),
     (e) => {
       const key = sendErrorKey(e, 'fan');
+      // Every failure the user can retry carries the action (mock: not sent, timeout, partial).
+      const final = key === 'fan.error.needsIr' || key === 'fan.error.unsupported';
       toast.show(t(key), {
         kind: 'error',
-        ...(key === 'fan.error.notSent'
-          ? { action: { label: t('common.retry'), onPress: () => retry.current() } }
-          : {}),
+        ...(final ? {} : { action: { label: t('common.retry'), onPress: () => retry.current() } }),
       });
     },
   );
-  const live = usable && state.power;
+  // Needs IR: the controls are drawn as usual but inert (mock "visible but inert"); a tap says why.
+  const locked = !view.usable;
 
   const press = (change: Partial<FanState>): void => {
+    if (locked) {
+      toast.show(t('fan.error.needsIr'), { kind: 'error' });
+      return;
+    }
     lastChange.current = change;
     pressFeedback(prefs);
     pressWith((base) => ({ ...base, ...change }));
   };
+  // Off, the chips are not dimmed (mock): like a speed, picking one turns the fan on with it. An
+  // off fan has no boost, sleep, light or timer running (as the IR keys treat it), so none is lit.
+  const on = state.power
+    ? {
+        boost: state.boost,
+        sleep: state.sleep,
+        light: state.light === true,
+        timerHours: state.timerHours,
+      }
+    : { boost: false, sleep: false, light: false, timerHours: 0 };
+  const pick = (change: Partial<FanState>): void => press({ power: true, ...change });
   useEffect(() => {
     retry.current = () => {
       if (lastChange.current) press(lastChange.current);
@@ -124,7 +157,6 @@ function FanRemote({ view }: { view: DeviceView }): ReactElement {
     <Screen
       title={view.device.name}
       onBack={() => router.back()}
-      scroll
       subtitle={room || undefined}
       actions={
         <IconButton
@@ -133,86 +165,75 @@ function FanRemote({ view }: { view: DeviceView }): ReactElement {
           label={t('fan.power')}
           checked={state.power}
           onPress={() => press({ power: !state.power })}
-          disabled={!usable}
           testID="fan-power"
         />
       }
     >
-      <Column gap={5}>
+      <RemoteBody>
         <Row justify="center">
           <SpinningIcon name="fan" spinning={state.power} speed={state.speed} />
         </Row>
 
-        <Column gap={3}>
-          <Txt variant="bodyBold" color="ink2">
-            {t('fan.speedTitle')}
-          </Txt>
+        <RemoteSection label={t('fan.speedTitle')} gap={2}>
           <SpeedBars
             value={state.power ? state.speed : 0}
             max={5}
-            onPick={(n) => press({ power: true, speed: n as FanState['speed'] })}
+            onPick={(n) => pick({ speed: n as FanState['speed'] })}
             labelFor={(n) => t('fan.speed', { n })}
-            disabled={!usable}
           />
-        </Column>
+        </RemoteSection>
 
         {showBoost || showSleep || showLight ? (
-          <Row gap={2} wrap justify="center">
+          <Row gap={2} wrap>
             {showBoost ? (
               <Chip
                 icon="bolt"
                 label={t('fan.boost')}
-                state={state.boost ? 'selected' : 'neutral'}
-                disabled={!live}
-                onToggle={() => press({ boost: !state.boost })}
+                state={on.boost ? 'selected' : 'neutral'}
+                onToggle={() => pick({ boost: !on.boost })}
               />
             ) : null}
             {showSleep ? (
               <Chip
                 icon="moon"
                 label={t('fan.sleep')}
-                state={state.sleep ? 'selected' : 'neutral'}
-                disabled={!live}
-                onToggle={() => press({ sleep: !state.sleep })}
+                state={on.sleep ? 'selected' : 'neutral'}
+                onToggle={() => pick({ sleep: !on.sleep })}
               />
             ) : null}
             {showLight ? (
               <Chip
                 icon="bulb"
                 label={t('fan.light')}
-                state={state.light === true ? 'selected' : 'neutral'}
-                disabled={!live}
-                onToggle={() => press({ light: !(state.light ?? false) })}
+                state={on.light ? 'selected' : 'neutral'}
+                onToggle={() => pick({ light: !on.light })}
               />
             ) : null}
           </Row>
         ) : null}
 
         {showTimer ? (
-          <Column gap={2}>
-            <Txt variant="bodyBold" color="ink2">
-              {t('fan.timerTitle')}
-            </Txt>
+          <RemoteSection label={t('fan.timerTitle')} gap={1}>
             <Row gap={2} wrap>
               {TIMERS.map((h) => (
                 <Chip
                   key={h}
                   label={t(`fan.timer.${h}`)}
-                  state={state.timerHours === h ? 'selected' : 'neutral'}
-                  disabled={!live}
-                  onToggle={() => press({ timerHours: h })}
+                  state={on.timerHours === h ? 'selected' : 'neutral'}
+                  onToggle={() => pick({ timerHours: h })}
                 />
               ))}
             </Row>
-          </Column>
+          </RemoteSection>
         ) : null}
 
+        <RemoteGrow />
         <LinkLine
           kind={status.kind}
           text={t(status.key, status.params)}
           onPress={() => router.push(`/device-sheet/${deviceId}`)}
         />
-      </Column>
+      </RemoteBody>
     </Screen>
   );
 }
