@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
+import {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+  cancelAnimation,
+} from 'react-native-reanimated';
 import type { Command } from '@/core';
 import { DeviceError } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Box, Column, Icon, Touchable, Txt } from '@/ui';
+import { useMotion } from '@/theme';
+import { AnimatedBox, Box, Icon, Touchable, Txt } from '@/ui';
+import { Equaliser, PulseRings, SentRing } from '@/ui/tv';
 
 const SAMPLE_RATE = 8000;
 
@@ -24,6 +32,8 @@ export interface MicButtonProps {
   onPress?: () => void;
   /** A voice or dictation message has left the phone (the screen shows "Sent to the TV"). */
   onSent?: () => void;
+  /** The hold starts or ends (the screen dims its pads while it is on). */
+  onListening?: (listening: boolean) => void;
 }
 
 /** Dictation names its refusal error (screens may not import the voice module). */
@@ -43,7 +53,13 @@ interface Hold {
 
 /** The hold-to-talk mic: native voice when the TV takes it, else on-device dictation, else nothing. */
 export function MicButton(props: MicButtonProps): ReactElement | null {
-  const { deviceId, voice, text, watching, send, onProblem, errorLine, onSent } = props;
+  const { deviceId, voice, text, watching, send, onProblem, errorLine, onListening } = props;
+  const motion = useMotion();
+  const [sentCount, setSentCount] = useState(0);
+  const onSent = (): void => {
+    setSentCount((n) => n + 1);
+    props.onSent?.();
+  };
   const { hub, voice: engines } = useServices();
   const [dictation, setDictation] = useState(false);
   const [listening, setListening] = useState(false);
@@ -88,7 +104,7 @@ export function MicButton(props: MicButtonProps): ReactElement | null {
           send({ kind: 'tv.text', text: spoken }).then(
             () => {
               onProblem(null);
-              onSent?.();
+              onSent();
             },
             (e: unknown) =>
               onProblem(
@@ -132,7 +148,7 @@ export function MicButton(props: MicButtonProps): ReactElement | null {
         h.stop = () => {
           capture?.stop();
           live.end();
-          if (!h.cancelled) onSent?.();
+          if (!h.cancelled) onSent();
         };
         capture = engines.mic.start(SAMPLE_RATE, (chunk) => {
           try {
@@ -194,25 +210,80 @@ export function MicButton(props: MicButtonProps): ReactElement | null {
     );
   };
 
+  // Listening grows the mic with a spring; reduced motion keeps it at rest, at once.
+  const scale = useSharedValue(1);
+  const grown = listening && !motion.reduced;
+  useEffect(() => {
+    if (grown) {
+      scale.value = withTiming(1.12, motion.timing('fast', 'spring'));
+    } else {
+      cancelAnimation(scale);
+      scale.value = 1;
+    }
+  }, [grown, scale, motion]);
+  const micScale = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  useEffect(() => {
+    onListening?.(listening);
+  }, [listening, onListening]);
+
   if (!voice && !(text && dictation)) return null;
 
   return (
-    <Column gap={1} align="center">
-      <Touchable
-        onPress={props.onPress ?? (() => undefined)}
-        onPressIn={down}
-        onPressOut={() => release()}
-        accessibilityLabel={t('tv.voice')}
-      >
-        <Box w={64} h={64} bg="ink" radius="pill" align="center" justify="center">
-          <Icon name="mic" size={28} color="bg" />
-        </Box>
-      </Touchable>
-      {listening ? (
-        <Txt variant="caption" color="ink2" live>
+    <Box w={64} h={64} align="center" justify="center">
+      <PulseRings active={listening} />
+      <AnimatedBox animatedStyle={micScale} radius="pill">
+        <Touchable
+          onPress={props.onPress ?? (() => undefined)}
+          onPressIn={down}
+          onPressOut={() => release()}
+          accessibilityLabel={t('tv.voice')}
+          pressScale={1}
+        >
+          <Box
+            w={64}
+            h={64}
+            bg={listening ? 'accent' : 'ink'}
+            radius="pill"
+            align="center"
+            justify="center"
+          >
+            <Icon name="mic" size={28} color={listening ? 'accentInk' : 'bg'} />
+          </Box>
+        </Touchable>
+      </AnimatedBox>
+      <SentRing trigger={sentCount} />
+      {listening ? <ListeningBubble /> : null}
+    </Box>
+  );
+}
+
+/** "Listening…" with a four-bar equaliser, above and to the right of the mic. */
+function ListeningBubble(): ReactElement {
+  const motion = useMotion();
+  const shown = useSharedValue(0);
+  useEffect(() => {
+    shown.value = withTiming(1, motion.timing('base', 'enter'));
+    return () => cancelAnimation(shown);
+  }, [shown, motion]);
+  const style = useAnimatedStyle(() => ({
+    opacity: Math.min(1, shown.value * 2),
+    transform: [{ translateY: motion.reduced ? 0 : 6 * (1 - shown.value) }],
+  }));
+  return (
+    <AnimatedBox
+      float={{ right: 0, bottom: 78 }}
+      w={220}
+      align="end"
+      pointerEvents="none"
+      animatedStyle={style}
+    >
+      <Box direction="row" align="center" gap={2} bg="ink" radius="pill" px={3} py={2}>
+        <Txt variant="bodyBold" color="bg" live>
           {t('tv.listening')}
         </Txt>
-      ) : null}
-    </Column>
+        <Equaliser active />
+      </Box>
+    </AnimatedBox>
   );
 }
