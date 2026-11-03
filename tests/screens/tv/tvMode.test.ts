@@ -19,12 +19,12 @@ describe('tvMode', () => {
     expect(tvMode(view(true), env)).toBe('ready');
     expect(tvMode(view(true), { ...env, wakeSentAt: 0 })).toBe('ready');
   });
-  it('is waking for 20 s after a wake was sent', () => {
-    expect(tvMode(view(false), { ...env, wakeSentAt: 0, now: 19999 })).toBe('waking');
+  it('is waking for 45 s after a wake was sent (the LG C4 takes about 20 s to boot)', () => {
+    expect(tvMode(view(false), { ...env, wakeSentAt: 0, now: 44999 })).toBe('waking');
     expect(tvMode(view(), { ...env, wakeSentAt: 0, now: 5000 })).toBe('waking');
   });
-  it('is wakeFailed after 20 s', () => {
-    expect(tvMode(view(false), { ...env, wakeSentAt: 0, now: 20001 })).toBe('wakeFailed');
+  it('is wakeFailed after 45 s', () => {
+    expect(tvMode(view(false), { ...env, wakeSentAt: 0, now: 45001 })).toBe('wakeFailed');
   });
   it('is off when the TV reports power off', () => {
     expect(tvMode(view(false), env)).toBe('off');

@@ -285,7 +285,7 @@ describe('TvScreen', () => {
     await advance(0);
     expect(r.sent()).toEqual([{ kind: 'tv.powerOn' }]);
     expect(screen.getAllByText(t('tv.waking')).length).toBeGreaterThan(0);
-    await advance(20000);
+    await advance(45000);
     expect(screen.getByText(/Turn on via Wi-Fi/)).toBeTruthy();
   });
 
@@ -297,7 +297,7 @@ describe('TvScreen', () => {
     });
     await fireEvent.press(screen.getByLabelText(t('tv.turnOn')));
     await advance(0);
-    await advance(20000);
+    await advance(45000);
     expect(screen.getByText(t('tv.wakeFailedAndroidTv'))).toBeTruthy();
     expect(screen.queryByText(/Turn on via Wi-Fi/)).toBeNull();
   });
@@ -338,7 +338,7 @@ describe('TvScreen', () => {
       samsung.emit('tv1', { kind: 'tv', state: { power: false } });
     });
     await fireEvent.press(screen.getByLabelText(t('tv.turnOn')));
-    await advance(20000);
+    await advance(45000);
     expect(screen.getByText(t('tv.wakeFailedSamsung'))).toBeTruthy();
     expect(screen.queryByText(t('tv.wakeFailed'))).toBeNull();
   });
@@ -803,7 +803,7 @@ describe('TvScreen status captions', () => {
     await fireEvent.press(screen.getByLabelText(t('tv.turnOn')));
     await advance(0);
     expect(screen.getAllByText(t('tv.waking')).length).toBe(2);
-    await advance(20000);
+    await advance(45000);
     expect(screen.getByText(t('tv.statusOff'))).toBeTruthy();
   });
 
