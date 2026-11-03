@@ -32,6 +32,27 @@ describe('NameRoomStep', () => {
     expect(chip.props.accessibilityState.selected).toBe(true);
   });
 
+  it('lights only New room while a new room is being made', async () => {
+    const s = makeServices();
+    await s.store.upsertRoom(room('r1', 'Living room', 0));
+    await renderWith(s, <NameRoomStep draft={draft} suggestedName="AC" onDone={jest.fn()} />);
+    const living = await screen.findByLabelText('Living room');
+    expect(living.props.accessibilityState.selected).toBe(true);
+    await fireEvent.press(screen.getByLabelText(t('add.newRoom')));
+    expect(screen.getByLabelText(t('add.newRoom')).props.accessibilityState.selected).toBe(true);
+    expect(screen.getByLabelText('Living room').props.accessibilityState.selected).toBe(false);
+    await fireEvent.press(screen.getByLabelText('Living room'));
+    expect(screen.getByLabelText('Living room').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByLabelText(t('add.newRoom')).props.accessibilityState.selected).toBe(false);
+  });
+
+  it('focuses the name on entry', async () => {
+    const s = makeServices();
+    await s.store.upsertRoom(room('r1', 'Bedroom', 0));
+    await renderWith(s, <NameRoomStep draft={draft} suggestedName="AC" onDone={jest.fn()} />);
+    expect((await screen.findByDisplayValue('AC')).props.autoFocus).toBe(true);
+  });
+
   it('saves at the end of the room and calls onDone', async () => {
     const s = makeServices();
     await s.store.upsertRoom(room('r1', 'Bedroom', 0));

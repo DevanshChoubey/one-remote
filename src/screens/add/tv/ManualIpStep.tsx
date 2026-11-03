@@ -59,6 +59,9 @@ export function ManualIpStep(props: ManualIpStepProps): ReactElement {
   return (
     <Screen
       title={t('addTv.manualTitle')}
+      // The where-to-find-it hint sits under the title, above the field, and stays when an error
+      // shows (mock: the paragraph 8 px under the head).
+      subtitle={t('addTv.manualHint')}
       largeTitle
       onBack={props.onBack}
       scroll
@@ -67,7 +70,6 @@ export function ManualIpStep(props: ManualIpStepProps): ReactElement {
       <Column gap={4}>
         <Field
           label={t('addTv.ipLabel')}
-          helper={t('addTv.manualHint')}
           value={host}
           onChangeText={setHost}
           placeholder="192.168.1.23"

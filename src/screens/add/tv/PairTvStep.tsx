@@ -4,7 +4,8 @@ import type { FoundTv, PairedTv, TvLinkKind } from '@/core';
 import { PairError } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Button, Column, ErrorLine, ResultDisc, Screen, Txt } from '@/ui';
+import { Box, Button, Column, ErrorLine, Screen, Txt } from '@/ui';
+import { TextLink } from '@/ui/add';
 import { PairRing } from '@/ui/addtv';
 import { unreachableHintKey } from '@/screens/tv/wakeHint';
 import { PairCodeStep } from './PairCodeStep';
@@ -140,8 +141,9 @@ export function PairTvStep(props: PairTvStepProps): ReactElement {
   if (byCode && failure === null && done === null) {
     return (
       <PairCodeStep
-        // A new question or a new attempt starts with an empty field.
-        key={`${attempt}-${ask?.n ?? 0}`}
+        // A new attempt starts with an empty field; after a refused code the typed code stays,
+        // in red, so it can be fixed (mock "Code did not match").
+        key={attempt}
         wrong={ask?.wrong ?? false}
         codeLength={brand?.codeLength ?? 6}
         ready={ask !== null}
@@ -158,32 +160,33 @@ export function PairTvStep(props: PairTvStepProps): ReactElement {
   const pairedText = props.again ? t('addTv.paired') : t('addTv.pairedFirst');
   const elapsed = PAIR_SECONDS - left;
   const phase = done !== null ? 'ok' : failure !== null ? 'bad' : 'wait';
-  // A code pairing has no countdown, so its result is a plain disc.
-  const art = byCode ? (
-    phase === 'ok' ? (
-      <ResultDisc kind="ok" label={pairedText} />
-    ) : (
-      <ResultDisc kind="bad" label={failure ?? ''} />
-    )
-  ) : (
-    <PairRing secondsLeft={left} total={PAIR_SECONDS} phase={phase} />
-  );
 
   return (
     <Screen title={t('addTv.pairTitle')} largeTitle onBack={props.onBack} scroll>
-      <Column gap={4} align="center">
-        {art}
+      {/* The ring has 8 px more air around it (mock `.pair-ring` margin); a code pairing's result
+          uses the same ring, filled green or red. */}
+      <Box align="center" py={2}>
+        <PairRing secondsLeft={left} total={PAIR_SECONDS} phase={phase} />
+      </Box>
+      <Column gap={3}>
         {done !== null ? (
-          <Txt variant="heading" live>
+          <Txt variant="heading" align="center" live>
             {pairedText}
           </Txt>
         ) : failure === null ? (
           <>
-            <Txt variant="heading">{t('addTv.pairAllow')}</Txt>
-            <Txt color="ink2">{t('addTv.pairBody')}</Txt>
-            <Txt live>{t('addTv.waiting', { seconds: left })}</Txt>
+            <Txt variant="heading" align="center">
+              {t('addTv.pairAllow')}
+            </Txt>
+            <Txt color="ink2" align="center">
+              {t('addTv.pairBody')}
+            </Txt>
+            {/* The seconds waited so far; the ring counts down what is left. */}
+            <Txt weight="semibold" align="center" live>
+              {t('addTv.waiting', { seconds: elapsed })}
+            </Txt>
             {elapsed >= PROMPT_MISSING_AFTER ? (
-              <Button label={t('addTv.promptMissing')} variant="ghost" onPress={retry} />
+              <TextLink label={t('addTv.promptMissing')} onPress={retry} />
             ) : null}
           </>
         ) : (

@@ -8,9 +8,10 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useMotion, useTheme } from '@/theme';
 import { Icon } from '../Icon';
-import { Row, Txt } from '../primitives';
+import { Txt } from '../primitives';
 
 export interface CameraFrameProps {
   /** A valid code was seen: the brackets tighten and turn green, the beam stops. */
@@ -24,6 +25,11 @@ export interface CameraFrameProps {
 }
 
 const OPEN = 188;
+const BEAM_W = 176;
+/** The beam's glow band around its 3 px core (mock `box-shadow: 0 0 14px`). */
+const BEAM_GLOW_H = 15;
+/** The hint's soft shadow blur (mock `text-shadow: 0 1px 6px`). */
+const HINT_BLUR = 6;
 const LOCKED = 150;
 const SWEEP = 84;
 const CORNERS = [
@@ -123,6 +129,19 @@ export function CameraFrame(props: CameraFrameProps): ReactElement {
       }}
       testID="camera-frame"
     >
+      <Animated.View style={fill} pointerEvents="none">
+        <Svg width="100%" height="100%" accessible={false}>
+          <Defs>
+            <RadialGradient id="cam-bg" cx="30%" cy="20%" rx="120%" ry="90%">
+              {/* A white haze over the dark backdrop, as the mock's lighter upper-left corner. */}
+              <Stop offset="0" stopColor={theme.color.cameraInk} stopOpacity={0.16} />
+              <Stop offset="0.7" stopColor={theme.color.cameraInk} stopOpacity={0} />
+              <Stop offset="1" stopColor={theme.color.cameraInk} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#cam-bg)" />
+        </Svg>
+      </Animated.View>
       <Animated.View style={fill}>{props.children}</Animated.View>
       <Animated.View
         style={{ ...fill, alignItems: 'center', justifyContent: 'center' }}
@@ -136,25 +155,56 @@ export function CameraFrame(props: CameraFrameProps): ReactElement {
         {sweeping ? (
           <Animated.View
             testID="scan-beam"
-            style={[
-              {
-                position: 'absolute',
-                width: 176,
-                height: 3,
-                borderRadius: theme.radius.pill,
-                backgroundColor: theme.color.cameraBeam,
-              },
-              beam,
-            ]}
-          />
+            style={[{ position: 'absolute', width: BEAM_W, height: BEAM_GLOW_H }, beam]}
+          >
+            {/* A 3 px core that fades out to both ends, in a faint wider glow (mock gradient). */}
+            <Svg width={BEAM_W} height={BEAM_GLOW_H} accessible={false}>
+              <Defs>
+                <LinearGradient id="cam-beam" x1="0" y1="0" x2="1" y2="0">
+                  <Stop offset="0" stopColor={theme.color.cameraBeam} stopOpacity={0} />
+                  <Stop offset="0.5" stopColor={theme.color.cameraBeam} stopOpacity={1} />
+                  <Stop offset="1" stopColor={theme.color.cameraBeam} stopOpacity={0} />
+                </LinearGradient>
+              </Defs>
+              <Rect
+                x="0"
+                y="0"
+                width={BEAM_W}
+                height={BEAM_GLOW_H}
+                rx={BEAM_GLOW_H / 2}
+                fill="url(#cam-beam)"
+                opacity={0.22}
+              />
+              <Rect
+                x="0"
+                y={(BEAM_GLOW_H - 3) / 2}
+                width={BEAM_W}
+                height={3}
+                rx={1.5}
+                fill="url(#cam-beam)"
+              />
+            </Svg>
+          </Animated.View>
         ) : null}
       </Animated.View>
       <Animated.View
         style={{ position: 'absolute', top: 14, left: 0, right: 0, alignItems: 'center' }}
       >
-        <Txt variant="label" color="cameraInk">
+        {/* 14 px, 600, with a soft shadow so it reads over any picture (mock `.cam .hint`). */}
+        <Animated.Text
+          style={{
+            ...theme.font.semibold,
+            fontSize: theme.size.banner,
+            lineHeight: Math.round(theme.size.banner * 1.3),
+            color: theme.color.cameraInk,
+            textAlign: 'center',
+            textShadowColor: theme.color.cameraBg,
+            textShadowOffset: { width: 0, height: 1 },
+            textShadowRadius: HINT_BLUR,
+          }}
+        >
           {hint}
-        </Txt>
+        </Animated.Text>
       </Animated.View>
       <Animated.View
         style={{ position: 'absolute', bottom: 14, left: 0, right: 0, alignItems: 'center' }}
@@ -172,12 +222,12 @@ export function CameraFrame(props: CameraFrameProps): ReactElement {
             badgeStyle,
           ]}
         >
-          <Row gap={2} align="center">
+          <Animated.View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Icon name="check" size={18} strokeWidth={3} color="cameraInk" />
-            <Txt variant="bodyBold" color="cameraInk" live>
+            <Txt variant="bodyBold" size="banner" color="cameraInk" live>
               {locked ? lockLabel : ''}
             </Txt>
-          </Row>
+          </Animated.View>
         </Animated.View>
       </Animated.View>
     </Animated.View>

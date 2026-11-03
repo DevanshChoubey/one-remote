@@ -4,7 +4,7 @@ import { DeviceError } from '@/core';
 import type { IrCandidate } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Button, Column, ErrorLine, ProgressBar, Screen, Txt } from '@/ui';
+import { Box, Button, Column, ErrorLine, ProgressBar, Screen, Txt } from '@/ui';
 import { IrPhone } from '@/ui/add';
 import { initialIrTest, irTestReducer } from './irTest';
 
@@ -12,7 +12,7 @@ export interface IrTestStepProps {
   kind: 'ac' | 'fan';
   brandName: string;
   candidates: IrCandidate[];
-  /** After a Matter pairing: the test is optional and can be skipped. */
+  /** Skip the test (mock: a ghost Skip under the actions, always there). */
   onSkip?: () => void;
   /** A remote id that worked, or 'none' when every candidate failed. */
   onResult(result: string): void;
@@ -87,7 +87,7 @@ export function IrTestStep(props: IrTestStepProps): ReactElement {
       onBack={props.onBack}
       scroll
       footer={
-        <Column gap={2}>
+        <Column gap={4}>
           {asking ? (
             <>
               <Button label={t('addAppliance.yes')} onPress={() => answer('yes')} />
@@ -108,18 +108,26 @@ export function IrTestStep(props: IrTestStepProps): ReactElement {
     >
       <Column gap={4}>
         <Column gap={2}>
-          <Txt variant="label">{t('addAppliance.tryOf', { brand: props.brandName, n, total })}</Txt>
+          <Txt variant="captionBold" color="ink2">
+            {t('addAppliance.tryOf', { brand: props.brandName, n, total })}
+          </Txt>
           <ProgressBar
             value={total === 0 ? 0 : n / total}
             label={t('addAppliance.progress', { n, total })}
           />
         </Column>
-        <Column align="center" gap={3}>
+        <Box align="center">
           <IrPhone firing={busy} />
-          <Txt variant="heading">
+        </Box>
+        <Column gap={2}>
+          <Txt variant="heading" align="center">
             {t(props.kind === 'ac' ? 'addAppliance.pointAc' : 'addAppliance.pointFan')}
           </Txt>
-          {press ? <Txt color="ink2">{t(`addAppliance.press.${press}`)}</Txt> : null}
+          {press ? (
+            <Txt color="ink2" align="center">
+              {t(`addAppliance.press.${press}`)}
+            </Txt>
+          ) : null}
           {error ? <ErrorLine text={t(error)} /> : null}
           {props.error ? <ErrorLine text={props.error} /> : null}
         </Column>

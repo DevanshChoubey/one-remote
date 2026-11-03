@@ -4,9 +4,7 @@ import { Linking, Platform } from 'react-native';
 import type { FoundTv } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import type { Services } from '@/services';
 import {
-  Badge,
   Banner,
   Box,
   Button,
@@ -21,6 +19,7 @@ import {
   Touchable,
   Txt,
 } from '@/ui';
+import { TextLink } from '@/ui/add';
 import { Radar } from '@/ui/addtv';
 
 /** How long a search with no answer runs before the screen says so. */
@@ -32,14 +31,9 @@ export interface FindTvStepProps {
   onBack: () => void;
 }
 
-function brandWord(brands: Services['tvBrands'], kind: FoundTv['kind']): string {
-  const b = brands.find((x) => x.kind === kind);
-  return b ? t(b.labelKey) : kind;
-}
-
 /** Lists TVs as discovery finds them; discovery stops when the step is left. */
 export function FindTvStep(props: FindTvStepProps): ReactElement {
-  const { tv, tvBrands } = useServices();
+  const { tv } = useServices();
   const [found, setFound] = useState<FoundTv[]>([]);
   const [waited, setWaited] = useState(false);
   useEffect(() => {
@@ -64,33 +58,48 @@ export function FindTvStep(props: FindTvStepProps): ReactElement {
       largeTitle
       onBack={props.onBack}
       scroll
+      footer={
+        // Pinned at the bottom (the mock's `.grow` before them): the status line and the way out.
+        <Column gap={4}>
+          {ended || !none ? (
+            <Row gap={2} align="center" justify="center">
+              {ended ? null : <Spinner size="sm" color="ink2" />}
+              <Txt variant="caption" color="ink2" live>
+                {t('addTv.stillLooking')}
+              </Txt>
+            </Row>
+          ) : null}
+          <TextLink label={t('addTv.cantFind')} onPress={props.onManual} />
+        </Column>
+      }
     >
-      <Column gap={4}>
-        {ended && Platform.OS === 'ios' ? (
-          <Column gap={3}>
-            <Banner tone="error" icon="lock" text={t('addTv.localNetworkOff')} />
-            <Button
-              label={t('common.openSettings')}
-              variant="secondary"
-              onPress={() => {
-                Linking.openSettings().catch((e: unknown) =>
-                  console.error('Could not open Settings', e),
-                );
-              }}
-            />
-          </Column>
-        ) : null}
-        <Box align="center">
-          <Radar searching={!ended} />
-        </Box>
-        {none ? (
-          <Txt color="ink2" live={ended}>
-            {ended ? t('addTv.sameWifi') : t('addTv.findBody')}
-          </Txt>
-        ) : null}
-        <Column gap={3}>
-          {found.map((f, i) => (
-            <Rise key={f.host} index={i}>
+      {ended && Platform.OS === 'ios' ? (
+        <>
+          <Banner tone="error" icon="lock" text={t('addTv.localNetworkOff')} />
+          <Button
+            label={t('common.openSettings')}
+            variant="secondary"
+            onPress={() => {
+              Linking.openSettings().catch((e: unknown) =>
+                console.error('Could not open Settings', e),
+              );
+            }}
+          />
+        </>
+      ) : null}
+      {/* The mock's radar has 8 px more air above and below it. */}
+      <Box align="center" py={2}>
+        <Radar searching={!ended} />
+      </Box>
+      {none ? (
+        <Txt color="ink2" align="center" live={ended}>
+          {ended ? t('addTv.sameWifi') : t('addTv.findBody')}
+        </Txt>
+      ) : (
+        <Column gap={2}>
+          {found.map((f) => (
+            // Each row rises as its TV answers, so no stagger on top.
+            <Rise key={f.host}>
               <Touchable
                 onPress={() => props.onPick(f)}
                 accessibilityLabel={`${f.name}, ${f.host}`}
@@ -107,23 +116,13 @@ export function FindTvStep(props: FindTvStepProps): ReactElement {
                       </Txt>
                     </Column>
                   </Box>
-                  <Badge label={brandWord(tvBrands, f.kind)} />
-                  <Icon name="chev" size={20} color="ink2" />
+                  <Icon name="chev" size={22} color="ink2" />
                 </Card>
               </Touchable>
             </Rise>
           ))}
         </Column>
-        {ended || !none ? (
-          <Row gap={2} align="center" justify="center">
-            {ended ? null : <Spinner size="sm" />}
-            <Txt variant="caption" color="ink2" live>
-              {t('addTv.stillLooking')}
-            </Txt>
-          </Row>
-        ) : null}
-        <Button label={t('addTv.cantFind')} variant="ghost" onPress={props.onManual} />
-      </Column>
+      )}
     </Screen>
   );
 }

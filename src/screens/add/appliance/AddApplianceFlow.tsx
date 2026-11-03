@@ -42,15 +42,19 @@ export function AddApplianceFlow(props: AddApplianceFlowProps): ReactElement {
   const device = data.devices.find((d) => d.id === props.replaceIrOn);
   if (!data.loaded) {
     return (
-      <Screen title={t('addAppliance.brandTitle')}>
-        <Txt color="ink2">{t('addAppliance.loading')}</Txt>
+      <Screen title={t('addAppliance.brandTitle')} onBack={() => router.back()}>
+        <Txt color="ink2" live>
+          {t('addAppliance.loading')}
+        </Txt>
       </Screen>
     );
   }
   if (!device) {
     return (
       <Screen title={t('addAppliance.brandTitle')} onBack={() => router.back()}>
-        <Txt color="ink2">{t('home.notFound')}</Txt>
+        <Txt color="ink2" live>
+          {t('home.notFound')}
+        </Txt>
       </Screen>
     );
   }
@@ -196,7 +200,12 @@ function Flow(props: FlowProps): ReactElement {
             candidates={ir.candidates(brandId)}
             onBack={back}
             {...(failed ? { error: t('addAppliance.saveFailed') } : {})}
-            {...(backup && matterLink ? { onSkip: () => go(named([matterLink], brandId)) } : {})}
+            // Skip: after a Matter pairing it names the device; otherwise there are no codes to save.
+            onSkip={() =>
+              backup && matterLink
+                ? go(named([matterLink], brandId))
+                : go({ name: 'noCodes', brandId, backup })
+            }
             onResult={(result) => {
               if (result === 'none') return go({ name: 'noCodes', brandId, backup });
               if (device) return saveIr(result);

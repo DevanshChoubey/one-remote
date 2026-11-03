@@ -23,7 +23,7 @@ export function NoCodesStep(props: NoCodesStepProps): ReactElement {
     >
       <EmptyState
         art="alert"
-        tone="warm"
+        fill
         title={t('addAppliance.noCodesTitle')}
         body={t(props.kind === 'ac' ? 'addAppliance.noCodesAc' : 'addAppliance.noCodesFan')}
       />

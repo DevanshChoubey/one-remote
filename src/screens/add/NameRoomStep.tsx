@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import type { Device } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Button, Chip, Column, ErrorLine, Field, Row, Screen, Rise, Txt } from '@/ui';
+import { Box, Button, Chip, Column, ErrorLine, Field, Row, Screen, Rise, Spacer, Txt } from '@/ui';
 import { newId } from '../shared/newId';
 import { useHomeData } from '../shared/useHomeData';
 
@@ -100,53 +100,65 @@ export function NameRoomStep(props: NameRoomStepProps): ReactElement {
       onBack={props.onBack}
       scroll
       footer={
-        <Column gap={3}>
+        <Column gap={4}>
           {error ? <ErrorLine text={t('add.saveFailed')} /> : null}
           <Button label={t('common.done')} onPress={save} disabled={!canSave} />
         </Column>
       }
     >
-      <Column gap={4}>
-        <Field label={t('add.name')} value={name} onChangeText={setName} onSubmitEditing={save} />
-        <Column gap={2}>
-          <Txt variant="label" color="ink2">
+      {/* The name is focused on entry, ready to change (mock: the focus ring on the name). */}
+      <Field
+        label={t('add.name')}
+        value={name}
+        onChangeText={setName}
+        onSubmitEditing={save}
+        autoFocus
+      />
+      {/* The mock's `.sect` label: 13 px bold ink2, 4 px in, 8 px more air above, 4 px to the chips. */}
+      <Column gap={1}>
+        <Spacer size={1} />
+        <Box px={1}>
+          <Txt variant="captionBold" color="ink2">
             {t('add.room')}
           </Txt>
-          <Row gap={2} wrap>
-            {data.rooms.map((r) => (
-              <Chip
-                key={r.id}
-                label={r.name}
-                state={r.id === roomId ? 'selected' : 'neutral'}
-                onToggle={() => setRoomId(r.id)}
-              />
-            ))}
+        </Box>
+        <Row gap={2} wrap>
+          {data.rooms.map((r) => (
             <Chip
-              label={t('add.newRoom')}
-              state={creating ? 'selected' : 'neutral'}
-              onToggle={() => setWantsNew(true)}
+              key={r.id}
+              label={r.name}
+              // While a new room is being made, only "New room" is lit.
+              state={!creating && r.id === roomId ? 'selected' : 'neutral'}
+              onToggle={() => setRoomId(r.id)}
             />
-          </Row>
-        </Column>
-        {creating ? (
-          <Rise>
-            <Field
-              label={t('add.roomName')}
-              value={roomName}
-              onChangeText={setRoomName}
-              onSubmitEditing={createRoom}
-              trailing={
-                <Button
-                  label={t('add.createRoom')}
-                  size="small"
-                  onPress={createRoom}
-                  disabled={roomName.trim() === ''}
-                />
-              }
-            />
-          </Rise>
-        ) : null}
+          ))}
+          <Chip
+            label={t('add.newRoom')}
+            state={creating ? 'selected' : 'neutral'}
+            onToggle={() => setWantsNew(true)}
+          />
+        </Row>
       </Column>
+      {creating ? (
+        <Rise>
+          <Field
+            label={t('add.roomName')}
+            value={roomName}
+            onChangeText={setRoomName}
+            onSubmitEditing={createRoom}
+            // Asked for with "New room": the typing starts there (mock: its focus ring).
+            autoFocus={wantsNew}
+            trailing={
+              <Button
+                label={t('add.createRoom')}
+                size="small"
+                onPress={createRoom}
+                disabled={roomName.trim() === ''}
+              />
+            }
+          />
+        </Rise>
+      ) : null}
     </Screen>
   );
 }
