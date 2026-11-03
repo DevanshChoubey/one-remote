@@ -82,7 +82,7 @@ export function Radar(props: RadarProps): ReactElement {
         justify="center"
         testID="radar-core"
       >
-        <Icon name="tv" size={34} color="accentInk" />
+        <Icon name="wifi" size={34} color="accentInk" />
       </Box>
     </Box>
   );

@@ -169,6 +169,24 @@ describe('FanScreen design', () => {
     expect(screen.queryByText(t('fan.notFound'))).toBeNull();
   });
 
+  it('draws power as a switch that follows the state', async () => {
+    await setup({ sleep: true }, on);
+    const power = await screen.findByLabelText(t('fan.power'));
+    expect(power.props.accessibilityRole).toBe('switch');
+    expect(power.props.accessibilityState.checked).toBe(true);
+  });
+
+  it('shows a retryable error, not "gone", when the store cannot be read', async () => {
+    const { driver } = silentDriver('ir', { capabilities: {} });
+    const s = await servicesWith([driver], []);
+    const err = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    s.store.devices = () => Promise.reject(new Error('disk'));
+    await renderWith(s, <FanScreen deviceId="d1" />);
+    expect(await screen.findByText(t('home.loadFailed'))).toBeTruthy();
+    expect(screen.queryByText(t('fan.notFound'))).toBeNull();
+    err.mockRestore();
+  });
+
   it('says the fan is gone once the store has loaded without it', async () => {
     const { driver } = silentDriver('ir', { capabilities: {} });
     const s = await servicesWith([driver], []);

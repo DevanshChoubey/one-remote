@@ -246,6 +246,33 @@ describe('AcScreen', () => {
     expect(screen.getByLabelText(t('ac.power')).props.accessibilityState.disabled).toBe(false);
   });
 
+  it('draws power as a switch that follows the state', async () => {
+    await setup(FULL);
+    const power = await screen.findByLabelText(t('ac.power'));
+    expect(power.props.accessibilityRole).toBe('switch');
+    expect(power.props.accessibilityState.checked).toBe(false);
+  });
+
+  it('reports the power switch on when the AC is on', async () => {
+    await setup(FULL, on);
+    const power = await screen.findByLabelText(t('ac.power'));
+    expect(power.props.accessibilityState.checked).toBe(true);
+  });
+
+  it('shows a retryable error, not "gone", when the store cannot be read', async () => {
+    const { driver } = silentDriver('ir', { capabilities: FULL });
+    const s = await servicesWith([driver], []);
+    const err = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    s.store.devices = () => Promise.reject(new Error('disk'));
+    await renderWith(s, <AcScreen deviceId="d1" />);
+    expect(await screen.findByText(t('home.loadFailed'))).toBeTruthy();
+    expect(screen.queryByText(t('ac.notFound'))).toBeNull();
+    s.store.devices = () => Promise.resolve([]);
+    await fireEvent.press(screen.getByLabelText(t('common.retry')));
+    expect(await screen.findByText(t('ac.notFound'))).toBeTruthy();
+    err.mockRestore();
+  });
+
   it('turns on with the power button', async () => {
     const { sent } = await setup(FULL);
     await fireEvent.press(await screen.findByLabelText(t('ac.power')));

@@ -1,3 +1,4 @@
+import { Profiler } from 'react';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { MatterSetup } from '@/core/matterSetup';
 import { t } from '@/i18n';
@@ -99,6 +100,35 @@ describe('MatterStep camera', () => {
     mockOnScan?.({ data: 'https://example.com' });
     await waitFor(() => expect(screen.getByText(t('matter.notMatter'))).toBeTruthy());
     expect(commission).not.toHaveBeenCalled();
+  });
+
+  it('does not re-render when the same non-Matter QR is seen again', async () => {
+    let commits = 0;
+    await renderWith(
+      {
+        ...makeServices(),
+        matter: stub(jest.fn() as unknown as MatterSetup['commission']),
+      },
+      <Profiler id="matter" onRender={() => (commits += 1)}>
+        <MatterStep brandId="panasonic" onDone={jest.fn()} onSkip={jest.fn()} />
+      </Profiler>,
+    );
+    await act(async () => mockOnScan?.({ data: 'https://example.com' }));
+    expect(screen.getByText(t('matter.notMatter'))).toBeTruthy();
+    // One more frame settles any stray async render; after that, repeats must be free.
+    await act(async () => mockOnScan?.({ data: 'https://example.com' }));
+    const after = commits;
+    for (let i = 0; i < 5; i++)
+      await act(async () => mockOnScan?.({ data: 'https://example.com' }));
+    expect(commits).toBe(after);
+  });
+
+  it('shows an empty camera frame while the permission prompt is pending', async () => {
+    mockPermission = { granted: false, canAskAgain: true };
+    mockAsk.mockReturnValue(new Promise(() => undefined));
+    await open(jest.fn());
+    expect(screen.getByTestId('camera-frame')).toBeTruthy();
+    expect(screen.queryByText(t('matter.cameraDenied'))).toBeNull();
   });
 
   it('recovers from a rejected MT: code and connects on the next scan', async () => {

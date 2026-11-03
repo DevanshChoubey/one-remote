@@ -98,7 +98,7 @@ export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactEl
 
   return (
     <Column gap={2}>
-      <Group label={t('addTv.address')}>
+      <Group>
         <ListItem title={t('addTv.address')} trailing={<Txt color="ink2">{link.host}</Txt>} />
       </Group>
       <Row gap={2} wrap>

@@ -17,7 +17,13 @@ const TAP_MS = 250;
 /** A pan surface that turns swipes into arrow keys and a tap into OK. */
 export function TouchPad(props: { onKey: (k: TvKey) => void }): ReactElement {
   const ctl = useMemo(() => createPadController(), []);
-  const motion = useMotion();
+  const liveMotion = useMotion();
+  const { reduced } = liveMotion;
+  const { fast, base } = liveMotion.duration;
+  // The gesture only needs the reduced flag and the durations, so it is not rebuilt (possibly
+  // mid-touch) when the context hands over a new object with the same values.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const motion = useMemo(() => liveMotion, [reduced, fast, base]);
   const enter = usePadEnter();
   useEffect(() => {
     ctl.setHandler(props.onKey);

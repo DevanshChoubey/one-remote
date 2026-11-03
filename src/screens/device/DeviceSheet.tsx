@@ -49,10 +49,19 @@ export function DeviceSheet(props: DeviceSheetProps): ReactElement {
   const router = useRouter();
   const data = useHomeData();
   const device = data.devices.find((d) => d.id === props.deviceId);
-  const close = (): void => router.back();
+  // Closing plays the exit first; the route pops once the Sheet reports it has finished.
+  const [open, setOpen] = useState(true);
+  const close = (): void => setOpen(false);
+  const closed = (): void => router.back();
   if (!data.loaded) {
     return (
-      <Sheet open title={t('device.title')} onClose={close} testID="device-sheet">
+      <Sheet
+        open={open}
+        title={t('device.title')}
+        onClose={close}
+        onClosed={closed}
+        testID="device-sheet"
+      >
         <Box gap={3} testID="device-skeleton">
           <Skeleton width="40%" height={14} />
           <Skeleton height={48} radius="md" />
@@ -63,13 +72,25 @@ export function DeviceSheet(props: DeviceSheetProps): ReactElement {
   }
   if (!device) {
     return (
-      <Sheet open title={t('device.title')} onClose={close} testID="device-sheet">
+      <Sheet
+        open={open}
+        title={t('device.title')}
+        onClose={close}
+        onClosed={closed}
+        testID="device-sheet"
+      >
         <Txt color="ink2">{t('home.notFound')}</Txt>
       </Sheet>
     );
   }
   return (
-    <Sheet open title={t('device.title')} onClose={close} testID="device-sheet">
+    <Sheet
+      open={open}
+      title={t('device.title')}
+      onClose={close}
+      onClosed={closed}
+      testID="device-sheet"
+    >
       <Body
         key={device.id}
         device={device}

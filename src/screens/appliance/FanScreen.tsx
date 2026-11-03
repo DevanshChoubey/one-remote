@@ -8,6 +8,7 @@ import type { DeviceView } from '@/services';
 import {
   Box,
   Chip,
+  Button,
   Column,
   EmptyState,
   IconButton,
@@ -33,6 +34,19 @@ export function FanScreen(props: { deviceId: string }): ReactElement {
   const router = useRouter();
   const found = useDeviceView(props.deviceId);
   if (found.state === 'loading') return <FanSkeleton onBack={() => router.back()} />;
+  if (found.state === 'failed') {
+    return (
+      <Screen title={t('common.appName')} onBack={() => router.back()}>
+        <EmptyState
+          art="alert"
+          tone="danger"
+          title={t('home.loadFailed')}
+          action={<Button label={t('common.retry')} onPress={found.retry} />}
+          fill
+        />
+      </Screen>
+    );
+  }
   if (found.state === 'gone') {
     return (
       <Screen title={t('common.appName')} onBack={() => router.back()}>
@@ -117,6 +131,7 @@ function FanRemote({ view }: { view: DeviceView }): ReactElement {
           icon="power"
           tone="power"
           label={t('fan.power')}
+          checked={state.power}
           onPress={() => press({ power: !state.power })}
           disabled={!usable}
           testID="fan-power"

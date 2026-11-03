@@ -1,6 +1,6 @@
 import 'react-native-gesture-handler/jestSetup';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { AppState, BackHandler, Linking, Platform } from 'react-native';
+import { StyleSheet, AppState, BackHandler, Linking, Platform } from 'react-native';
 import type { Capabilities, Device, TvSetup } from '@/core';
 import type { FakeDriver } from '@/device/testing/fakeDriver';
 import { createFakeDriver } from '@/device/testing/fakeDriver';
@@ -42,6 +42,15 @@ jest.mock('expo-router', () => {
     useFocusEffect: (cb: () => void | (() => void)) => useEffect(cb, [cb]),
   };
 });
+
+function hasAlertAncestor(node: { parent: unknown }): boolean {
+  let cur = node.parent as { parent: unknown; props?: { accessibilityRole?: string } } | null;
+  while (cur) {
+    if (cur.props?.accessibilityRole === 'alert') return true;
+    cur = cur.parent as typeof cur | null;
+  }
+  return false;
+}
 
 const tvDevice = (id: string, brand: 'webos' | 'androidtv' = 'webos'): Device => ({
   id,
@@ -423,6 +432,21 @@ describe('TvScreen', () => {
     expect(await screen.findByText(t('tv.notFound'))).toBeTruthy();
   });
 
+  it('gives the not-found note the alert role and the found note none', async () => {
+    mockNetType = 'CELLULAR';
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await fireEvent.press(screen.getByLabelText(t('tv.findAgain')));
+    const bad = await screen.findByText(t('tv.notFound'));
+    expect(hasAlertAncestor(bad)).toBe(true);
+    r.findAgain.mockResolvedValueOnce('192.168.1.40');
+    await fireEvent.press(screen.getByLabelText(t('tv.findAgain')));
+    expect(await screen.findByText(t('tv.foundAt', { host: '192.168.1.40' }))).toBeTruthy();
+    expect(hasAlertAncestor(screen.getByText(t('tv.foundAt', { host: '192.168.1.40' })))).toBe(
+      false,
+    );
+  });
+
   it('keeps the phone volume keys only while the remote is on screen', async () => {
     const r = await rig();
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
@@ -614,6 +638,40 @@ describe('TvScreen shell', () => {
     expect(
       screen.getByLabelText(t('tv.inputEmpty', { label: 'PlayStation' })).props.accessibilityState,
     ).toMatchObject({ disabled: true });
+  });
+
+  it('dims the pads to 0.55 while the mic is held, and restores them on release', async () => {
+    const webos = createFakeDriver('androidtv', {
+      capabilities: { tv: { inputList: true, text: true, powerOn: true, voice: true } },
+      startVoice: () => Promise.resolve({ push: () => undefined, end: () => undefined }),
+    });
+    const s = createServices({
+      store: createMemoryStore(),
+      secrets: createMemorySecretStore(),
+      prefs: createMemoryPreferenceStore(),
+      drivers: [webos],
+      voice: { mic: createFakeMic(), dictation: createFakeDictation(false) },
+    });
+    await s.store.upsertRoom(room('r1', 'Living room', 0));
+    await s.store.upsertDevice(tvDevice('tv1', 'androidtv'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await renderWith(s, <TvScreen deviceId="tv1" />);
+    await act(async () => {
+      webos.emit('tv1', { kind: 'tv', state: { power: true } });
+    });
+    const opacity = (): unknown =>
+      StyleSheet.flatten(screen.getByTestId('tv-pad-area').props.style)?.opacity;
+    expect(opacity()).toBe(1);
+    const mic = screen.getByLabelText(t('tv.voice'));
+    await fireEvent(mic, 'pressIn');
+    await act(async () => {
+      for (let i = 0; i < 6; i++) await Promise.resolve();
+    });
+    expect(opacity()).toBe(0.55);
+    await fireEvent(mic, 'pressOut');
+    expect(opacity()).toBe(1);
   });
 
   it('says "Sent to the TV" after a voice message, and drops it after 1.6 s', async () => {
