@@ -3,8 +3,8 @@
 _Date: 2026-10-30 · Status: approved by the author, 2026-10-30_
 
 Background, market scan and technical findings: `docs/research/2026-10-30-market-and-validation.md`.
-Screens and flows: `docs/design/one-remote-mockup-v4.html` (v3 is the approved main screens; v4 adds
-every flow).
+Screens and flows: `docs/design/one-remote-mockup.html`, the one central mock (older v3 and v4 are in
+git history).
 
 ## 1. Intent and the why
 
