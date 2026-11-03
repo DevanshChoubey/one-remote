@@ -23,6 +23,12 @@ function stub(commission: MatterSetup['commission']): MatterSetup {
   };
 }
 
+jest.mock('expo-camera', () => ({
+  useCameraPermissions: () => [{ granted: false, canAskAgain: false }, jest.fn()],
+  CameraView: () => null,
+}));
+jest.mock('expo-clipboard', () => ({ getStringAsync: () => Promise.resolve('') }));
+
 async function open(m: MatterSetup): Promise<{ onDone: jest.Mock; onSkip: jest.Mock }> {
   const onDone = jest.fn();
   const onSkip = jest.fn();
@@ -37,6 +43,7 @@ describe('MatterStep', () => {
   it('rejects a malformed code without calling the network', async () => {
     const commission = jest.fn();
     await open(stub(commission));
+    await fireEvent.press(await screen.findByText(t('matter.enter')));
     await fireEvent.changeText(await screen.findByLabelText(t('matter.codeLabel')), '123');
     await fireEvent.press(screen.getByText(t('matter.connect')));
     expect(screen.getByText(t('matter.badCode'))).toBeTruthy();
@@ -49,6 +56,7 @@ describe('MatterStep', () => {
       return link;
     });
     const { onDone } = await open(stub(commission as unknown as MatterSetup['commission']));
+    await fireEvent.press(await screen.findByText(t('matter.enter')));
     await fireEvent.changeText(
       await screen.findByLabelText(t('matter.codeLabel')),
       '3497-0112-332',
@@ -62,6 +70,7 @@ describe('MatterStep', () => {
       throw new MatterError('notFound', 'found');
     });
     await open(stub(commission));
+    await fireEvent.press(await screen.findByText(t('matter.enter')));
     await fireEvent.changeText(await screen.findByLabelText(t('matter.codeLabel')), '34970112332');
     await fireEvent.press(screen.getByText(t('matter.connect')));
     await waitFor(() => expect(screen.getByText(t('matter.error.notFound'))).toBeTruthy());

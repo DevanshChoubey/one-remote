@@ -1,10 +1,12 @@
-import { useRef, useState } from 'react';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Clipboard from 'expo-clipboard';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { MatterError } from '@/core/matterSetup';
 import type { CommissionStep } from '@/core/matterSetup';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Button, Column, Input, Screen, Txt } from '@/ui';
+import { Box, Button, Column, Input, Screen, Txt } from '@/ui';
 import type { MatterStepProps } from './AddApplianceFlow';
 
 const STEPS: CommissionStep[] = ['found', 'network', 'responds'];
@@ -35,11 +37,20 @@ type Phase =
 export function MatterStep(props: MatterStepProps): ReactElement {
   const { matter } = useServices();
   const [text, setText] = useState('');
+  const [typing, setTyping] = useState(false);
+  const [permission, askPermission] = useCameraPermissions();
   const [phase, setPhase] = useState<Phase>({ name: 'code' });
   const run = useRef(0);
+  const scanned = useRef(false);
 
-  const connect = (): void => {
-    const code = matter.parseCode(text);
+  // Ask once when the screen opens; after a refusal the typed and pasted routes stay open.
+  useEffect(() => {
+    if (permission && !permission.granted && permission.canAskAgain) void askPermission();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [permission?.granted]);
+
+  const connect = (input: string): void => {
+    const code = matter.parseCode(input);
     if (!code) {
       setPhase({ name: 'code', error: t('matter.badCode') });
       return;
@@ -71,26 +82,63 @@ export function MatterStep(props: MatterStepProps): ReactElement {
       );
   };
 
+  const onScan = ({ data }: { data: string }): void => {
+    if (scanned.current) return;
+    if (!data.startsWith('MT:')) {
+      setPhase({ name: 'code', error: t('matter.notMatter') });
+      return;
+    }
+    scanned.current = true;
+    connect(data);
+  };
+
+  const paste = (): void => {
+    void Clipboard.getStringAsync().then((value) => connect(value.trim()));
+  };
+
   if (phase.name === 'code') {
     return (
       <Screen title={t('matter.title')} onBack={props.onSkip} scroll>
         <Column gap={4}>
           <Txt color="ink2">{t('matter.intro')}</Txt>
-          <Input
-            value={text}
-            onChangeText={setText}
-            accessibilityLabel={t('matter.codeLabel')}
-            placeholder={t('matter.codeHint')}
-            autoCapitalize="characters"
-            maxLength={60}
-            onSubmitEditing={connect}
-          />
+          {permission?.granted && !typing ? (
+            <Box accessibilityLabel={t('matter.scanLabel')} h={280}>
+              <CameraView
+                style={{ flex: 1 }}
+                facing="back"
+                barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+                onBarcodeScanned={onScan}
+              />
+            </Box>
+          ) : null}
+          {permission && !permission.granted && !permission.canAskAgain ? (
+            <Txt live color="danger">
+              {t('matter.cameraDenied')}
+            </Txt>
+          ) : null}
+          {typing ? (
+            <>
+              <Input
+                value={text}
+                onChangeText={setText}
+                accessibilityLabel={t('matter.codeLabel')}
+                placeholder={t('matter.codeHint')}
+                autoCapitalize="characters"
+                maxLength={60}
+                onSubmitEditing={() => connect(text)}
+              />
+              <Button label={t('matter.connect')} onPress={() => connect(text)} />
+            </>
+          ) : null}
           {phase.error ? (
             <Txt live color="danger">
               {phase.error}
             </Txt>
           ) : null}
-          <Button label={t('matter.connect')} onPress={connect} />
+          <Button label={t('matter.paste')} variant="secondary" onPress={paste} />
+          {typing ? null : (
+            <Button label={t('matter.enter')} variant="secondary" onPress={() => setTyping(true)} />
+          )}
           <Button label={t('matter.notNow')} variant="ghost" onPress={props.onSkip} />
         </Column>
       </Screen>
@@ -115,7 +163,13 @@ export function MatterStep(props: MatterStepProps): ReactElement {
             <Txt live color="danger">
               {phase.error}
             </Txt>
-            <Button label={t('matter.retry')} onPress={() => setPhase({ name: 'code' })} />
+            <Button
+              label={t('matter.retry')}
+              onPress={() => {
+                scanned.current = false;
+                setPhase({ name: 'code' });
+              }}
+            />
             <Button label={t('matter.notNow')} variant="ghost" onPress={props.onSkip} />
           </>
         ) : null}
