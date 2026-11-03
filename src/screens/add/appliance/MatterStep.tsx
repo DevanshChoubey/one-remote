@@ -53,6 +53,8 @@ export function MatterStep(props: MatterStepProps): ReactElement {
   const [phase, setPhase] = useState<Phase>({ name: 'code' });
   const run = useRef(0);
   const scanned = useRef(false);
+  // The system prompt was answered once: a refusal then shows the denied panel, never a blank area.
+  const [asked, setAsked] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const later = (fn: () => void, ms: number): void => {
@@ -69,11 +71,16 @@ export function MatterStep(props: MatterStepProps): ReactElement {
 
   // Ask once when the screen opens; after a refusal the typed and pasted routes stay open.
   useEffect(() => {
-    if (permission && !permission.granted && permission.canAskAgain) void askPermission();
+    if (permission && !permission.granted && permission.canAskAgain) {
+      void Promise.resolve(askPermission()).then(() => setAsked(true));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [permission?.granted]);
 
   const badCode = (message: string): void => {
+    // A rejected code must not leave the scanner locked: the next scan has to work.
+    scanned.current = false;
+    setLocked(false);
     setPhase({ name: 'code', error: message });
     setShake((n) => n + 1);
   };
@@ -119,7 +126,11 @@ export function MatterStep(props: MatterStepProps): ReactElement {
   const onScan = ({ data }: { data: string }): void => {
     if (scanned.current) return;
     if (!data.startsWith('MT:')) {
-      setPhase({ name: 'code', error: t('matter.notMatter') });
+      const message = t('matter.notMatter');
+      // The camera reports every frame: only re-render when the message changes.
+      setPhase((p) =>
+        p.name === 'code' && p.error === message ? p : { name: 'code', error: message },
+      );
       return;
     }
     scanned.current = true;
@@ -133,7 +144,7 @@ export function MatterStep(props: MatterStepProps): ReactElement {
   };
 
   if (phase.name === 'code') {
-    const denied = permission && !permission.granted && !permission.canAskAgain;
+    const denied = permission !== null && !permission.granted && (asked || !permission.canAskAgain);
     return (
       <Screen
         title={t('matter.title')}
@@ -158,19 +169,21 @@ export function MatterStep(props: MatterStepProps): ReactElement {
       >
         <Column gap={4}>
           <Txt color="ink2">{t('matter.intro')}</Txt>
-          {permission?.granted && !typing ? (
+          {!typing && !denied ? (
             <Box accessibilityLabel={t('matter.scanLabel')} accessibilityRole="image">
               <CameraFrame
                 locked={locked}
                 hint={t('matter.scanHint')}
                 lockLabel={t('matter.lockLabel')}
               >
-                <CameraView
-                  style={{ flex: 1 }}
-                  facing="back"
-                  barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-                  onBarcodeScanned={onScan}
-                />
+                {permission?.granted ? (
+                  <CameraView
+                    style={{ flex: 1 }}
+                    facing="back"
+                    barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+                    onBarcodeScanned={onScan}
+                  />
+                ) : null}
               </CameraFrame>
             </Box>
           ) : null}

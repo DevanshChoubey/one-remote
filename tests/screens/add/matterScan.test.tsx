@@ -31,7 +31,7 @@ function stub(commission: MatterSetup['commission']): MatterSetup {
   return {
     available: () => true,
     parseCode: (input) => {
-      if (input.startsWith('MT:')) return { kind: 'qr', payload: input };
+      if (input.startsWith('MT:')) return input.length > 3 ? { kind: 'qr', payload: input } : null;
       const digits = input.replace(/-/g, '');
       return /^\d{11}$/.test(digits) ? { kind: 'manual', digits } : null;
     },
@@ -99,6 +99,27 @@ describe('MatterStep camera', () => {
     mockOnScan?.({ data: 'https://example.com' });
     await waitFor(() => expect(screen.getByText(t('matter.notMatter'))).toBeTruthy());
     expect(commission).not.toHaveBeenCalled();
+  });
+
+  it('recovers from a rejected MT: code and connects on the next scan', async () => {
+    const commission = jest.fn(async () => link);
+    const { onDone } = await open(commission);
+    // A bare MT: payload is rejected by parseCode.
+    await act(async () => mockOnScan?.({ data: 'MT:' }));
+    await waitFor(() => expect(screen.getByText(t('matter.badCode'))).toBeTruthy());
+    expect(screen.queryByText(t('matter.lockLabel'))).toBeNull();
+    await act(async () => mockOnScan?.({ data: 'MT:Y.K9042C00KA0648G00' }));
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith(link), { timeout: 4000 });
+  });
+
+  it('shows the denied panel after a refusal that can still be asked again', async () => {
+    mockPermission = { granted: false, canAskAgain: true };
+    mockAsk.mockResolvedValue(undefined);
+    await open(jest.fn());
+    await waitFor(() => expect(screen.getByText(t('matter.cameraDenied'))).toBeTruthy());
+    expect(screen.queryByTestId('camera-frame')).toBeNull();
+    expect(screen.getByText(t('matter.paste'))).toBeTruthy();
+    expect(screen.getByText(t('matter.enter'))).toBeTruthy();
   });
 
   it('asks for the camera on first open', async () => {
