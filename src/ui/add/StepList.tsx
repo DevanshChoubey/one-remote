@@ -69,7 +69,8 @@ export function StepList(props: StepListProps): ReactElement {
             <Disc state={s.state} />
             <Box flex={1}>
               <Txt
-                variant="bodyBold"
+                variant="body"
+                weight="semibold"
                 color={s.state === 'fail' ? 'dangerInk' : s.state === 'idle' ? 'ink2' : 'ink'}
               >
                 {s.label}

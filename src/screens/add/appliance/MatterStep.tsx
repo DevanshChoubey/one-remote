@@ -7,7 +7,7 @@ import type { CommissionStep } from '@/core/matterSetup';
 import { t } from '@/i18n';
 import { useMotion } from '@/theme';
 import { useServices } from '@/services';
-import { Box, Button, Column, ErrorLine, Field, Icon, ResultDisc, Screen, Txt } from '@/ui';
+import { Box, Button, Column, ErrorLine, Field, Icon, ResultDisc, Rise, Screen, Txt } from '@/ui';
 import { CameraFrame, StepList } from '@/ui/add';
 import type { StepState } from '@/ui/add';
 import type { MatterStepProps } from './AddApplianceFlow';
@@ -153,24 +153,27 @@ export function MatterStep(props: MatterStepProps): ReactElement {
         onBack={props.onSkip}
         scroll
         footer={
-          <Column gap={2}>
-            {typing ? <Button label={t('matter.connect')} onPress={() => connect(text)} /> : null}
+          // Paste and Enter are a pair (8 apart); Not now sits 16 below them. While typing,
+          // Connect is under the field, so only Not now is here.
+          <Column gap={4}>
             {typing ? null : (
-              <>
+              <Column gap={2}>
                 <Button label={t('matter.paste')} variant="secondary" icon="clip" onPress={paste} />
                 <Button
                   label={t('matter.enter')}
                   variant="secondary"
                   onPress={() => setTyping(true)}
                 />
-              </>
+              </Column>
             )}
             <Button label={t('matter.notNow')} variant="ghost" onPress={props.onSkip} />
           </Column>
         }
       >
         <Column gap={4}>
-          <Txt color="ink2">{t('matter.intro')}</Txt>
+          <Txt variant="label" weight="regular" color="ink2">
+            {t('matter.intro')}
+          </Txt>
           {!typing && !denied ? (
             <Box accessibilityLabel={t('matter.scanLabel')} accessibilityRole="image">
               <CameraFrame
@@ -196,30 +199,37 @@ export function MatterStep(props: MatterStepProps): ReactElement {
               border="line"
               radius="lg"
               px={6}
-              gap={3}
+              gap={2}
               align="center"
               justify="center"
               accessibilityLabel={t('matter.scanLabel')}
               accessibilityRole="image"
             >
               <Icon name="cameraoff" size={40} color="ink2" />
-              <Txt live color="ink2">
-                {t('matter.cameraDenied')}
-              </Txt>
+              {/* 28 px in from the sides, as the mock's panel. */}
+              <Box px={1}>
+                <Txt live color="ink2" align="center">
+                  {t('matter.cameraDenied')}
+                </Txt>
+              </Box>
             </Box>
           ) : null}
           {typing ? (
-            <Field
-              label={t('matter.codeLabel')}
-              value={text}
-              onChangeText={setText}
-              placeholder={t('matter.codeHint')}
-              autoCapitalize="characters"
-              maxLength={60}
-              onSubmitEditing={() => connect(text)}
-              error={phase.error ?? null}
-              shakeKey={shake}
-            />
+            <>
+              <Field
+                label={t('matter.codeLabel')}
+                value={text}
+                onChangeText={setText}
+                placeholder={t('matter.codeHint')}
+                autoCapitalize="characters"
+                maxLength={60}
+                onSubmitEditing={() => connect(text)}
+                error={phase.error ?? null}
+                shakeKey={shake}
+                autoFocus
+              />
+              <Button label={t('matter.connect')} onPress={() => connect(text)} />
+            </>
           ) : phase.error ? (
             <ErrorLine text={phase.error} />
           ) : null}
@@ -242,7 +252,7 @@ export function MatterStep(props: MatterStepProps): ReactElement {
       scroll
       footer={
         phase.name === 'failed' ? (
-          <Column gap={2}>
+          <Column gap={4}>
             <Button
               label={t('matter.retry')}
               onPress={() => {
@@ -256,15 +266,18 @@ export function MatterStep(props: MatterStepProps): ReactElement {
         ) : undefined
       }
     >
-      <Column gap={4}>
-        <StepList steps={STEPS.map((s) => ({ label: STEP_LABEL[s], state: state(s) }))} />
-        {phase.name === 'failed' ? <ErrorLine text={phase.error} /> : null}
-        {phase.name === 'success' ? (
-          <Column align="center">
-            <ResultDisc kind="ok" label={t('matter.step.responds')} />
-          </Column>
-        ) : null}
-      </Column>
+      {/* All done: the green disc shows above the checklist (mock). */}
+      {phase.name === 'success' ? (
+        <Column align="center">
+          <ResultDisc kind="ok" label={t('matter.step.responds')} />
+        </Column>
+      ) : null}
+      <StepList steps={STEPS.map((s) => ({ label: STEP_LABEL[s], state: state(s) }))} />
+      {phase.name === 'failed' ? (
+        <Rise>
+          <ErrorLine text={phase.error} />
+        </Rise>
+      ) : null}
     </Screen>
   );
 }

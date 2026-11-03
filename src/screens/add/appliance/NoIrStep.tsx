@@ -30,7 +30,12 @@ export function NoIrStep(props: NoIrStepProps): ReactElement {
         </Column>
       }
     >
-      <EmptyState art="ir" title={t('addAppliance.noIrTitle')} body={t('addAppliance.noIrBody')} />
+      <EmptyState
+        art="ir"
+        fill
+        title={t('addAppliance.noIrTitle')}
+        body={t('addAppliance.noIrBody')}
+      />
     </Screen>
   );
 }
