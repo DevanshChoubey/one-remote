@@ -44,12 +44,17 @@ describe('LinkLine, as the mock .linkline.btnlike', () => {
 });
 
 describe('Stepper', () => {
-  it('dims to .35 when disabled, shadow included', async () => {
+  it('dims to .35 when disabled and drops the disc shadow (an octagon on Android)', async () => {
     await render(wrap(<Stepper icon="plus" label="Raise" onPress={jest.fn()} disabled />));
     expect(flat(screen.getByLabelText('Raise').props.style).opacity).toBe(0.35);
-    // The shadow sits on the filled disc inside the dimmed button.
     const disc = flat(screen.getByTestId('stepper-plus').props.style);
     expect(disc.backgroundColor).toBe(lightTokens.color.surface);
+    expect(disc.elevation).toBeUndefined();
+  });
+
+  it('keeps the disc shadow when enabled', async () => {
+    await render(wrap(<Stepper icon="plus" label="Raise" onPress={jest.fn()} />));
+    const disc = flat(screen.getByTestId('stepper-plus').props.style);
     expect(disc.elevation).toBe(lightTokens.shadow.card.elevation);
   });
 });

@@ -15,7 +15,8 @@ const DISABLED_OPACITY = 0.35;
 
 /**
  * A 64 px round − or + beside the AC dial. The filled disc carries the shadow (Android draws no
- * elevation for a transparent view) inside the Touchable, so the shadow scales and dims with it.
+ * elevation for a transparent view) inside the Touchable, so the shadow scales with it; a disabled
+ * stepper drops it (see `useShadowless`).
  */
 export function Stepper(props: StepperProps): ReactElement {
   return (

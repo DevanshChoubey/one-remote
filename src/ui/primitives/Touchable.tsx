@@ -8,6 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useMotion, useTheme } from '@/theme';
 import type { ColorToken, RadiusToken } from '@/theme';
+import { DimmedContext } from './dimmed';
 
 export interface TouchableProps {
   onPress: () => void;
@@ -126,7 +127,9 @@ export function Touchable(props: TouchableProps): ReactElement {
             animated,
           ]}
         >
-          {props.children}
+          <DimmedContext.Provider value={dim !== null || props.dimmed === true}>
+            {props.children}
+          </DimmedContext.Provider>
         </Animated.View>
       </Pressable>
     </LayoutConformance>

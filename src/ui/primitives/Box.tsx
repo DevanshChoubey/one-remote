@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { useTheme } from '@/theme';
 import type { ColorToken, RadiusToken, ShadowToken, SpaceStep, Tokens } from '@/theme';
+import { useShadowless } from './dimmed';
 
 export interface BoxProps {
   p?: SpaceStep;
@@ -100,7 +101,7 @@ export function boxStyle(props: BoxProps, theme: Tokens): Mutable<ViewStyle> {
 
 export function Box(props: BoxProps): ReactElement {
   const theme = useTheme();
-  const style = boxStyle(props, theme);
+  const style = boxStyle(useShadowless(props), theme);
   return (
     <View
       style={style}
