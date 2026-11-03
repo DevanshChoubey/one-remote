@@ -1,5 +1,5 @@
 import { Linking } from 'react-native';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { LinkDriver } from '@/core';
 import { createFakeDriver } from '@/device/testing/fakeDriver';
 import { t } from '@/i18n';
@@ -8,12 +8,12 @@ import { createFakeEmitter } from '@/ir/testing/fakeEmitter';
 import { AddApplianceFlow } from '@/screens/add/appliance/AddApplianceFlow';
 import type { MatterStepProps } from '@/screens/add/appliance/AddApplianceFlow';
 import { HomeScreen } from '@/screens/home/HomeScreen';
-import { createServices, ServicesProvider } from '@/services';
+import { createServices } from '@/services';
 import type { Services } from '@/services';
 import { createMemoryStore } from '@/store/memoryStore';
 import { createMemoryPreferenceStore } from '@/store/preferences';
 import { createMemorySecretStore } from '@/store/secrets';
-import { ThemeProvider } from '@/theme';
+import { darkTokens } from '@/theme';
 import { Button } from '@/ui';
 import { createIrDriver } from '@/ir/driver';
 import { renderWith, room } from '../helpers';
@@ -76,13 +76,7 @@ describe('Add AC on a phone without IR', () => {
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
     });
-    await render(
-      <ThemeProvider scheme="light">
-        <ServicesProvider services={s}>
-          <HomeScreen />
-        </ServicesProvider>
-      </ThemeProvider>,
-    );
+    await renderWith(s, <HomeScreen />);
     expect(await screen.findByText(t('home.needsIr'))).toBeTruthy();
   });
 });
@@ -94,25 +88,19 @@ describe('Add AC on a phone with IR', () => {
     await fireEvent.press(await screen.findByLabelText('Panasonic'));
     expect(await screen.findByText('Panasonic · try 1 of 5')).toBeTruthy();
     expect(screen.getByText(t('addAppliance.press.acOnCool24'))).toBeTruthy();
-    expect(screen.getByLabelText(t('addAppliance.yes')).props.accessibilityState.disabled).toBe(
-      true,
-    );
+    // Before a send there is only Test: the answer buttons appear once the test went out.
+    expect(screen.queryByLabelText(t('addAppliance.yes'))).toBeNull();
+    expect(screen.getByLabelText(t('addAppliance.test'))).toBeTruthy();
     await press(t('addAppliance.test'));
     await waitFor(() => expect(sendTest).toHaveBeenCalledWith('panasonic-ac/dke', 'acOnCool24'));
-    await waitFor(() =>
-      expect(screen.getByLabelText(t('addAppliance.yes')).props.accessibilityState.disabled).toBe(
-        false,
-      ),
-    );
+    await waitFor(() => expect(screen.getByLabelText(t('addAppliance.yes'))).toBeTruthy());
+    expect(screen.queryByLabelText(t('addAppliance.test'))).toBeNull();
     await press(t('addAppliance.yes'));
     expect(await screen.findByText(t('addAppliance.press.acUp25'))).toBeTruthy();
     await press(t('addAppliance.test'));
     await waitFor(() => expect(sendTest).toHaveBeenLastCalledWith('panasonic-ac/dke', 'acUp25'));
-    await waitFor(() =>
-      expect(screen.getByLabelText(t('addAppliance.yes')).props.accessibilityState.disabled).toBe(
-        false,
-      ),
-    );
+    await waitFor(() => expect(screen.getByLabelText(t('addAppliance.yes'))).toBeTruthy());
+    expect(screen.queryByLabelText(t('addAppliance.test'))).toBeNull();
     await press(t('addAppliance.yes'));
     expect(await screen.findByDisplayValue('Panasonic AC')).toBeTruthy();
     await press(t('common.done'));
@@ -129,6 +117,8 @@ describe('Add AC on a phone with IR', () => {
     await fireEvent.press(await screen.findByLabelText('Panasonic'));
     for (let n = 1; n <= 5; n++) {
       expect(await screen.findByText(`Panasonic · try ${n} of 5`)).toBeTruthy();
+      await press(t('addAppliance.test'));
+      await screen.findByLabelText(t('addAppliance.no'));
       await press(t('addAppliance.no'));
     }
     expect(await screen.findByText(t('addAppliance.noCodesAc'))).toBeTruthy();
@@ -136,12 +126,25 @@ describe('Add AC on a phone with IR', () => {
     expect(mockDismissAll).toHaveBeenCalled();
   });
 
-  it('does not take Yes before Test was pressed', async () => {
+  it('has no Yes before Test was pressed', async () => {
     const { s } = await setup({ hasIr: true });
     await renderWith(s, <AddApplianceFlow kind="ac" />);
     await fireEvent.press(await screen.findByLabelText('Panasonic'));
-    await press(t('addAppliance.yes'));
+    expect(screen.queryByLabelText(t('addAppliance.yes'))).toBeNull();
+    expect(screen.queryByLabelText(t('addAppliance.no'))).toBeNull();
     expect(screen.getByText(t('addAppliance.press.acOnCool24'))).toBeTruthy();
+  });
+
+  it('shows try n of total on the progress bar', async () => {
+    const { s } = await setup({ hasIr: true });
+    await renderWith(s, <AddApplianceFlow kind="ac" />);
+    await fireEvent.press(await screen.findByLabelText('Panasonic'));
+    expect(screen.getByRole('progressbar').props.accessibilityValue.now).toBe(20);
+    await press(t('addAppliance.test'));
+    await waitFor(() => expect(screen.getByLabelText(t('addAppliance.yes'))).toBeTruthy());
+    await press(t('addAppliance.no'));
+    expect(await screen.findByText('Panasonic · try 2 of 5')).toBeTruthy();
+    expect(screen.getByRole('progressbar').props.accessibilityValue.now).toBe(40);
   });
 
   it('says so when the test could not be sent', async () => {
@@ -173,19 +176,13 @@ describe('Add fan', () => {
     expect(screen.getByText(t('addAppliance.pointFan'))).toBeTruthy();
     await press(t('addAppliance.test'));
     await waitFor(() => expect(sendTest).toHaveBeenCalledWith(expect.any(String), 'fanSpeed3'));
-    await waitFor(() =>
-      expect(screen.getByLabelText(t('addAppliance.yes')).props.accessibilityState.disabled).toBe(
-        false,
-      ),
-    );
+    await waitFor(() => expect(screen.getByLabelText(t('addAppliance.yes'))).toBeTruthy());
+    expect(screen.queryByLabelText(t('addAppliance.test'))).toBeNull();
     await press(t('addAppliance.yes'));
     await press(t('addAppliance.test'));
     await waitFor(() => expect(sendTest).toHaveBeenCalledTimes(2));
-    await waitFor(() =>
-      expect(screen.getByLabelText(t('addAppliance.yes')).props.accessibilityState.disabled).toBe(
-        false,
-      ),
-    );
+    await waitFor(() => expect(screen.getByLabelText(t('addAppliance.yes'))).toBeTruthy());
+    expect(screen.queryByLabelText(t('addAppliance.test'))).toBeNull();
     await press(t('addAppliance.yes'));
     expect(await screen.findByDisplayValue('Atomberg fan')).toBeTruthy();
   });
@@ -199,24 +196,33 @@ describe('Add fan', () => {
 });
 
 describe('IrTestStep timing', () => {
-  it('disables Yes and No while a Test is sending, and ignores a double Yes', async () => {
+  it('shows Test as busy while sending, then Yes and No, never a second send', async () => {
     const { s, sendTest } = await setup({ hasIr: true });
     let finish: () => void = () => undefined;
     sendTest.mockImplementationOnce(() => new Promise<void>((resolve) => (finish = resolve)));
     await renderWith(s, <AddApplianceFlow kind="ac" />);
     await fireEvent.press(await screen.findByLabelText('Panasonic'));
     await press(t('addAppliance.test'));
-    expect(screen.getByLabelText(t('addAppliance.no')).props.accessibilityState.disabled).toBe(
-      true,
-    );
-    await fireEvent.press(screen.getByLabelText(t('addAppliance.no')));
+    expect(screen.getByLabelText(t('addAppliance.test')).props.accessibilityState.busy).toBe(true);
+    expect(screen.queryByLabelText(t('addAppliance.yes'))).toBeNull();
+    await fireEvent.press(screen.getByLabelText(t('addAppliance.test')));
+    expect(sendTest).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Panasonic · try 1 of 5')).toBeTruthy();
     await act(async () => finish());
-    await waitFor(() =>
-      expect(screen.getByLabelText(t('addAppliance.yes')).props.accessibilityState.disabled).toBe(
-        false,
-      ),
-    );
+    await waitFor(() => expect(screen.getByLabelText(t('addAppliance.yes'))).toBeTruthy());
+    expect(screen.getByLabelText(t('addAppliance.no'))).toBeTruthy();
+  });
+});
+
+describe('Add appliance in dark and reduced motion', () => {
+  it('renders the brand and test steps with the dark surface', async () => {
+    const { s } = await setup({ hasIr: true });
+    await renderWith(s, <AddApplianceFlow kind="ac" />, { scheme: 'dark', reducedMotion: true });
+    const card = await screen.findByLabelText('Panasonic');
+    expect(JSON.stringify(card.props.style)).toContain(darkTokens.color.surface);
+    expect(screen.getByText(t('addAppliance.brandMatter'))).toBeTruthy();
+    await fireEvent.press(card);
+    expect(await screen.findByText('Panasonic · try 1 of 5')).toBeTruthy();
   });
 });
 

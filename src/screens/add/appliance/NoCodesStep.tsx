@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { t } from '@/i18n';
-import { Button, Column, Screen, Txt } from '@/ui';
+import { Button, EmptyState, Screen } from '@/ui';
 
 export interface NoCodesStepProps {
   kind: 'ac' | 'fan';
@@ -12,14 +12,21 @@ export interface NoCodesStepProps {
 
 export function NoCodesStep(props: NoCodesStepProps): ReactElement {
   return (
-    <Screen title={t('addAppliance.noCodesTitle')} onBack={props.onBack}>
-      <Column gap={4}>
-        <Txt>{t(props.kind === 'ac' ? 'addAppliance.noCodesAc' : 'addAppliance.noCodesFan')}</Txt>
+    <Screen
+      onBack={props.onBack}
+      footer={
         <Button
           label={t(props.carriesOn ? 'addAppliance.continue' : 'addAppliance.home')}
           onPress={props.onContinue}
         />
-      </Column>
+      }
+    >
+      <EmptyState
+        art="alert"
+        tone="warm"
+        title={t('addAppliance.noCodesTitle')}
+        body={t(props.kind === 'ac' ? 'addAppliance.noCodesAc' : 'addAppliance.noCodesFan')}
+      />
     </Screen>
   );
 }
