@@ -41,6 +41,7 @@
   /* radius */
   --radius-sm: 10px; --radius-md: 18px; --radius-lg: 26px; --radius-pill: 999px;
   --radius-sheet: 28px; /* NEW */
+  --radius-art: 32px; --radius-tile: 14px; /* NEW: big art tiles; icon tiles, OTP digits, option rows */
   /* touch */
   --touch-min: 48px; --touch-key: 56px; /* NEW: buttons, inputs */
 
@@ -245,7 +246,7 @@ button.card:active, .card.is-pressed { transform: scale(.985); background: var(-
 .card.off { opacity: .6; }
 .card .nm { font-weight: 700; display: block; line-height: 1.25; } .card .sb { font-size: var(--font-size-caption); color: var(--color-ink2); display: block; line-height: 1.35; margin-top: 2px; }
 .card .meta { flex: 1; min-width: 0; }
-.tile { width: 44px; height: 44px; border-radius: 14px; background: var(--color-surface2); display: grid; place-items: center; flex: none; color: var(--color-ink); }
+.tile { width: 44px; height: 44px; border-radius: var(--radius-tile); background: var(--color-surface2); display: grid; place-items: center; flex: none; color: var(--color-ink); }
 .tile.cool { color: var(--color-accent); } 
 .switch { width: 52px; height: 32px; border-radius: 16px; background: var(--color-ink2); position: relative; flex: none; transition: background-color var(--dur-fast) var(--ease-standard); display: block; }
 .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: var(--color-surface); box-shadow: 0 1px 3px rgba(0,0,0,.3);
@@ -284,11 +285,11 @@ button.card:active, .card.is-pressed { transform: scale(.985); background: var(-
 .shake { animation: shake var(--dur-base) var(--ease-standard); }
 @keyframes shake { 20% { transform: translateX(-6px); } 45% { transform: translateX(5px); } 70% { transform: translateX(-3px); } }
 .otp { display: flex; gap: 8px; justify-content: center; }
-.otp i { width: 48px; height: 60px; border-radius: 14px; background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-line); display: grid; place-items: center; font-style: normal; font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.otp i { width: 48px; height: 60px; border-radius: var(--radius-tile); background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-line); display: grid; place-items: center; font-style: normal; font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .otp i.cur { box-shadow: inset 0 0 0 2px var(--color-accent); }
 .otp.err i { box-shadow: inset 0 0 0 2px var(--color-danger); }
 
-.opn { display: flex; align-items: center; gap: var(--space-3); flex: 1; min-width: 0; min-height: 52px; text-align: left; border-radius: 14px; }
+.opn { display: flex; align-items: center; gap: var(--space-3); flex: 1; min-width: 0; min-height: 52px; text-align: left; border-radius: var(--radius-tile); }
 .card:has(.opn:active) { transform: scale(.985); background: var(--color-surface2); }
 .card { transition: transform var(--dur-instant) var(--ease-standard), background-color var(--dur-fast); }
 .pick.sel { box-shadow: var(--shadow-card), 0 0 0 2px var(--color-accent); }
@@ -303,7 +304,7 @@ button.card:active, .card.is-pressed { transform: scale(.985); background: var(-
 .banner .i { color: var(--color-ink); width: 20px; height: 20px; margin-top: 1px; }
 .banner.err { background: var(--color-danger-soft); } .banner.ok { background: var(--color-ok-soft); }
 .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: var(--space-3); padding: 0 var(--space-4); }
-.empty .art { width: 104px; height: 104px; border-radius: 32px; display: grid; place-items: center; background: var(--color-surface); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line); color: var(--color-accent); margin-bottom: var(--space-2); }
+.empty .art { width: 104px; height: 104px; border-radius: var(--radius-art); display: grid; place-items: center; background: var(--color-surface); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line); color: var(--color-accent); margin-bottom: var(--space-2); }
 .empty .art .i { width: 48px; height: 48px; stroke-width: 1.7; }
 .empty .btn { margin-top: var(--space-3); }
 .empty p { max-width: 300px; }
@@ -356,7 +357,7 @@ button.li:active, .li.is-pressed { background: var(--color-surface2); }
 .li .meta { flex: 1; min-width: 0; } .li .nm { font-weight: 600; display: block; } .li .sb { font-size: var(--font-size-caption); color: var(--color-ink2); display: block; }
 .badge { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--color-surface2); color: var(--color-ink2); box-shadow: inset 0 0 0 1px var(--color-line); }
 .badge.ok { background: var(--color-ok-soft); color: var(--color-ok-ink); box-shadow: none; }
-.badge.acc { background: var(--color-accent-soft); color: var(--color-accent); box-shadow: none; }
+.badge.acc { background: var(--color-accent-soft); color: var(--color-ink); box-shadow: none; }
 .link { color: var(--color-accent); font-weight: 600; min-height: var(--touch-min); display: inline-flex; align-items: center; justify-content: center; padding: 0 var(--space-3); border-radius: var(--radius-pill); }
 .sect { font-size: var(--font-size-caption); font-weight: 700; color: var(--color-ink2); margin: var(--space-2) 4px -4px; }
 
@@ -365,7 +366,7 @@ button.li:active, .li.is-pressed { background: var(--color-surface2); }
    ===================================================================================== */
 /* splash */
 .splash { align-items: center; justify-content: center; gap: var(--space-5); }
-.mark { width: 112px; height: 112px; border-radius: 34px; background: var(--color-accent); display: grid; place-items: center; color: var(--color-accent-ink); box-shadow: 0 14px 34px color-mix(in srgb, var(--color-accent) 40%, transparent); animation: mark-in var(--dur-slow) var(--ease-spring) both; }
+.mark { width: 112px; height: 112px; border-radius: var(--radius-art); background: var(--color-accent); display: grid; place-items: center; color: var(--color-accent-ink); box-shadow: 0 14px 34px color-mix(in srgb, var(--color-accent) 40%, transparent); animation: mark-in var(--dur-slow) var(--ease-spring) both; }
 .mark svg { width: 64px; height: 64px; fill: none; stroke: currentColor; stroke-width: 4; stroke-linecap: round; }
 .mark svg .ring { stroke-dasharray: 126; stroke-dashoffset: 126; animation: draw 700ms var(--ease-standard) 260ms forwards; }
 .mark svg .core { transform-origin: 32px 32px; animation: pop-dot var(--dur-base) var(--ease-spring) 820ms both; }
@@ -420,7 +421,7 @@ button.li:active, .li.is-pressed { background: var(--color-surface2); }
 @keyframes eq { 50% { height: 14px; } }
 .listening .pads { opacity: .55; transition: opacity var(--dur-base); } .pads { transition: opacity var(--dur-base); }
 .tv-panel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: var(--space-3); padding: 0 var(--space-4); }
-.tv-panel .art { width: 96px; height: 96px; border-radius: 30px; display: grid; place-items: center; background: var(--color-surface); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line); margin-bottom: var(--space-2); }
+.tv-panel .art { width: 96px; height: 96px; border-radius: var(--radius-art); display: grid; place-items: center; background: var(--color-surface); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line); margin-bottom: var(--space-2); }
 .tv-panel .art .i { width: 44px; height: 44px; stroke-width: 1.7; }
 .tv-panel .art.off { color: var(--color-ink2); } .tv-panel .art.bad { color: var(--color-warm); }
 .tv-panel .btn { margin-top: var(--space-1); } .tv-panel .stk { display: flex; flex-direction: column; gap: var(--space-2); width: 100%; margin-top: var(--space-3); }
@@ -464,7 +465,7 @@ button.li:active, .li.is-pressed { background: var(--color-surface2); }
 .speed button span { position: relative; } .speed button:active, .speed button.is-pressed { transform: scale(.96); }
 .fan-spin { color: var(--color-accent); } .fan-spin.on .i { animation: spin calc(2400ms / var(--sp, 1)) linear infinite; }
 .fan-hero { display: flex; align-items: center; justify-content: center; gap: var(--space-4); }
-.fan-hero .art { width: 112px; height: 112px; border-radius: 36px; display: grid; place-items: center; background: var(--color-surface); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line); }
+.fan-hero .art { width: 112px; height: 112px; border-radius: var(--radius-art); display: grid; place-items: center; background: var(--color-surface); box-shadow: var(--shadow-card), 0 0 0 1px var(--color-line); }
 .fan-hero .art .i { width: 56px; height: 56px; stroke-width: 1.7; }
 
 /* Add flows */
@@ -760,6 +761,10 @@ figure.fig:target .device { outline: 3px solid var(--color-accent); outline-offs
   <p>Strings the mock shows that are not in <code class="i2">src/i18n/en</code> yet. Frames that use them carry a "copy not in app yet" tag.</p>
   <ul>
     <li><b>Voice, sent (proposed):</b> "Sent to the TV". The app has no sent or heard state after a voice message; this is the proposal (Voice section).</li>
+    <li><b>Common:</b> <code class="i2">common.tagline</code> "Nothing leaves your home network." · <code class="i2">common.openSettings</code> "Open Settings" · <code class="i2">common.saved</code> "Saved".</li>
+    <li><b>Add a TV:</b> <code class="i2">addTv.pairedFirst</code> "Paired" (<code class="i2">addTv.paired</code> stays "Paired again") · <code class="i2">addTv.localNetworkOff</code> (the line below).</li>
+    <li><b>Devices and TV:</b> <code class="i2">device.removed</code> "Device removed" · <code class="i2">ac.offHint</code> "Tap power to turn on" · <code class="i2">tv.inputNow</code> "Now" · <code class="i2">tv.voiceSent</code> "Sent to the TV".</li>
+    <li><b>AC and fan labels are plain words (icons are drawn):</b> "Cool", "Dry", "Fan", "Auto", "Swing", "Sleep", "Boost", "Light"; <code class="i2">status.connected</code> is "Connected &middot; how it's connected" without the leading dot.</li>
     <li><b>Local network denied (iOS):</b> "Local Network is off for One Remote. Turn it on in Settings &rsaquo; Privacy &amp; Security &rsaquo; Local Network." with an "Open Settings" button (Add TV section).</li>
   </ul>
 </section>
@@ -1564,7 +1569,7 @@ $('#motion').innerHTML = `<table class="spec"><tr><th>Duration token</th><th>Val
 <div style="max-width:520px;color:var(--stage-ink2);font-size:14px"><b style="color:var(--stage-ink)">Rules</b><ul style="padding-left:18px;margin:8px 0 0"><li>Moves are a push, a rise or a scale from the trigger. Nothing slides for decoration.</li><li>Looping motion only while something is in progress (searching, listening, connecting, loading).</li><li>Reduced motion: pushes, sheets, toasts and menus become fades, pulses and loops stop, spinners become a slow blink. Force it with the page control above.</li><li>Press feedback is immediate (90 ms) and never waits for the network.</li></ul></div></div>`;
 $('#mplay').onclick = () => { const d = $('#mdemo'); d.style.setProperty('--lw', $('.lane', d).clientWidth + 'px'); d.classList.remove('go'); void d.offsetWidth; requestAnimationFrame(() => d.classList.add('go')); };
 
-const CH = [['color.okInk', '(none, ok #1f9d63 used as text)', '#17744a light / #4cc88c dark', 'ok green is 3.5:1 on white as text; this is 5.8:1'], ['color.dangerInk', '(none, danger #e5484d used as text)', '#c4262c light / #ff8b8f dark', 'danger red is 3.8:1 on white as text; this is 5.6:1'], ['color.scrim', 'none', 'rgba(13,15,18,.45) light / rgba(0,0,0,.6) dark', 'Behind sheets'], ['color.accentSoft, okSoft, dangerSoft, warmSoft', 'none', 'colour at 12 to 16% over surface (precompute for RN)', 'Banners, tinted discs, pressed ghost buttons, the fell-back IR line'], ['radius.sheet', 'none', '28', 'Top corners of bottom sheets'], ['touch.key', 'touch.min 48', 'add 56', 'Button and input height (the mock\'s Button is 56 high). Chips, segments and toast actions rise from 44 to 48 = touch.min'], ['shadow.pop, shadow.sheet', 'shadow.card only', 'pop: 0 10 28 .18 + 0 2 6 .08 · sheet: 0 -10 40 .22', 'Menu and toast; bottom sheet. Dark mode adds a 1 px line instead of relying on shadow'], ['motion.duration', 'none', 'instant 90, fast 160, base 260, slow 380, ambient 1500', 'Every animation. Add to tokens.ts and read through one hook'], ['motion.easing', 'none', 'standard (.2,0,0,1) · enter (.05,.7,.1,1) · exit (.3,0,.8,.15) · spring (.34,1.45,.64,1)', 'Use with Easing.bezier in Reanimated'], ['motion.reduced', 'none', 'AccessibilityInfo.isReduceMotionEnabled: pushes and sheets fade, loops stop', 'Required for prefers-reduced-motion'], ['size.display', 'size.title 30 is the largest', 'add 76 / 700, tracking -.03em, tabular numerals', 'AC setpoint only'], ['size.title tracking', '0', '-.015em', 'Tighter at 30'], ['Card', 'shadow only', 'shadow.card plus a 1 px line ring (color.line)', 'Cards stay visible in dark mode and on matching backgrounds'], ['Icons', 'text glyphs (⌨ ⋮ ← 📺 ❄️)', 'one stroke icon set (24 px, 2 px stroke, round), as SVG', 'Consistent weight on Android and iPhone. The mock\'s symbols are the set to draw'], ['Toggle off track', 'color.ink2', 'unchanged', 'Already AA for controls (4.9:1)']];
+const CH = [['color.okInk', '(none, ok #1f9d63 used as text)', '#17744a light / #4cc88c dark', 'ok green is 3.5:1 on white as text; this is 5.8:1'], ['color.dangerInk', '(none, danger #e5484d used as text)', '#c4262c light / #ff8b8f dark', 'danger red is 3.8:1 on white as text; this is 5.6:1'], ['color.scrim', 'none', 'rgba(13,15,18,.45) light / rgba(0,0,0,.6) dark', 'Behind sheets'], ['color.accentSoft, okSoft, dangerSoft, warmSoft', 'none', 'colour at 12 to 16% over surface (precompute for RN)', 'Banners, tinted discs, pressed ghost buttons, the fell-back IR line'], ['radius.sheet', 'none', '28', 'Top corners of bottom sheets'], ['touch.key', 'touch.min 48', 'add 56', 'Button and input height (the mock\'s Button is 56 high). Chips, segments and toast actions rise from 44 to 48 = touch.min'], ['shadow.pop, shadow.sheet', 'shadow.card only', 'pop: 0 10 28 .18 + 0 2 6 .08 · sheet: 0 -10 40 .22', 'Menu and toast; bottom sheet. Dark mode adds a 1 px line instead of relying on shadow'], ['motion.duration', 'none', 'instant 90, fast 160, base 260, slow 380, ambient 1500', 'Every animation. Add to tokens.ts and read through one hook'], ['motion.easing', 'none', 'standard (.2,0,0,1) · enter (.05,.7,.1,1) · exit (.3,0,.8,.15) · spring (.34,1.45,.64,1)', 'Use with Easing.bezier in Reanimated'], ['motion.reduced', 'none', 'AccessibilityInfo.isReduceMotionEnabled: pushes and sheets fade, loops stop', 'Required for prefers-reduced-motion'], ['size.display', 'size.title 30 is the largest', 'add 76 / 700, tracking -.03em, tabular numerals', 'AC setpoint only'], ['size.title tracking', '0', '-.015em', 'Tighter at 30'], ['Card', 'shadow only', 'shadow.card plus a 1 px line ring (color.line)', 'Cards stay visible in dark mode and on matching backgrounds'], ['Icons', 'text glyphs (⌨ ⋮ ← 📺 ❄️)', 'one stroke icon set (24 px, 2 px stroke, round), as SVG', 'Consistent weight on Android and iPhone. The mock\'s symbols are the set to draw'], ['color.accentPressed, surface2Pressed, dangerLine', 'none', '#285ed4 / #5b81db · #dfe1e5 / #333842 · #f4b1b3 / #723138', 'The mock\'s color-mix values precomputed over surface: pressed primary and secondary buttons, the danger button ring'], ['color.toastErrorBg, toastErrorInk, toastOkIcon, onFill', 'none', '#c4262c / #5a1d20 · #fff / #ffd9da · #4cc88c · #fff', 'Error toast, the check on the ok toast, white on the result discs'], ['color.camera*', 'none', 'cameraBg #14181e, cameraInk #fff, cameraBeam #7fb0ff, cameraLock #4cc88c, cameraBadge #17744a', 'The QR scanner, the same in both themes'], ['radius.tile, radius.art', 'none', '14 · 32', 'Icon tiles, OTP digits and option rows · the big art tiles (TV panel, fan hero, mark, empty state)'], ['size.label', 'none', '15 / 700, line 20', 'Chip, segment and field labels'], ['lineHeight', 'none', 'title 35, heading 25, body 22, label 20, caption 18, display 76', 'The mock\'s 1.15 / 1.2 / 1.4 / 1.3 / 1.35 / 1 rounded to px'], ['Toggle off track', 'color.ink2', 'unchanged', 'Already AA for controls (4.9:1)']];
 $('#changes').innerHTML = `<table class="spec"><tr><th>Token</th><th>App now</th><th>Proposed</th><th>Why</th></tr>${CH.map(r => `<tr><td><code>${r[0]}</code></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('')}</table><p style="margin-top:24px;color:var(--stage-ink2);max-width:760px">Copy that is new in this mock (not yet in <code class="i2">src/i18n/en</code>): "Nothing leaves your home network." on the splash, "Paired" after a first pairing, "Device removed", "Needs a phone with IR" as a toast, the "Tap power to turn on" line under an AC that is off, and the "Now" badge on the current input.</p>`;
 
 /* component specimens */
