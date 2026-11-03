@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { defaultAcState, defaultFanState } from '@/core';
 import type { Command, Device, LinkDriver, Room } from '@/core';
 import { t } from '@/i18n';
@@ -7,7 +7,8 @@ import { HomeScreen } from '@/screens/home/HomeScreen';
 import { createServices, ServicesProvider } from '@/services';
 import type { Services } from '@/services';
 import { StoreError } from '@/store/types';
-import { ThemeProvider } from '@/theme';
+import { darkTokens, lightTokens, ThemeProvider } from '@/theme';
+import { ToastProvider } from '@/ui';
 import { DeviceHub } from '@/device/hub';
 import { createFakeDriver } from '@/device/testing/fakeDriver';
 import { createMemoryStore } from '@/store/memoryStore';
@@ -55,11 +56,16 @@ function setup(
   return { ...services, matterDriver };
 }
 
-async function renderHome(s: Services): Promise<void> {
+async function renderHome(
+  s: Services,
+  opts: { scheme?: 'light' | 'dark'; reducedMotion?: boolean } = {},
+): Promise<void> {
   await render(
-    <ThemeProvider scheme="light">
+    <ThemeProvider scheme={opts.scheme ?? 'light'} reducedMotion={opts.reducedMotion}>
       <ServicesProvider services={s}>
-        <HomeScreen />
+        <ToastProvider>
+          <HomeScreen />
+        </ToastProvider>
       </ServicesProvider>
     </ThemeProvider>,
   );
@@ -346,6 +352,111 @@ describe('HomeScreen', () => {
     expect(await screen.findByText(t('home.welcomeTitle'))).toBeTruthy();
     expect(err).toHaveBeenCalled();
     err.mockRestore();
+  });
+});
+
+describe('HomeScreen to the mock', () => {
+  it('shows 5 skeleton cards and a disabled gear before the store resolves', async () => {
+    const s = setup();
+    const never = (): Promise<never> => new Promise(() => undefined);
+    await renderHome({ ...s, store: { ...s.store, rooms: never, devices: never } });
+    expect(screen.getAllByTestId('skel-card')).toHaveLength(5);
+    expect(screen.getByLabelText(t('home.settings')).props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByLabelText(t('home.add')).props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByLabelText(t('common.loading'))).toBeTruthy();
+  });
+
+  it('puts the gear before the plus', async () => {
+    const s = setup();
+    await seed(s, [dev('l1', 'tv', 'liv', 0, [matter])]);
+    await renderHome(s);
+    await screen.findByText('Name l1');
+    const labels = screen
+      .getAllByLabelText(new RegExp(`^(${t('home.settings')}|${t('home.add')})$`))
+      .map((n) => n.props.accessibilityLabel);
+    expect(labels).toEqual([t('home.settings'), t('home.add')]);
+    expect(screen.queryAllByTestId('skel-card')).toHaveLength(0);
+  });
+
+  it('shows a toast, not a screen, when a needs-IR card is pressed', async () => {
+    const s = setup({ irAvailable: false });
+    await seed(s, [dev('i1', 'tv', 'liv', 0, [ir])]);
+    await renderHome(s);
+    await fireEvent.press(await screen.findByLabelText(`Name i1, ${t('home.needsIr')}`));
+    const toast = await screen.findByTestId('toast');
+    expect(within(toast).getByText(t('home.needsIr'))).toBeTruthy();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('keeps a 40-character name to two lines with the switch still shown', async () => {
+    const s = setup();
+    const long = 'N'.repeat(40);
+    await seed(s, [{ ...dev('a1', 'ac', 'liv', 0, [matter]), name: long }]);
+    await renderHome(s);
+    expect((await screen.findByText(long)).props.numberOfLines).toBe(2);
+    expect(screen.getByLabelText(t('home.power', { name: long }))).toBeTruthy();
+  });
+
+  it('offers only the gear and the pinned add button on an empty Home', async () => {
+    const s = setup();
+    await renderHome(s);
+    expect(await screen.findByText(t('home.addFirst'))).toBeTruthy();
+    expect(screen.getByLabelText(t('home.settings'))).toBeTruthy();
+    expect(screen.queryByLabelText(t('home.add'))).toBeNull();
+  });
+
+  it('paints cards with the dark surface in the dark theme', async () => {
+    const s = setup();
+    await seed(s, [dev('l1', 'tv', 'liv', 0, [matter])]);
+    await renderHome(s, { scheme: 'dark' });
+    const card = await screen.findByTestId('device-card-l1');
+    expect(StyleSheet.flatten(card.props.style).backgroundColor).toBe(darkTokens.color.surface);
+  });
+
+  it('renders cards under reduced motion with no translate, unlike a motion render', async () => {
+    const s = setup();
+    await seed(s, [dev('l1', 'tv', 'liv', 0, [matter])]);
+    await renderHome(s, { reducedMotion: true });
+    const card = await screen.findByTestId('device-card-l1');
+    const translates = (n: typeof card): unknown[] =>
+      [StyleSheet.flatten(n.props.style).transform ?? []]
+        .flat()
+        .filter((x) => x !== null && typeof x === 'object' && 'translateY' in (x as object));
+    expect(translates(card)).toEqual([]);
+  });
+
+  it('disables the switch of a needs-IR card', async () => {
+    const s = setup({ irAvailable: false });
+    await seed(s, [dev('i1', 'ac', 'liv', 0, [ir])]);
+    await renderHome(s);
+    const toggle = await screen.findByLabelText(t('home.power', { name: 'Name i1' }));
+    expect(toggle.props.accessibilityState.disabled).toBe(true);
+  });
+
+  it('colours the tile accent when the device is on, ink when off', async () => {
+    const s = setup();
+    await seed(s, [dev('a1', 'ac', 'liv', 0, [matter]), dev('a2', 'ac', 'liv', 1, [matter])]);
+    await renderHome(s);
+    await screen.findByText('Name a1');
+    await act(async () => {
+      s.matterDriver.emit('a1', { kind: 'ac', state: { ...defaultAcState(), power: true } });
+      s.matterDriver.emit('a2', { kind: 'ac', state: { ...defaultAcState(), power: false } });
+    });
+    const stroke = (id: string): string => {
+      const found: string[] = [];
+      const walk = (n: unknown, inside: boolean): void => {
+        if (n === null || typeof n !== 'object') return;
+        if (Array.isArray(n)) return n.forEach((c) => walk(c, inside));
+        const node = n as { props?: Record<string, unknown>; children?: unknown };
+        const here = inside || node.props?.testID === `device-card-${id}`;
+        if (here && typeof node.props?.stroke === 'string') found.push(node.props.stroke);
+        walk(node.children, here);
+      };
+      walk(screen.toJSON(), false);
+      return found.join(' ');
+    };
+    await waitFor(() => expect(stroke('a1')).toContain(lightTokens.color.accent));
+    expect(stroke('a2')).not.toContain(lightTokens.color.accent);
   });
 });
 
