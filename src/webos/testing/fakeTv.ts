@@ -14,7 +14,7 @@ export interface FakeTv {
   setApp(appId: string): void;
   setPower(on: boolean): void;
   /** Push a raw power state ('Active', 'Active Standby', ...) to power subscribers. */
-  setPowerState(state: string): void;
+  setPowerState(state: string, extra?: Record<string, unknown>): void;
   /** Close every open socket from the TV's side. */
   drop(): void;
   /** Open sockets stop replying (new ones work). */
@@ -114,10 +114,10 @@ export function createFakeTv(opts: FakeTvOpts): FakeTv {
     });
   };
 
-  const powerPayload = (): Record<string, unknown> => ({
-    returnValue: true,
-    state: up ? 'Active' : 'Active Standby',
-  });
+  // A raw state pushed by `setPowerState` is what the TV says from then on, until `setPower`.
+  let rawPower: Record<string, unknown> | undefined;
+  const powerPayload = (): Record<string, unknown> =>
+    rawPower ?? { returnValue: true, state: up ? 'Active' : 'Active Standby' };
   const volumePayload = (): Record<string, unknown> => ({
     returnValue: true,
     volumeStatus: { volume, muteStatus: muted },
@@ -308,10 +308,14 @@ export function createFakeTv(opts: FakeTvOpts): FakeTv {
     },
     setPower: (on) => {
       up = on;
+      rawPower = undefined;
       if (on) push(URI.power, powerPayload());
       else dropAll();
     },
-    setPowerState: (state) => push(URI.power, { returnValue: true, state }),
+    setPowerState: (state, extra) => {
+      rawPower = { returnValue: true, state, ...extra };
+      push(URI.power, rawPower);
+    },
     drop: dropAll,
     stopAnswering: () => {
       for (const c of conns) c.muted = true;

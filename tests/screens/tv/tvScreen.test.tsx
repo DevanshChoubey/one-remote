@@ -285,7 +285,7 @@ describe('TvScreen', () => {
     await advance(0);
     expect(r.sent()).toEqual([{ kind: 'tv.powerOn' }]);
     expect(screen.getAllByText(t('tv.waking')).length).toBeGreaterThan(0);
-    await advance(20000);
+    await advance(45000);
     expect(screen.getByText(/Turn on via Wi-Fi/)).toBeTruthy();
   });
 
@@ -297,7 +297,7 @@ describe('TvScreen', () => {
     });
     await fireEvent.press(screen.getByLabelText(t('tv.turnOn')));
     await advance(0);
-    await advance(20000);
+    await advance(45000);
     expect(screen.getByText(t('tv.wakeFailedAndroidTv'))).toBeTruthy();
     expect(screen.queryByText(/Turn on via Wi-Fi/)).toBeNull();
   });
@@ -338,7 +338,7 @@ describe('TvScreen', () => {
       samsung.emit('tv1', { kind: 'tv', state: { power: false } });
     });
     await fireEvent.press(screen.getByLabelText(t('tv.turnOn')));
-    await advance(20000);
+    await advance(45000);
     expect(screen.getByText(t('tv.wakeFailedSamsung'))).toBeTruthy();
     expect(screen.queryByText(t('tv.wakeFailed'))).toBeNull();
   });
@@ -534,6 +534,60 @@ describe('TvScreen', () => {
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
     await advance(5000);
     expect(screen.getAllByText(t('tv.unreachableTitle')).length).toBeGreaterThan(0);
+  });
+
+  it('starts a new connecting window on return, rather than "unreachable" at once', async () => {
+    const r = await rig();
+    let onChange: ((s: string) => void) | undefined;
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, cb) => {
+      onChange = cb as (s: string) => void;
+      return { remove: jest.fn() };
+    });
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await advance(5000);
+    expect(screen.getAllByText(t('tv.unreachableTitle')).length).toBeGreaterThan(0);
+    await act(async () => onChange?.('background'));
+    await act(async () => onChange?.('active'));
+    expect(screen.queryAllByText(t('tv.unreachableTitle'))).toHaveLength(0);
+    expect(screen.getAllByText(t('tv.statusConnecting')).length).toBeGreaterThan(0);
+    await advance(5000);
+    expect(screen.getAllByText(t('tv.unreachableTitle')).length).toBeGreaterThan(0);
+  });
+
+  it('does not show an old "on" as live on return, though Home still subscribes', async () => {
+    const r = await rig();
+    let onChange: ((s: string) => void) | undefined;
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, cb) => {
+      onChange = cb as (s: string) => void;
+      return { remove: jest.fn() };
+    });
+    const home = r.s.hub.subscribe('tv1', () => undefined);
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await act(async () => {
+      r.webos.emit('tv1', { kind: 'tv', state: { power: true } });
+    });
+    expect(screen.getByTestId('tv-pad-area')).toBeTruthy();
+    await act(async () => onChange?.('background'));
+    await act(async () => onChange?.('active'));
+    expect(screen.queryByTestId('tv-pad-area')).toBeNull();
+    expect(screen.getAllByText(t('tv.statusConnecting')).length).toBeGreaterThan(0);
+    home();
+  });
+
+  it('does not renew on a store write: a TV that is on stays on', async () => {
+    const r = await rig();
+    const renew = jest.spyOn(r.s.hub, 'renew');
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await on(r);
+    expect(renew).toHaveBeenCalledTimes(1);
+    const [tv] = (await r.s.store.devices()).filter((d) => d.id === 'tv1');
+    if (!tv) throw new Error('no tv1');
+    await act(async () => {
+      await r.s.store.upsertDevice({ ...tv, name: 'Bedroom TV' });
+    });
+    await advance(6000);
+    expect(renew).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('tv-pad-area')).toBeTruthy();
   });
 
   it('says "Sent over IR" after an IR fallback', async () => {
@@ -785,7 +839,7 @@ describe('TvScreen status captions', () => {
     await fireEvent.press(screen.getByLabelText(t('tv.turnOn')));
     await advance(0);
     expect(screen.getAllByText(t('tv.waking')).length).toBe(2);
-    await advance(20000);
+    await advance(45000);
     expect(screen.getByText(t('tv.statusOff'))).toBeTruthy();
   });
 

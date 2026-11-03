@@ -328,6 +328,32 @@ describe('observe', () => {
     b.stop();
   });
 
+  it('does not replay an old state to the next look: the first poll says what the TV is now', async () => {
+    const r = rig();
+    const a = r.observe();
+    await advance(1);
+    expect(powers(a.reports)).toEqual([true]);
+    a.stop();
+    r.tv.setPower('standby');
+    const b = r.observe();
+    expect(b.reports).toEqual([]);
+    await advance(1);
+    expect(powers(b.reports)).toEqual([false]);
+    b.stop();
+  });
+
+  it('checks a failed poll again soon, so off is said within a couple of seconds', async () => {
+    const r = rig();
+    const o = r.observe();
+    await advance(1);
+    r.tv.setPower('off');
+    await advance(5000);
+    expect(powers(o.reports)).toEqual([true]);
+    await advance(1500);
+    expect(powers(o.reports)).toEqual([true, false]);
+    o.stop();
+  });
+
   it('stops polling when the last observer leaves', async () => {
     const r = rig();
     const a = r.observe();

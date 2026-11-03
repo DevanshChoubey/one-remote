@@ -3,7 +3,8 @@ import type { DeviceView } from '@/services';
 export type TvMode = 'ready' | 'connecting' | 'off' | 'waking' | 'wakeFailed' | 'unreachable';
 
 export const CONNECTING_MS = 5000;
-export const WAKE_MS = 20000;
+/** The LG C4 takes about 20 s to boot, so 20 s said "did not turn on" just before it came up. */
+export const WAKE_MS = 45000;
 
 export interface TvModeEnv {
   onWifi: boolean;

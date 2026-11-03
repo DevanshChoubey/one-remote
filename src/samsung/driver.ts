@@ -35,6 +35,7 @@ export interface SamsungDriverOpts {
 
 const REDISCOVER_EVERY_MS = 30000;
 const FAILED_POLLS_BEFORE_OFF = 2;
+const RETRY_POLL_MS = 1000;
 
 interface Entry {
   deviceId: string;
@@ -410,10 +411,15 @@ export function createSamsungDriver(o: SamsungDriverOpts): LinkDriver & {
       }
     }
     if (e.pollGen !== gen) return;
-    e.pollTimer = setTimeout(() => {
-      e.pollTimer = undefined;
-      void pollOnce(e, gen);
-    }, pollMs);
+    // One failed poll is checked again soon, so a TV that is off is said to be within seconds.
+    const retrying = e.failedPolls > 0 && e.failedPolls < FAILED_POLLS_BEFORE_OFF;
+    e.pollTimer = setTimeout(
+      () => {
+        e.pollTimer = undefined;
+        void pollOnce(e, gen);
+      },
+      retrying ? Math.min(pollMs, RETRY_POLL_MS) : pollMs,
+    );
   }
 
   // ---- idle close --------------------------------------------------------------------------------
@@ -569,6 +575,12 @@ export function createSamsungDriver(o: SamsungDriverOpts): LinkDriver & {
     observe(device: Device, link: Link, cb: (r: Reported) => void): Unsubscribe {
       if (link.kind !== 'samsung') return () => undefined;
       const e = entryFor(device, link);
+      // Polling stopped with the last observer, so the last state is old news: the first poll says
+      // what the TV is now.
+      if (e.observers.size === 0) {
+        e.state = undefined;
+        e.lastJson = undefined;
+      }
       e.observers.add(cb);
       if (e.idleTimer) {
         clearTimeout(e.idleTimer);

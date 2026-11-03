@@ -101,10 +101,17 @@ export function parseVolume(p: Record<string, unknown>): { volume?: number; mute
 const ON_STATES = ['Active', 'Screen Off', 'Screen Saver'];
 const OFF_STATES = ['Active Standby', 'Suspend', 'Power Off'];
 
-/** True when the screen side of the TV is up (a dark screen still counts); undefined if unknown. */
+/** `processing` while the TV is on its way down (from community logs of webOS 4 to 24). */
+const GOING_DOWN = /^(Request (Power Off|Active Standby|Suspend)|Prepare Suspend)$/;
+
+/**
+ * True when the screen side of the TV is up (a dark screen still counts); undefined if unknown. A TV
+ * on its way to standby still says "Active" with a `processing` note: that counts as off.
+ */
 export function isPoweredOn(p: Record<string, unknown>): boolean | undefined {
   const s = p.state;
   if (typeof s !== 'string') return undefined;
+  if (typeof p.processing === 'string' && GOING_DOWN.test(p.processing)) return false;
   if (ON_STATES.includes(s)) return true;
   if (OFF_STATES.includes(s)) return false;
   return undefined;

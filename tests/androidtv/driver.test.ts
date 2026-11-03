@@ -219,6 +219,28 @@ describe('observe', () => {
     expect(second.reports).toHaveLength(1);
   });
 
+  it('replays the state of a session that is still open, which is current', async () => {
+    const { driver, device, link } = await setup();
+    const first = watch(driver, device, link);
+    await tick(10);
+    first.stop();
+    const next = watch(driver, device, link);
+    expect(next.reports).toHaveLength(1);
+  });
+
+  it('does not replay an old state once the session has closed: the TV is asked afresh', async () => {
+    const { tv, driver, device, link } = await setup();
+    const first = watch(driver, device, link);
+    await tick(10);
+    first.stop();
+    await tick(11000); // the idle close
+    tv.standby({ answers: true });
+    const next = watch(driver, device, link);
+    expect(next.reports).toHaveLength(0);
+    await tick(100);
+    expect(next.reports.some((r) => r.kind === 'tv' && r.state.power)).toBe(false);
+  });
+
   it('reports the standby of a TV that answers as power off', async () => {
     const { tv, driver, device, link } = await setup();
     const { reports } = watch(driver, device, link);

@@ -83,7 +83,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     }, []),
   );
 
-  const [openedAt] = useState(nowMs);
+  const [openedAt, setOpenedAt] = useState(nowMs);
   const [now, setNow] = useState(openedAt);
   const [wakeSentAt, setWakeSentAt] = useState<number | undefined>(undefined);
   const [view, setView] = useState<DeviceView | null>(null);
@@ -127,9 +127,24 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     }
   }
 
-  // Live state: only while this screen is in front and the app is in the foreground.
+  // Each look starts its own connecting window: the TV is asked afresh, and the old answer is gone.
+  const [wasWatching, setWasWatching] = useState(watching);
+  if (wasWatching !== watching) {
+    setWasWatching(watching);
+    if (watching) {
+      const t = nowMs();
+      setOpenedAt(t);
+      setNow(t);
+      setView(null);
+      setWakeSentAt(undefined);
+    }
+  }
+
+  // Live state: only while this screen is in front and the app is in the foreground. Keyed on the
+  // device being known, not on its object: a store write builds a new one, and must not renew.
+  const known = device !== undefined;
   useEffect(() => {
-    if (!watching || !device) return;
+    if (!watching || !known) return;
     const show = (): void => {
       try {
         setView(hub.view(deviceId));
@@ -137,6 +152,11 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
         // The device was removed meanwhile; the route shows "not found".
       }
     };
+    try {
+      hub.renew(deviceId);
+    } catch {
+      // The device was removed meanwhile; the route shows "not found".
+    }
     show();
     const stop = hub.subscribe(deviceId, (v) => {
       setView(v);
@@ -144,7 +164,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
       if (v.state?.kind === 'tv' && v.state.state.power) setWakeSentAt(undefined);
     });
     return stop;
-  }, [watching, hub, deviceId, device]);
+  }, [watching, hub, deviceId, known]);
 
   useEffect(() => {
     if (!watching) return;
