@@ -9,8 +9,17 @@ export interface ButtonProps {
   label: string;
   onPress: () => void;
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
-  /** `key` is 56 px and full width; `small` is 48 px and as wide as its label. */
+  /**
+   * `key` (the default) is 56 px and stretches to the parent's width, even in a centring column
+   * (mock `.btn`, width 100%). `small` is 48 px and as wide as its label (mock `.btn.sm`); it sets
+   * no cross-axis alignment, so in a Row it follows the Row's `align`. A ghost button is 48 px
+   * tall and full width like `key`, with its label centred.
+   */
   size?: 'key' | 'small';
+  /** Shares a Row's width with its siblings: `flex={1}` on two buttons gives equal halves. */
+  flex?: number;
+  /** Overrides the cross-axis alignment (rarely needed; `key` stretches, `small` follows). */
+  alignSelf?: 'flex-start' | 'center' | 'flex-end' | 'stretch';
   icon?: IconName;
   disabled?: boolean;
   loading?: boolean;
@@ -31,7 +40,8 @@ const LOOK: Record<
 
 export function Button(props: ButtonProps): ReactElement {
   const look = LOOK[props.variant ?? 'primary'];
-  const small = props.size === 'small' || props.variant === 'ghost';
+  const small = props.size === 'small';
+  const ghost = props.variant === 'ghost';
   const loading = props.loading === true;
   const blocked = props.disabled === true || loading;
   return (
@@ -46,15 +56,22 @@ export function Button(props: ButtonProps): ReactElement {
       border={look.border}
       radius="pill"
       pressedBg={look.pressed}
-      alignSelf={small ? 'flex-start' : undefined}
+      alignSelf={props.alignSelf ?? (small ? undefined : 'stretch')}
+      flex={props.flex}
     >
-      <Row gap={2} align="center" justify="center" px={small ? 5 : 6} minH={small ? 48 : 56}>
+      <Row
+        gap={2}
+        align="center"
+        justify="center"
+        px={small ? 5 : 6}
+        minH={small || ghost ? 48 : 56}
+      >
         {props.loading ? (
           <Spinner size="sm" color={look.text} />
         ) : props.icon ? (
           <Icon name={props.icon} size={20} color={look.text} />
         ) : null}
-        <Txt variant="bodyBold" color={look.text}>
+        <Txt variant="bodyBold" color={look.text} align="center">
           {props.label}
         </Txt>
       </Row>

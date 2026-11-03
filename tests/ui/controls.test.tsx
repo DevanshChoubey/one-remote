@@ -60,17 +60,39 @@ describe('Button', () => {
   });
 
   it.each(['primary', 'ghost'] as const)(
-    'small %s is 48 px and as wide as its label',
+    'small %s is 48 px and as wide as its label (no cross-axis stretch)',
     async (v) => {
       await render(wrap(<Button label="Go" variant={v} size="small" onPress={jest.fn()} />));
       expect(flat(screen.getByText('Go').parent?.props.style).minHeight).toBe(48);
-      expect(flat(screen.getByLabelText('Go').props.style).alignSelf).toBe('flex-start');
+      // No alignSelf: in a Row it follows the Row's `align`, so it can centre on an input.
+      expect(flat(screen.getByLabelText('Go').props.style).alignSelf).toBeUndefined();
     },
   );
 
-  it('a ghost button is auto-width without asking for size small', async () => {
+  it.each(['primary', 'secondary', 'danger'] as const)(
+    'a key %s button stretches to the parent width, even in a centring column',
+    async (v) => {
+      await render(wrap(<Button label="Wide" variant={v} onPress={jest.fn()} />));
+      expect(flat(screen.getByLabelText('Wide').props.style).alignSelf).toBe('stretch');
+      expect(flat(screen.getByText('Wide').parent?.props.style).minHeight).toBe(56);
+    },
+  );
+
+  it('a ghost button is full width and 48 px tall, with its label centred', async () => {
     await render(wrap(<Button label="Skip" variant="ghost" onPress={jest.fn()} />));
-    expect(flat(screen.getByLabelText('Skip').props.style).alignSelf).toBe('flex-start');
+    expect(flat(screen.getByLabelText('Skip').props.style).alignSelf).toBe('stretch');
+    expect(flat(screen.getByText('Skip').parent?.props.style).minHeight).toBe(48);
+    expect(screen.getByText('Skip')).toHaveStyle({ textAlign: 'center' });
+  });
+
+  it('flex shares a Row: two flex 1 buttons are equal halves', async () => {
+    await render(wrap(<Button label="Up" size="small" flex={1} onPress={jest.fn()} />));
+    expect(flat(screen.getByLabelText('Up').props.style).flex).toBe(1);
+  });
+
+  it('alignSelf overrides the default alignment', async () => {
+    await render(wrap(<Button label="Mid" alignSelf="center" onPress={jest.fn()} />));
+    expect(flat(screen.getByLabelText('Mid').props.style).alignSelf).toBe('center');
   });
 
   it('loading is busy and blocked but not dimmed; disabled dims to .42', async () => {

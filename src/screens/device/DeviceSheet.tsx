@@ -227,6 +227,7 @@ function Body({
         <Row gap={2}>
           <Button
             label={t('device.moveUp')}
+            flex={1}
             icon="up"
             size="small"
             variant="secondary"
@@ -235,6 +236,7 @@ function Body({
           />
           <Button
             label={t('device.moveDown')}
+            flex={1}
             icon="down"
             size="small"
             variant="secondary"

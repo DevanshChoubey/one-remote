@@ -40,6 +40,8 @@ export interface TouchableProps {
   /** Opacity when disabled; 0.42 by default. */
   disabledOpacity?: number;
   alignSelf?: 'flex-start' | 'center' | 'flex-end' | 'stretch';
+  /** Grows along the parent's main axis (equal-width buttons in a Row). */
+  flex?: number;
   testID?: string;
   children: ReactNode;
 }
@@ -107,6 +109,7 @@ export function Touchable(props: TouchableProps): ReactElement {
           opacity: dim ?? (props.dimmed ? 0.6 : 1),
           ...(props.fill ? { flex: 1, alignSelf: 'stretch' as const } : null),
           ...(props.alignSelf ? { alignSelf: props.alignSelf } : null),
+          ...(props.flex === undefined ? null : { flex: props.flex }),
         }}
       >
         <Animated.View
