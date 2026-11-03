@@ -343,6 +343,10 @@ export class DeviceHub {
   private stopObserving(deviceId: string): void {
     this.observers.get(deviceId)?.forEach((stop) => stop());
     this.observers.delete(deviceId);
+    // What a device reported is only true while someone listens: a later look must not show it as
+    // live. The last state we sent to a link that cannot report stays (it is all there is).
+    const state = this.states.get(deviceId);
+    if (state && !('lastSent' in state)) this.states.delete(deviceId);
   }
 
   private notify(deviceId: string): void {

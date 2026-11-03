@@ -378,6 +378,21 @@ describe('webos driver: observe', () => {
     expect(second.reports[0]).toMatchObject({ kind: 'tv', state: { power: true } });
   });
 
+  it('does not replay an old state to the next look: the TV is asked afresh', async () => {
+    const r = rig();
+    const first = r.observe();
+    await advance(0);
+    expect(first.reports[0]).toMatchObject({ state: { power: true } });
+    first.stop();
+    // Put in standby while no one watched; the idle connection is still open.
+    r.tv.setPowerState('Active Standby');
+    const next = r.observe();
+    expect(next.reports).toHaveLength(0);
+    await advance(0);
+    expect(next.reports[0]).toMatchObject({ kind: 'tv', state: { power: false } });
+    expect(next.reports.some((x) => x.kind === 'tv' && x.state.power)).toBe(false);
+  });
+
   it('starts observing on a connection a press opened', async () => {
     const r = rig();
     await r.key('ok');

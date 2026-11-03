@@ -536,6 +536,24 @@ describe('TvScreen', () => {
     expect(screen.getAllByText(t('tv.unreachableTitle')).length).toBeGreaterThan(0);
   });
 
+  it('starts a new connecting window on return, rather than "unreachable" at once', async () => {
+    const r = await rig();
+    let onChange: ((s: string) => void) | undefined;
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, cb) => {
+      onChange = cb as (s: string) => void;
+      return { remove: jest.fn() };
+    });
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await advance(5000);
+    expect(screen.getAllByText(t('tv.unreachableTitle')).length).toBeGreaterThan(0);
+    await act(async () => onChange?.('background'));
+    await act(async () => onChange?.('active'));
+    expect(screen.queryAllByText(t('tv.unreachableTitle'))).toHaveLength(0);
+    expect(screen.getAllByText(t('tv.statusConnecting')).length).toBeGreaterThan(0);
+    await advance(5000);
+    expect(screen.getAllByText(t('tv.unreachableTitle')).length).toBeGreaterThan(0);
+  });
+
   it('says "Sent over IR" after an IR fallback', async () => {
     const r = await rig();
     jest.spyOn(r.s.hub, 'view').mockImplementation((id) => ({

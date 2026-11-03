@@ -526,6 +526,11 @@ export function createAndroidTvDriver(o: AndroidTvDriverOpts): LinkDriver & {
     observe(device: Device, link: Link, cb: (r: Reported) => void): Unsubscribe {
       if (link.kind !== 'androidtv') return () => undefined;
       const e = entryFor(device, link);
+      // An open remote session keeps the state current; without one, the last state is old news.
+      if (e.observers.size === 0 && !e.remote) {
+        e.state = undefined;
+        e.lastJson = undefined;
+      }
       e.observers.add(cb);
       if (e.idleTimer) {
         clearTimeout(e.idleTimer);

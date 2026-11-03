@@ -298,6 +298,15 @@ describe('DeviceHub', () => {
     expect(hub.view('ac1').state).toBeUndefined();
   });
 
+  it('forgets a reported state once no one watches, so a later look does not show it as live', async () => {
+    const { hub, matter } = setup();
+    const stop = hub.subscribe('ac1', () => undefined);
+    matter.emit('ac1', { kind: 'ac', state: acState, roomTemp: 27 });
+    expect(hub.view('ac1').state).toBeDefined();
+    stop();
+    expect(hub.view('ac1').state).toBeUndefined();
+  });
+
   it('reported state wins', async () => {
     const { hub, matter } = setup();
     const views: View[] = [];

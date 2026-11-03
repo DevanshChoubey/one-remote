@@ -83,7 +83,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     }, []),
   );
 
-  const [openedAt] = useState(nowMs);
+  const [openedAt, setOpenedAt] = useState(nowMs);
   const [now, setNow] = useState(openedAt);
   const [wakeSentAt, setWakeSentAt] = useState<number | undefined>(undefined);
   const [view, setView] = useState<DeviceView | null>(null);
@@ -124,6 +124,17 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     if (focused && repairing) {
       setRepairing(false);
       setTrustLost(false);
+    }
+  }
+
+  // Each look starts its own connecting window: the TV is asked afresh, and the old answer is gone.
+  const [wasWatching, setWasWatching] = useState(watching);
+  if (wasWatching !== watching) {
+    setWasWatching(watching);
+    if (watching) {
+      const t = nowMs();
+      setOpenedAt(t);
+      setNow(t);
     }
   }
 

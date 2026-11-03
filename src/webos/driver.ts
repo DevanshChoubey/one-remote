@@ -176,6 +176,15 @@ export function createWebosDriver(
     if (s.powerKnown) emit(e);
   }
 
+  /**
+   * Nothing listens to the TV while no one observes it, so what it said then is old news: the next
+   * observer hears only what the TV says now (the power subscription answers at once).
+   */
+  function forgetState(e: Entry): void {
+    e.state = undefined;
+    e.lastJson = undefined;
+  }
+
   function emitOff(e: Entry): void {
     if (e.client || e.observers.size === 0) return;
     e.offEmitted = true;
@@ -704,6 +713,7 @@ export function createWebosDriver(
     observe(device: Device, link: Link, cb: (r: Reported) => void): Unsubscribe {
       if (link.kind !== 'webos') return () => undefined;
       const e = entryFor(device, link);
+      if (e.observers.size === 0) forgetState(e);
       e.observers.add(cb);
       if (e.idleTimer) {
         clearTimeout(e.idleTimer);
