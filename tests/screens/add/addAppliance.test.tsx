@@ -16,7 +16,7 @@ import { createMemorySecretStore } from '@/store/secrets';
 import { darkTokens } from '@/theme';
 import { Button } from '@/ui';
 import { createIrDriver } from '@/ir/driver';
-import { renderWith, room } from '../helpers';
+import { renderWith, room, surfaceStyle } from '../helpers';
 
 const mockDismissAll = jest.fn();
 jest.mock('expo-router', () => ({
@@ -219,7 +219,7 @@ describe('Add appliance in dark and reduced motion', () => {
     const { s } = await setup({ hasIr: true });
     await renderWith(s, <AddApplianceFlow kind="ac" />, { scheme: 'dark', reducedMotion: true });
     const card = await screen.findByLabelText('Panasonic');
-    expect(JSON.stringify(card.props.style)).toContain(darkTokens.color.surface);
+    expect(surfaceStyle(card).backgroundColor).toBe(darkTokens.color.surface);
     expect(screen.getByText(t('addAppliance.brandMatter'))).toBeTruthy();
     await fireEvent.press(card);
     expect(await screen.findByText('Panasonic · try 1 of 5')).toBeTruthy();

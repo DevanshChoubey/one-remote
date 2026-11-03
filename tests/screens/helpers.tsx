@@ -1,5 +1,8 @@
 import { render } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
+import { StyleSheet } from 'react-native';
+import type { ViewStyle } from 'react-native';
+import type { TestInstance } from 'test-renderer';
 import type { Device, LinkDriver, Room } from '@/core';
 import { createServices, ServicesProvider } from '@/services';
 import type { Services } from '@/services';
@@ -48,3 +51,9 @@ export const device = (
   links: [{ kind: 'ir', remoteId: 'x/y' }],
   ...over,
 });
+
+/** A Touchable draws its fill and border on its first child (`<testID>-surface`): flatten both. */
+export function surfaceStyle(el: TestInstance): ViewStyle {
+  const surface = el.children.find((c): c is TestInstance => typeof c !== 'string');
+  return { ...StyleSheet.flatten(el.props.style), ...StyleSheet.flatten(surface?.props.style) };
+}

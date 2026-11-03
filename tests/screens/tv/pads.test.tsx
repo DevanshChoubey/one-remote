@@ -5,7 +5,7 @@ import { DPad } from '@/screens/tv/DPad';
 import { KeyButton } from '@/screens/tv/KeyButton';
 import { TouchPad } from '@/screens/tv/TouchPad';
 import { darkTokens, lightTokens } from '@/theme';
-import { makeServices, renderWith } from '../helpers';
+import { makeServices, renderWith, surfaceStyle } from '../helpers';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -34,14 +34,14 @@ describe('DPad', () => {
 
   it('draws OK in the accent colour, light and dark', async () => {
     await renderWith(makeServices(), <DPad onKey={noop} />);
-    expect(screen.getByLabelText(t('tv.ok'))).toHaveStyle({
-      backgroundColor: lightTokens.color.accent,
-    });
+    expect(surfaceStyle(screen.getByLabelText(t('tv.ok'))).backgroundColor).toBe(
+      lightTokens.color.accent,
+    );
     await screen.unmount();
     await renderWith(makeServices(), <DPad onKey={noop} />, { scheme: 'dark' });
-    expect(screen.getByLabelText(t('tv.ok'))).toHaveStyle({
-      backgroundColor: darkTokens.color.accent,
-    });
+    expect(surfaceStyle(screen.getByLabelText(t('tv.ok'))).backgroundColor).toBe(
+      darkTokens.color.accent,
+    );
   });
 
   it('settles at full opacity under reduced motion', async () => {

@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler/jestSetup';
-import { act, fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { AppState, BackHandler, Linking, Platform } from 'react-native';
 import type { Capabilities, Device, TvSetup } from '@/core';
 import type { FakeDriver } from '@/device/testing/fakeDriver';
@@ -338,7 +338,8 @@ describe('TvScreen', () => {
     await fireEvent.press(screen.getByLabelText(t('tv.more')));
     await fireEvent.press(screen.getByLabelText(t('device.open')));
     expect(mockPush).toHaveBeenCalledWith('/device-sheet/tv1');
-    expect(screen.queryByLabelText(t('device.open'))).toBeNull();
+    // The menu plays its exit before it unmounts.
+    await waitFor(() => expect(screen.queryByLabelText(t('device.open'))).toBeNull());
   });
 
   it('keeps ⋮ with only the device settings when the TV is off', async () => {
@@ -557,7 +558,7 @@ describe('TvScreen shell', () => {
     await act(async () => {
       expect(back?.({} as never)).toBe(true);
     });
-    expect(screen.queryByTestId('tv-menu')).toBeNull();
+    await waitFor(() => expect(screen.queryByTestId('tv-menu')).toBeNull());
     expect(mockBack).not.toHaveBeenCalled();
   });
 

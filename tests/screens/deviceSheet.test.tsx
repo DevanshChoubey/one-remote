@@ -1,9 +1,9 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { StyleSheet, Text } from 'react-native';
+import { Text } from 'react-native';
 import { t } from '@/i18n';
 import { darkTokens, lightTokens } from '@/theme';
 import { DeviceSettingsButton, DeviceSheet } from '@/screens/device';
-import { device, makeServices, renderWith, room } from './helpers';
+import { device, makeServices, renderWith, room, surfaceStyle } from './helpers';
 
 const mockBack = jest.fn();
 const mockDismissAll = jest.fn();
@@ -68,8 +68,7 @@ describe('DeviceSheet as a bottom sheet', () => {
     const s = await seeded();
     await renderWith(s, <DeviceSheet deviceId="d1" />);
     const button = await screen.findByLabelText(t('device.remove'));
-    const style = StyleSheet.flatten(button.props.style);
-    expect(style.backgroundColor).toBe(lightTokens.color.dangerSoft);
+    expect(surfaceStyle(button).backgroundColor).toBe(lightTokens.color.dangerSoft);
   });
 
   it('shows the main link as a badge', async () => {
