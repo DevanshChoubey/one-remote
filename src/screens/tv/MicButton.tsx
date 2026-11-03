@@ -4,7 +4,7 @@ import type { Command } from '@/core';
 import { DeviceError } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Box, Column, Touchable, Txt } from '@/ui';
+import { Box, Column, Icon, Touchable, Txt } from '@/ui';
 
 const SAMPLE_RATE = 8000;
 
@@ -22,17 +22,8 @@ export interface MicButtonProps {
   /** The line for a failed send (the screen's usual one). */
   errorLine: (e: unknown) => string;
   onPress?: () => void;
-}
-
-/** A microphone drawn from boxes in the background colour: a glyph or emoji would not tint. */
-function MicGlyph(): ReactElement {
-  return (
-    <Column align="center" gap={0}>
-      <Box w={12} h={20} bg="bg" radius="pill" />
-      <Box w={2} h={5} bg="bg" />
-      <Box w={12} h={2} bg="bg" radius="pill" />
-    </Column>
-  );
+  /** A voice or dictation message has left the phone (the screen shows "Sent to the TV"). */
+  onSent?: () => void;
 }
 
 /** Dictation names its refusal error (screens may not import the voice module). */
@@ -52,7 +43,7 @@ interface Hold {
 
 /** The hold-to-talk mic: native voice when the TV takes it, else on-device dictation, else nothing. */
 export function MicButton(props: MicButtonProps): ReactElement | null {
-  const { deviceId, voice, text, watching, send, onProblem, errorLine } = props;
+  const { deviceId, voice, text, watching, send, onProblem, errorLine, onSent } = props;
   const { hub, voice: engines } = useServices();
   const [dictation, setDictation] = useState(false);
   const [listening, setListening] = useState(false);
@@ -95,7 +86,10 @@ export function MicButton(props: MicButtonProps): ReactElement | null {
         (spoken) => {
           if (spoken === '' || h.cancelled) return;
           send({ kind: 'tv.text', text: spoken }).then(
-            () => onProblem(null),
+            () => {
+              onProblem(null);
+              onSent?.();
+            },
             (e: unknown) =>
               onProblem(
                 e instanceof DeviceError && e.detail === 'noTextField'
@@ -138,6 +132,7 @@ export function MicButton(props: MicButtonProps): ReactElement | null {
         h.stop = () => {
           capture?.stop();
           live.end();
+          if (!h.cancelled) onSent?.();
         };
         capture = engines.mic.start(SAMPLE_RATE, (chunk) => {
           try {
@@ -210,7 +205,7 @@ export function MicButton(props: MicButtonProps): ReactElement | null {
         accessibilityLabel={t('tv.voice')}
       >
         <Box w={64} h={64} bg="ink" radius="pill" align="center" justify="center">
-          <MicGlyph />
+          <Icon name="mic" size={28} color="bg" />
         </Box>
       </Touchable>
       {listening ? (

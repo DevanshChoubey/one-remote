@@ -9,4 +9,7 @@ export default {
   back: 'Back',
   done: 'Done',
   loading: 'Loading…',
+  tagline: 'Nothing leaves your home network.',
+  openSettings: 'Open Settings',
+  saved: 'Saved',
 } as const;

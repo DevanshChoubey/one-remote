@@ -16,6 +16,8 @@ export default {
   keyboard: 'Keyboard',
   more: 'More',
   input: 'Input',
+  inputNow: 'Now',
+  voiceSent: 'Sent to the TV',
   statusConnected: 'Wi-Fi · connected',
   statusConnecting: 'Connecting…',
   statusIr: 'Sent over IR',

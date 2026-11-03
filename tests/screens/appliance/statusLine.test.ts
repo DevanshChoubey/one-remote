@@ -28,7 +28,7 @@ describe('statusLine', () => {
     const v = view({ status: { via: 'matter', fellBack: false } });
     expect(statusLine(v).key).toBe('ac.status.connected');
     expect(statusLine(v).kind).toBe('connected');
-    expect(text(v)).toBe("● Connected · how it's connected");
+    expect(text(v)).toBe("Connected · how it's connected");
   });
 
   it('says sent over IR when IR is the main link', () => {

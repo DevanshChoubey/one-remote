@@ -1,50 +1,41 @@
 import type { ReactElement } from 'react';
-import { Box, Touchable, Txt } from '@/ui';
+import { Box, Icon, Touchable, Txt } from '@/ui';
+import type { IconName } from '@/ui';
 
 export interface KeyButtonProps {
   label: string;
-  glyph: string;
+  icon: IconName;
   onPress: () => void;
-  round?: boolean;
-  primary?: boolean;
-  /** A fixed circle of this diameter (the bottom row: Back 64, Home 84). */
-  circle?: number;
+  /** The key's diameter in px: 64 Back, 84 Home and the D-pad, 56 and 100 for the other keys. */
+  size?: 64 | 84 | 56 | 100;
+  tone?: 'surface' | 'accent';
+  /** A text label drawn instead of the icon (the OK key). */
+  text?: string;
 }
 
-/** One remote key: a glyph on a surface, spoken as `label`. */
+/** One remote key: a round icon on a surface, spoken as `label`. */
 export function KeyButton(props: KeyButtonProps): ReactElement {
-  const color = props.primary ? 'accentInk' : 'ink';
+  const size = props.size ?? 84;
+  const accent = props.tone === 'accent';
+  const ink = accent ? 'accentInk' : 'ink';
   return (
-    <Touchable onPress={props.onPress} accessibilityLabel={props.label}>
-      {props.circle ? (
-        <Box
-          w={props.circle}
-          h={props.circle}
-          bg="surface"
-          border="line"
-          radius="pill"
-          align="center"
-          justify="center"
-        >
-          <Txt variant="heading" color={color}>
-            {props.glyph}
+    <Touchable
+      onPress={props.onPress}
+      accessibilityLabel={props.label}
+      bg={accent ? 'accent' : 'surface'}
+      border={accent ? 'accent' : 'line'}
+      radius="pill"
+      pressedBg={accent ? 'accentPressed' : 'surface2Pressed'}
+    >
+      <Box w={size} h={size} align="center" justify="center">
+        {props.text ? (
+          <Txt variant="heading" color={ink}>
+            {props.text}
           </Txt>
-        </Box>
-      ) : (
-        <Box
-          bg={props.primary ? 'accent' : 'surface'}
-          border="line"
-          radius={props.round ? 'pill' : 'md'}
-          px={4}
-          py={3}
-          align="center"
-          justify="center"
-        >
-          <Txt variant="heading" color={color}>
-            {props.glyph}
-          </Txt>
-        </Box>
-      )}
+        ) : (
+          <Icon name={props.icon} size={size >= 84 ? 32 : 26} color={ink} />
+        )}
+      </Box>
     </Touchable>
   );
 }

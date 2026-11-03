@@ -8,15 +8,22 @@ export function DPad(props: { onKey: (k: TvKey) => void }): ReactElement {
   const { onKey } = props;
   return (
     <Column flex={1} gap={3} align="center" justify="center">
-      <KeyButton label={t('tv.up')} glyph="▲" onPress={() => onKey('up')} />
+      <KeyButton label={t('tv.up')} icon="up" size={84} onPress={() => onKey('up')} />
       <Row gap={3} align="center">
-        <KeyButton label={t('tv.left')} glyph="◀" onPress={() => onKey('left')} />
+        <KeyButton label={t('tv.left')} icon="left" size={84} onPress={() => onKey('left')} />
         <Box>
-          <KeyButton label={t('tv.ok')} glyph="OK" round primary onPress={() => onKey('ok')} />
+          <KeyButton
+            label={t('tv.ok')}
+            icon="check"
+            size={84}
+            tone="accent"
+            text="OK"
+            onPress={() => onKey('ok')}
+          />
         </Box>
-        <KeyButton label={t('tv.right')} glyph="▶" onPress={() => onKey('right')} />
+        <KeyButton label={t('tv.right')} icon="right" size={84} onPress={() => onKey('right')} />
       </Row>
-      <KeyButton label={t('tv.down')} glyph="▼" onPress={() => onKey('down')} />
+      <KeyButton label={t('tv.down')} icon="down" size={84} onPress={() => onKey('down')} />
     </Column>
   );
 }

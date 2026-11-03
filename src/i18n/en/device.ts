@@ -17,4 +17,5 @@ export default {
   removeAsk: 'Remove {name}? The app forgets it. The device itself is not touched.',
   confirmRemove: 'Yes, remove',
   failed: "That didn't save. Try again.",
+  removed: 'Device removed',
 } as const;

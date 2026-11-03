@@ -258,8 +258,8 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
       <Column flex={1} gap={4}>
         {pad === 'touchpad' ? <TouchPad onKey={key} /> : <DPad onKey={key} />}
         <Row px={1} align="center" justify="between">
-          <KeyButton label={t('tv.goBack')} glyph="←" circle={64} onPress={() => key('back')} />
-          <KeyButton label={t('tv.home')} glyph="⌂" circle={84} onPress={() => key('home')} />
+          <KeyButton label={t('tv.goBack')} icon="back" size={64} onPress={() => key('back')} />
+          <KeyButton label={t('tv.home')} icon="home" size={84} onPress={() => key('home')} />
           <MicButton
             deviceId={deviceId}
             voice={caps?.voice === true}
