@@ -5,6 +5,7 @@ export default {
   setpoint: '{temp} degrees, {mode}',
   subtitleTemp: '{room} · {temp}° in the room',
   subtitleTempOnly: '{temp}° in the room',
+  modeTitle: 'Mode',
   'mode.cool': 'Cool',
   'mode.dry': 'Dry',
   'mode.fan': 'Fan',
@@ -14,6 +15,7 @@ export default {
   'modeName.fan': 'Fan',
   'modeName.auto': 'Auto',
   fanAuto: 'Fan auto',
+  fanHint: 'Tap to change the fan speed',
   fanChip: 'Fan {speed}',
   notFound: 'This AC is not in the app any more.',
   swing: 'Swing',
@@ -26,5 +28,6 @@ export default {
   'error.timeout': "The AC didn't answer. Try again",
   'error.partial': 'Only part of that went out. Try again',
   'error.needsIr': 'Needs a phone with IR',
+  off: 'Off',
   offHint: 'Tap power to turn on',
 } as const;

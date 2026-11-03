@@ -1,12 +1,27 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ReactElement } from 'react';
+import { clampSetpoint } from '@/core';
 import type { AcFan, AcMode, AcState } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
 import type { DeviceView } from '@/services';
-import { Box, Chip, Column, Row, Screen, Touchable, Txt } from '@/ui';
-import { DeviceSettingsButton } from '../device/DeviceSettingsButton';
+import {
+  Box,
+  Chip,
+  Column,
+  EmptyState,
+  IconButton,
+  Row,
+  Screen,
+  SegmentedControl,
+  Skeleton,
+  Touchable,
+  Txt,
+  useToast,
+} from '@/ui';
+import { Dial, LinkLine, Stepper } from '@/ui/appliance';
+import type { IconName } from '@/ui';
 import { useHomeData } from '../shared/useHomeData';
 import { acView, nextAc } from './acModel';
 import { useLastSent } from './useLastSent';
@@ -18,22 +33,51 @@ import { useDeviceView } from './useDeviceView';
 
 const ALL_MODES: AcMode[] = ['cool', 'dry', 'fan', 'auto'];
 const ALL_FANS: AcFan[] = ['auto', 1, 2, 3];
+const MODE_ICON: Record<AcMode, IconName> = {
+  cool: 'snow',
+  dry: 'drop',
+  fan: 'wind',
+  auto: 'auto',
+};
+const MODE_TONE = { cool: 'cool', dry: 'cool', fan: 'ink2', auto: 'accent' } as const;
 
 export function AcScreen(props: { deviceId: string }): ReactElement {
   const router = useRouter();
-  const view = useDeviceView(props.deviceId);
-  if (!view) {
+  const found = useDeviceView(props.deviceId);
+  if (found.state === 'loading') return <AcSkeleton onBack={() => router.back()} />;
+  if (found.state === 'gone') {
     return (
       <Screen title={t('common.appName')} onBack={() => router.back()}>
-        <Txt color="ink2">{t('ac.notFound')}</Txt>
+        <EmptyState art="alert" tone="ink2" title={t('ac.notFound')} body="" fill />
       </Screen>
     );
   }
-  return <AcRemote view={view} />;
+  return <AcRemote view={found.view} />;
+}
+
+/** The dial's shape while the first state is read. */
+function AcSkeleton(props: { onBack: () => void }): ReactElement {
+  return (
+    <Screen onBack={props.onBack} scroll>
+      <Column gap={5} align="center">
+        <Box testID="dial-skeleton">
+          <Skeleton width={290} height={290} radius="pill" />
+        </Box>
+        <Skeleton width="100%" height={56} radius="pill" />
+        <Row gap={2}>
+          <Skeleton width={110} height={48} radius="pill" />
+          <Skeleton width={96} height={48} radius="pill" />
+          <Skeleton width={96} height={48} radius="pill" />
+        </Row>
+        <Skeleton width="60%" height={20} />
+      </Column>
+    </Screen>
+  );
 }
 
 function AcRemote({ view }: { view: DeviceView }): ReactElement {
   const router = useRouter();
+  const toast = useToast();
   const { hub, prefs } = useServices();
   const { rooms } = useHomeData();
   const hubShown = acView(view);
@@ -45,24 +89,38 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
       ? { ...hubShown, state: stored.state, source: 'lastSent' as const }
       : hubShown;
   const { caps } = shown;
-  const [error, setError] = useState<string | null>(null);
   const deviceId = view.device.id;
+  const lastChange = useRef<Partial<AcState> | null>(null);
+  const retry = useRef<() => void>(() => undefined);
   const { state, press: pressWith } = usePendingState<AcState>(
     shown.state,
     (next) =>
       hub.send(deviceId, { kind: 'ac.set', state: next }).then((r) => {
         if (r.via === 'ir') save({ kind: 'ac', state: next });
       }),
-    (e) => setError(sendErrorKey(e, 'ac')),
+    (e) => {
+      const key = sendErrorKey(e, 'ac');
+      toast.show(t(key), {
+        kind: 'error',
+        ...(key === 'ac.error.notSent'
+          ? { action: { label: t('common.retry'), onPress: () => retry.current() } }
+          : {}),
+      });
+    },
   );
   const power = state.power;
   const live = view.usable && power;
 
   const press = (change: Partial<AcState>): void => {
-    setError(null);
+    lastChange.current = change;
     pressFeedback(prefs);
     pressWith((base) => nextAc(base, change, caps));
   };
+  useEffect(() => {
+    retry.current = () => {
+      if (lastChange.current) press(lastChange.current);
+    };
+  });
 
   const modes = ALL_MODES.filter((m) => caps.acModes?.includes(m) ?? true);
   const fans = ALL_FANS.filter((f) => caps.acFan?.includes(f) ?? true);
@@ -70,6 +128,13 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
     live && nextAc(state, { setpoint: state.setpoint - 1 }, caps).setpoint !== state.setpoint;
   const canUp =
     live && nextAc(state, { setpoint: state.setpoint + 1 }, caps).setpoint !== state.setpoint;
+
+  const lower = (): void => {
+    if (canDown) press({ setpoint: state.setpoint - 1 });
+  };
+  const raise = (): void => {
+    if (canUp) press({ setpoint: state.setpoint + 1 });
+  };
 
   const room = rooms.find((r) => r.id === view.device.roomId)?.name;
   const subtitle =
@@ -80,124 +145,102 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
         : t('ac.subtitleTempOnly', { temp: shown.roomTemp });
 
   const status = statusLine(view);
-  const statusText = t(status.key, status.params);
+  const modeName = t(`ac.modeName.${state.mode}`);
 
   return (
-    <Screen title={view.device.name} onBack={() => router.back()} scroll>
+    <Screen
+      title={view.device.name}
+      onBack={() => router.back()}
+      scroll
+      subtitle={subtitle ? <Txt color="ink2">{subtitle}</Txt> : undefined}
+      actions={
+        <IconButton
+          icon="power"
+          tone="power"
+          label={t('ac.power')}
+          onPress={() => press({ power: !power })}
+          disabled={!view.usable}
+          testID="ac-power"
+        />
+      }
+    >
       <Column gap={5}>
-        <Row align="center" justify="between">
-          <Box flex={1}>{subtitle ? <Txt color="ink2">{subtitle}</Txt> : null}</Box>
-          <Touchable
-            onPress={() => press({ power: !power })}
-            disabled={!view.usable}
-            accessibilityLabel={t('ac.power')}
-            accessibilityRole="switch"
-            checked={power}
+        <Column align="center">
+          <Dial
+            value={state.setpoint}
+            min={clampSetpoint(-1000, caps)}
+            max={clampSetpoint(1000, caps)}
+            on={power}
+            tone={MODE_TONE[state.mode]}
+            caption={power ? modeName : t('ac.offHint')}
+            accessibilityLabel={
+              power ? t('ac.setpoint', { temp: state.setpoint, mode: modeName }) : t('ac.off')
+            }
+            onIncrement={raise}
+            onDecrement={lower}
           >
-            <Box px={3}>
-              <Txt variant="heading" color={power ? 'accent' : 'ink2'}>
-                ⏻
-              </Txt>
-            </Box>
-          </Touchable>
-          <DeviceSettingsButton deviceId={deviceId} />
-        </Row>
+            <Row float={{ left: 0, right: 0, bottom: -6 }} justify="between" px={3}>
+              <Stepper icon="minus" label={t('ac.lower')} onPress={lower} disabled={!canDown} />
+              <Stepper icon="plus" label={t('ac.raise')} onPress={raise} disabled={!canUp} />
+            </Row>
+          </Dial>
+        </Column>
 
-        <Row align="center" justify="center" gap={5}>
-          <Touchable
-            onPress={() => press({ setpoint: state.setpoint - 1 })}
-            disabled={!canDown}
-            accessibilityLabel={t('ac.lower')}
-          >
-            <Box px={4}>
-              <Txt variant="title">−</Txt>
-            </Box>
-          </Touchable>
-          <Box
-            accessibilityLabel={t('ac.setpoint', {
-              temp: state.setpoint,
-              mode: t(`ac.modeName.${state.mode}`),
-            })}
-          >
-            <Column align="center">
-              <Txt variant="title" color={power ? 'ink' : 'ink2'} live>
-                {`${state.setpoint}°`}
-              </Txt>
-              <Txt color="ink2">{t(`ac.modeName.${state.mode}`)}</Txt>
-            </Column>
-          </Box>
-          <Touchable
-            onPress={() => press({ setpoint: state.setpoint + 1 })}
-            disabled={!canUp}
-            accessibilityLabel={t('ac.raise')}
-          >
-            <Box px={4}>
-              <Txt variant="title">+</Txt>
-            </Box>
-          </Touchable>
-        </Row>
+        <SegmentedControl
+          label={t('ac.modeTitle')}
+          options={modes.map((m) => ({ value: m, label: t(`ac.mode.${m}`), icon: MODE_ICON[m] }))}
+          value={state.mode}
+          onChange={(m) => press({ mode: m })}
+          disabled={!live}
+        />
 
-        <Row gap={2} wrap>
-          {modes.map((m) => (
-            <Chip
-              key={m}
-              label={t(`ac.mode.${m}`)}
-              state={state.mode === m ? 'selected' : 'neutral'}
+        <Row gap={2} wrap justify="center">
+          {fans.length > 1 ? (
+            <Touchable
+              onPress={() => press({ fan: fans[(fans.indexOf(state.fan) + 1) % fans.length] })}
               disabled={!live}
-              onToggle={() => press({ mode: m })}
-            />
-          ))}
-        </Row>
-
-        <Row gap={2} wrap>
-          {fans.map((f) => (
+              accessibilityLabel={
+                state.fan === 'auto' ? t('ac.fanAuto') : t('ac.fanChip', { speed: state.fan })
+              }
+              accessibilityHint={t('ac.fanHint')}
+              radius="pill"
+              pressScale={0.95}
+            >
+              <Chip
+                icon="wind"
+                label={
+                  state.fan === 'auto' ? t('ac.fanAuto') : t('ac.fanChip', { speed: state.fan })
+                }
+                state="neutral"
+                disabled={!live}
+              />
+            </Touchable>
+          ) : null}
+          {caps.swing === true ? (
             <Chip
-              key={String(f)}
-              label={f === 'auto' ? t('ac.fanAuto') : t('ac.fanChip', { speed: f })}
-              state={state.fan === f ? 'selected' : 'neutral'}
+              icon="swing"
+              label={t('ac.swing')}
+              state={state.swing ? 'selected' : 'neutral'}
               disabled={!live}
-              onToggle={() => press({ fan: f })}
+              onToggle={() => press({ swing: !state.swing })}
             />
-          ))}
+          ) : null}
+          {caps.sleep === true ? (
+            <Chip
+              icon="moon"
+              label={t('ac.sleep')}
+              state={state.sleep ? 'selected' : 'neutral'}
+              disabled={!live}
+              onToggle={() => press({ sleep: !state.sleep })}
+            />
+          ) : null}
         </Row>
 
-        {caps.swing === true || caps.sleep === true ? (
-          <Row gap={2} wrap>
-            {caps.swing === true ? (
-              <Chip
-                label={t('ac.swing')}
-                state={state.swing ? 'selected' : 'neutral'}
-                disabled={!live}
-                onToggle={() => press({ swing: !state.swing })}
-              />
-            ) : null}
-            {caps.sleep === true ? (
-              <Chip
-                label={t('ac.sleep')}
-                state={state.sleep ? 'selected' : 'neutral'}
-                disabled={!live}
-                onToggle={() => press({ sleep: !state.sleep })}
-              />
-            ) : null}
-          </Row>
-        ) : null}
-
-        {error ? (
-          <Txt live color="ink2">
-            {t(error)}
-          </Txt>
-        ) : null}
-
-        {status.kind === 'connected' ? (
-          <Touchable
-            onPress={() => router.push(`/device-sheet/${deviceId}`)}
-            accessibilityLabel={statusText}
-          >
-            <Txt color="ink2">{statusText}</Txt>
-          </Touchable>
-        ) : (
-          <Txt color="ink2">{statusText}</Txt>
-        )}
+        <LinkLine
+          kind={status.kind}
+          text={t(status.key, status.params)}
+          onPress={() => router.push(`/device-sheet/${deviceId}`)}
+        />
       </Column>
     </Screen>
   );
