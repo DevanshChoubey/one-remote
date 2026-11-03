@@ -38,6 +38,8 @@ interface Shown {
 }
 
 const BASE_BOTTOM = 30;
+/** Space kept above a bottom inset (gesture bar, home indicator). */
+const INSET_GAP = 8;
 
 const ToastContext = createContext<ToastApi | null>(null);
 
@@ -211,7 +213,11 @@ function ToastView(props: { shown: Shown; leaving: boolean; hide: () => void }):
     };
   });
 
-  const bottom = Math.max(insets?.bottom ?? 0, keyboard) + BASE_BOTTOM;
+  // The mock's 30 px from the bottom edge, kept clear of the home indicator and the keyboard.
+  const bottom =
+    keyboard > 0
+      ? keyboard + BASE_BOTTOM
+      : Math.max(BASE_BOTTOM, (insets?.bottom ?? 0) + INSET_GAP);
   return (
     <AnimatedBox
       testID="toast"
@@ -232,7 +238,7 @@ function ToastView(props: { shown: Shown; leaving: boolean; hide: () => void }):
         <Box w={8} />
         <Icon name={look.icon} size={20} color={look.iconInk} />
         <Box flex={1}>
-          <Txt variant="label" color={look.ink}>
+          <Txt variant="label" weight="semibold" color={look.ink}>
             {shown.message}
           </Txt>
         </Box>
@@ -255,11 +261,9 @@ function ToastAction(props: { label: string; ink: ColorToken; onPress: () => voi
   return (
     <Touchable onPress={props.onPress} accessibilityLabel={props.label} radius="pill">
       <Box px={3} minH={48} justify="center">
-        <Txt variant="label" color={props.ink}>
+        <Txt variant="label" color={props.ink} underline>
           {props.label}
         </Txt>
-        {/* The underline: Txt has no decoration, so a 1 px rule sits under the label. */}
-        <Box h={1} bg={props.ink} />
       </Box>
     </Touchable>
   );

@@ -15,6 +15,7 @@ import { AnimatedBox } from './primitives/AnimatedBox';
 
 export interface SpinnerProps {
   size?: 'sm' | 'lg';
+  /** The mock's spinner is `currentColor`: ink by default; pass the colour of the text beside it. */
   color?: ColorToken;
 }
 
@@ -45,7 +46,7 @@ export function Spinner(props: SpinnerProps): ReactElement {
       cancelAnimation(blink);
     };
   }, [reduced, spinMs, turn, blink, motion.ease.standard]);
-  const ring = theme.color[props.color ?? 'accent'];
+  const ring = theme.color[props.color ?? 'ink'];
   const width = large ? 3.5 : 2.5;
   const animatedStyle = useAnimatedStyle(() => ({
     borderWidth: width,

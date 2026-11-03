@@ -62,23 +62,29 @@ describe('overlays', () => {
       expect(screen.queryByText('Failed')).toBeNull();
     });
 
-    it('lifts above the bottom safe area', async () => {
-      const { SafeAreaProvider } = jest.requireActual<
-        typeof import('react-native-safe-area-context')
-      >('react-native-safe-area-context');
-      await render(
-        <SafeAreaProvider
-          initialMetrics={{
-            frame: { x: 0, y: 0, width: 360, height: 800 },
-            insets: { top: 24, left: 0, right: 0, bottom: 20 },
-          }}
-        >
-          {wrap(<Raise message="Hi" />)}
-        </SafeAreaProvider>,
-      );
-      await fireEvent.press(screen.getByLabelText('raise'));
-      expect(StyleSheet.flatten(screen.getByTestId('toast').props.style).bottom).toBe(50);
-    });
+    it.each([
+      [20, 30],
+      [34, 42],
+    ])(
+      'sits 30 px from the bottom edge, and 8 px above a bottom inset of %i (bottom %i)',
+      async (inset, bottom) => {
+        const { SafeAreaProvider } = jest.requireActual<
+          typeof import('react-native-safe-area-context')
+        >('react-native-safe-area-context');
+        await render(
+          <SafeAreaProvider
+            initialMetrics={{
+              frame: { x: 0, y: 0, width: 360, height: 800 },
+              insets: { top: 24, left: 0, right: 0, bottom: inset },
+            }}
+          >
+            {wrap(<Raise message="Hi" />)}
+          </SafeAreaProvider>,
+        );
+        await fireEvent.press(screen.getByLabelText('raise'));
+        expect(StyleSheet.flatten(screen.getByTestId('toast').props.style).bottom).toBe(bottom);
+      },
+    );
 
     it('speaks an error toast: assertive live region and a screen-reader announcement', async () => {
       const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');

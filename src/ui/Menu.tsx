@@ -1,7 +1,12 @@
 import { Fragment, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { Modal } from 'react-native';
-import { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { t } from '@/i18n';
 import { useMotion } from '@/theme';
@@ -30,6 +35,9 @@ export interface MenuProps {
 }
 
 const PANEL_W = 220;
+/** The mock's `.menu` padding and check size. */
+const PANEL_PAD = 6;
+const CHECK = 24;
 /** The mock puts the menu 104 px from the top of a phone whose status bar is 44 px: 60 px below it. */
 const BELOW_STATUS_BAR = 60;
 
@@ -122,33 +130,37 @@ export function Menu(props: MenuProps): ReactElement | null {
           border="line"
           radius="md"
           shadow="pop"
-          p={1}
           w={PANEL_W}
           testID={props.testID}
           animatedStyle={style}
         >
-          {props.items.map((item) => (
-            <Fragment key={item.key}>
-              {item.dividerBefore ? <Box h={1} bg="line" m={1} /> : null}
-              <Touchable
-                onPress={() => {
-                  if (props.open) item.onPress();
-                }}
-                accessibilityLabel={item.label}
-                selected={item.current}
-                pressedBg="surface2"
-                radius="sm"
-                pressScale={1}
-              >
-                <Row align="center" justify="between" gap={3} px={4} minH={48}>
-                  <Txt variant="bodyBold" color={item.current ? 'ink2' : 'ink'}>
-                    {item.label}
-                  </Txt>
-                  {item.current ? <Icon name="check" size={18} color="ink2" /> : null}
-                </Row>
-              </Touchable>
-            </Fragment>
-          ))}
+          <Animated.View style={{ padding: PANEL_PAD }}>
+            {props.items.map((item) => (
+              <Fragment key={item.key}>
+                {item.dividerBefore ? (
+                  // The mock's `hr`: 4 px above and below, 8 px in from the sides.
+                  <Box px={2} py={1} testID="menu-divider">
+                    <Box h={1} bg="line" />
+                  </Box>
+                ) : null}
+                <Touchable
+                  onPress={() => {
+                    if (props.open) item.onPress();
+                  }}
+                  accessibilityLabel={item.label}
+                  selected={item.current}
+                  pressedBg="surface2"
+                  radius="sm"
+                  pressScale={1}
+                >
+                  <Row align="center" justify="between" gap={3} px={4} minH={48}>
+                    <Txt color={item.current ? 'ink2' : 'ink'}>{item.label}</Txt>
+                    {item.current ? <Icon name="check" size={CHECK} color="ink2" /> : null}
+                  </Row>
+                </Touchable>
+              </Fragment>
+            ))}
+          </Animated.View>
         </AnimatedBox>
       </Box>
     </Modal>
