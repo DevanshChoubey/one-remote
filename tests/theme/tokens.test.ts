@@ -32,6 +32,78 @@ describe('tokens', () => {
     expect(lightTokens.touch.min).toBe(48);
   });
 
+  it('has the new mock tokens', () => {
+    const table: Record<string, [string, string]> = {
+      okInk: ['#17744a', '#4cc88c'],
+      dangerInk: ['#c4262c', '#ff8b8f'],
+      scrim: ['rgba(13, 15, 18, 0.45)', 'rgba(0, 0, 0, 0.6)'],
+      accentSoft: ['#e6edfe', '#252e41'],
+      okSoft: ['#e0f1e9', '#1c322f'],
+      dangerSoft: ['#fce9ea', '#34252c'],
+      warmSoft: ['#fdeadf', '#3e2e2a'],
+      dangerLine: ['#f4b1b3', '#723138'],
+      accentPressed: ['#285ed4', '#5b81db'],
+      surface2Pressed: ['#dfe1e5', '#333842'],
+      toastErrorBg: ['#c4262c', '#5a1d20'],
+      toastErrorInk: ['#ffffff', '#ffd9da'],
+      toastOkIcon: ['#4cc88c', '#4cc88c'],
+      onFill: ['#ffffff', '#ffffff'],
+      cameraBg: ['#14181e', '#14181e'],
+      cameraInk: ['#ffffff', '#ffffff'],
+      cameraBeam: ['#7fb0ff', '#7fb0ff'],
+      cameraLock: ['#4cc88c', '#4cc88c'],
+      cameraBadge: ['#17744a', '#17744a'],
+    };
+    for (const [key, [light, dark]] of Object.entries(table)) {
+      expect(lightTokens.color[key as keyof Tokens['color']]).toBe(light);
+      expect(darkTokens.color[key as keyof Tokens['color']]).toBe(dark);
+    }
+    expect(lightTokens.radius).toMatchObject({ sheet: 28, tile: 14, art: 32 });
+    expect(lightTokens.size).toMatchObject({ display: 76, displaySup: 28, label: 15 });
+    expect(lightTokens.lineHeight).toEqual({
+      title: 35,
+      heading: 25,
+      body: 22,
+      label: 20,
+      caption: 18,
+      display: 76,
+    });
+    expect(lightTokens.tracking).toEqual({ title: -0.45, display: -2.28 });
+    expect(lightTokens.touch).toEqual({ min: 48, key: 56 });
+    expect(lightTokens.touch.key).toBe(56);
+    expect(lightTokens.motion.duration).toEqual({
+      instant: 90,
+      fast: 160,
+      base: 260,
+      slow: 380,
+      ambient: 1500,
+      spinner: 900,
+    });
+    expect(lightTokens.motion.duration.slow).toBe(380);
+    expect(lightTokens.motion.easing.enter).toEqual([0.05, 0.7, 0.1, 1]);
+    expect(lightTokens.motion.easing.standard).toEqual([0.2, 0, 0, 1]);
+    expect(lightTokens.motion.easing.exit).toEqual([0.3, 0, 0.8, 0.15]);
+    expect(lightTokens.motion.easing.spring).toEqual([0.34, 1.45, 0.64, 1]);
+    expect(lightTokens.motion.stagger).toBe(45);
+    expect(lightTokens.motion.lift).toBe(14);
+    expect(lightTokens.shadow.pop).toEqual({
+      shadowColor: '#15181d',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.18,
+      shadowRadius: 28,
+      elevation: 8,
+    });
+    expect(darkTokens.shadow.sheet).toEqual({
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: -10 },
+      shadowOpacity: 0.6,
+      shadowRadius: 40,
+      elevation: 16,
+    });
+    expect(lightTokens.shadow.sheet.shadowOpacity).toBe(0.22);
+    expect(darkTokens.shadow.pop.shadowOpacity).toBe(0.55);
+  });
+
   it('keeps the other dark colours at the light values', () => {
     for (const k of ['cool', 'warm', 'ok', 'danger'] as const) {
       expect(darkTokens.color[k]).toBe(lightTokens.color[k]);
@@ -39,7 +111,12 @@ describe('tokens', () => {
   });
 
   it('uses the system font only', () => {
-    expect(Object.keys(lightTokens.font).sort()).toEqual(['body', 'bodyBold', 'heading']);
+    expect(Object.keys(lightTokens.font).sort()).toEqual([
+      'body',
+      'bodyBold',
+      'heading',
+      'semibold',
+    ]);
     expect(JSON.stringify(lightTokens.font)).not.toMatch(/fontFamily/);
   });
 
@@ -63,6 +140,14 @@ describe('tokens', () => {
       ['ink2', 'surface'],
       ['accent', 'surface'],
       ['accentInk', 'accent'],
+      ['okInk', 'surface'],
+      ['okInk', 'bg'],
+      ['dangerInk', 'surface'],
+      ['dangerInk', 'bg'],
+      ['okInk', 'okSoft'],
+      ['dangerInk', 'dangerSoft'],
+      ['ink', 'warmSoft'],
+      ['toastErrorInk', 'toastErrorBg'],
     ];
     it.each(pairs)('%s on %s >= 4.5', (fg, bg) => {
       expect(contrast(tokens.color[fg], tokens.color[bg])).toBeGreaterThanOrEqual(4.5);

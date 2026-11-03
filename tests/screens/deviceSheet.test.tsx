@@ -1,8 +1,9 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import { t } from '@/i18n';
+import { darkTokens, lightTokens } from '@/theme';
 import { DeviceSettingsButton, DeviceSheet } from '@/screens/device';
-import { device, makeServices, renderWith, room } from './helpers';
+import { device, makeServices, renderWith, room, surfaceStyle } from './helpers';
 
 const mockBack = jest.fn();
 const mockDismissAll = jest.fn();
@@ -33,6 +34,71 @@ beforeEach(() => {
   mockBack.mockClear();
   mockDismissAll.mockClear();
   mockPush.mockClear();
+});
+
+describe('DeviceSheet as a bottom sheet', () => {
+  it('shows the Device removed toast after the sheet closes, and leaves no timer behind', async () => {
+    const s = await seeded();
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+    const err = jest.spyOn(console, 'error');
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
+    await fireEvent.press(await screen.findByLabelText(t('device.remove')));
+    await fireEvent.press(screen.getByLabelText(t('device.confirmRemove')));
+    expect(await screen.findByTestId('toast')).toBeTruthy();
+    expect(screen.getByText(t('device.removed'))).toBeTruthy();
+    expect(mockDismissAll).toHaveBeenCalled();
+    await act(async () => {
+      jest.runAllTimers();
+    });
+    expect(screen.queryByTestId('toast')).toBeNull();
+    expect(err).not.toHaveBeenCalled();
+    err.mockRestore();
+    jest.useRealTimers();
+  });
+
+  it('toasts Saved after renaming', async () => {
+    const s = await seeded();
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
+    await fireEvent.changeText(await screen.findByDisplayValue('Panasonic AC'), 'Study AC');
+    await fireEvent.press(screen.getByLabelText(t('device.saveName')));
+    expect(await screen.findByText(t('common.saved'))).toBeTruthy();
+  });
+
+  it('draws the remove button on the soft danger background', async () => {
+    const s = await seeded();
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
+    const button = await screen.findByLabelText(t('device.remove'));
+    expect(surfaceStyle(button).backgroundColor).toBe(lightTokens.color.dangerSoft);
+  });
+
+  it('shows the main link as a badge', async () => {
+    const s = await seeded();
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
+    expect(await screen.findByText(t('device.main'))).toBeTruthy();
+    expect(screen.getAllByText(t('device.backup'))).toHaveLength(2);
+  });
+
+  it('renders on the dark background', async () => {
+    const s = await seeded();
+    await renderWith(s, <DeviceSheet deviceId="d1" />, { scheme: 'dark', reducedMotion: true });
+    await screen.findByText(t('device.main'));
+    expect(JSON.stringify(screen.toJSON())).toContain(darkTokens.color.bg);
+  });
+
+  it('shows skeleton bars while loading', async () => {
+    const s = makeServices();
+    jest.spyOn(s.store, 'rooms').mockReturnValue(new Promise(() => undefined));
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
+    expect(screen.getByText(t('device.title'))).toBeTruthy();
+    expect(screen.getByTestId('device-skeleton').children).toHaveLength(3);
+  });
+
+  it('says the device is gone inside the sheet', async () => {
+    await renderWith(makeServices(), <DeviceSheet deviceId="nope" />);
+    expect(await screen.findByText(t('home.notFound'))).toBeTruthy();
+    expect(screen.getByTestId('device-sheet')).toBeTruthy();
+    expect(screen.queryByTestId('device-skeleton')).toBeNull();
+  });
 });
 
 describe('DeviceSheet', () => {
@@ -186,3 +252,29 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
+
+describe('DeviceSheet closing', () => {
+  it('pops the route only after the exit has played', async () => {
+    const s = await seeded();
+    await renderWith(s, <DeviceSheet deviceId="d1" />, { reducedMotion: true });
+    await screen.findByDisplayValue('Panasonic AC');
+    await fireEvent(screen.getByTestId('device-sheet'), 'requestClose');
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+  });
+
+  it('waits for the exit animation under full motion', async () => {
+    const s = await seeded();
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
+    await screen.findByDisplayValue('Panasonic AC');
+    await fireEvent(screen.getByTestId('device-sheet'), 'requestClose');
+    expect(mockBack).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1), { timeout: 3000 });
+  });
+
+  it('does not pop the route while it is still open', async () => {
+    const s = await seeded();
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
+    await screen.findByDisplayValue('Panasonic AC');
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+});

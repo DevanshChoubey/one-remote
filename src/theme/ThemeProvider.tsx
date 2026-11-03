@@ -1,7 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
-import { useColorScheme } from 'react-native';
+import { AccessibilityInfo, useColorScheme } from 'react-native';
+import { createMotion, MotionContext } from './motion';
 import { darkTokens, lightTokens } from './tokens';
 import type { Tokens } from './tokens';
 
@@ -15,6 +16,8 @@ export interface ThemeProviderProps {
   preference?: ThemePreference;
   /** Forces a scheme (tests, previews); ignores the system and the preference. */
   scheme?: 'light' | 'dark';
+  /** Forces reduced motion on or off (tests); otherwise it follows the system setting. */
+  reducedMotion?: boolean;
 }
 
 export function ThemeProvider(props: ThemeProviderProps): ReactElement {
@@ -22,14 +25,36 @@ export function ThemeProvider(props: ThemeProviderProps): ReactElement {
   const preference = props.preference ?? 'system';
   const resolved =
     props.scheme ?? (preference === 'system' ? (system === 'dark' ? 'dark' : 'light') : preference);
+  const systemReduced = useSystemReducedMotion();
+  const reduced = props.reducedMotion ?? systemReduced;
+  const motion = useMemo(() => createMotion(lightTokens.motion, reduced), [reduced]);
   const tokens = resolved === 'dark' ? darkTokens : lightTokens;
   return (
     <ThemeContext.Provider value={tokens}>
-      {/* Dark icons on the light theme, light icons on the dark one, whatever the system says. */}
-      <StatusBar style={tokens.dark ? 'light' : 'dark'} />
-      {props.children}
+      <MotionContext.Provider value={motion}>
+        {/* Dark icons on the light theme, light icons on the dark one, whatever the system says. */}
+        <StatusBar style={tokens.dark ? 'light' : 'dark'} />
+        {props.children}
+      </MotionContext.Provider>
     </ThemeContext.Provider>
   );
+}
+
+/** Follows the OS reduce-motion setting live; Reanimated's useReducedMotion reads it only once. */
+function useSystemReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((on) => {
+      if (live) setReduced(on);
+    });
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
+    return () => {
+      live = false;
+      sub.remove();
+    };
+  }, []);
+  return reduced;
 }
 
 export function useTheme(): Tokens {

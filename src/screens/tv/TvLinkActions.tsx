@@ -4,7 +4,7 @@ import type { FoundTv, Link } from '@/core';
 import { isTvLink, PairError, tvLinkOf } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Button, Column, Input, Row, Txt } from '@/ui';
+import { Button, Column, Field, Group, ListItem, Row, Spinner, Txt } from '@/ui';
 import { useKnownDevice } from '../device/useKnownDevice';
 import { unreachableHintKey } from './wakeHint';
 
@@ -98,57 +98,60 @@ export function TvLinkActions(props: { deviceId: string; link?: Link }): ReactEl
 
   return (
     <Column gap={2}>
-      <Row justify="between" align="center">
-        <Txt variant="caption" color="ink2">
-          {t('addTv.address')}
-        </Txt>
-        <Txt variant="caption">{link.host}</Txt>
-      </Row>
+      <Group>
+        <ListItem title={t('addTv.address')} trailing={<Txt color="ink2">{link.host}</Txt>} />
+      </Group>
       <Row gap={2} wrap>
         <Button
           label={t('addTv.findAgain')}
+          size="small"
           variant="secondary"
           onPress={findAgain}
-          disabled={busy}
+          disabled={busy || ask !== null}
         />
         <Button
           label={t('addTv.pairAgain')}
+          size="small"
           variant="secondary"
           onPress={pairAgain}
-          disabled={busy}
+          disabled={busy || ask !== null}
         />
       </Row>
       {ask ? (
         <Column gap={2}>
-          <Txt variant="caption" color="ink2">
-            {t('addTv.codeTitle')}
-          </Txt>
-          <Input
+          <Field
+            label={t('addTv.codeTitle')}
             value={code}
             onChangeText={setCode}
-            accessibilityLabel={t('addTv.codeTitle')}
             autoCapitalize="characters"
             maxLength={codeLength}
+            error={ask.wrong ? t('addTv.codeWrong') : null}
           />
-          {ask.wrong ? (
-            <Txt live variant="caption" color="danger">
-              {t('addTv.codeWrong')}
-            </Txt>
-          ) : null}
           <Row gap={2} wrap>
             <Button
               label={t('addTv.codePair')}
+              size="small"
               onPress={() => answer(code.toUpperCase())}
               disabled={code.length === 0}
             />
-            <Button label={t('common.cancel')} variant="ghost" onPress={() => answer(null)} />
+            <Button
+              label={t('common.cancel')}
+              size="small"
+              variant="ghost"
+              onPress={() => answer(null)}
+            />
           </Row>
         </Column>
       ) : null}
-      {note ? (
-        <Txt live variant="caption" color="ink2">
-          {note}
-        </Txt>
+      {busy || note ? (
+        <Row gap={2} align="center">
+          {busy ? <Spinner size="sm" /> : null}
+          {note ? (
+            <Txt live variant="caption" color="ink2">
+              {note}
+            </Txt>
+          ) : null}
+        </Row>
       ) : null}
     </Column>
   );

@@ -1,9 +1,13 @@
 import { render } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
+import { StyleSheet } from 'react-native';
+import type { ViewStyle } from 'react-native';
+import type { TestInstance } from 'test-renderer';
 import type { Device, LinkDriver, Room } from '@/core';
 import { createServices, ServicesProvider } from '@/services';
 import type { Services } from '@/services';
 import { ThemeProvider } from '@/theme';
+import { ToastProvider } from '@/ui';
 import { createMemoryStore } from '@/store/memoryStore';
 import { createMemorySecretStore } from '@/store/secrets';
 import { createMemoryPreferenceStore } from '@/store/preferences';
@@ -17,10 +21,16 @@ export function makeServices(drivers: LinkDriver[] = []): Services {
   });
 }
 
-export async function renderWith(s: Services, ui: ReactElement): Promise<void> {
+export async function renderWith(
+  s: Services,
+  ui: ReactElement,
+  opts: { scheme?: 'light' | 'dark'; reducedMotion?: boolean } = {},
+): Promise<void> {
   await render(
-    <ThemeProvider scheme="light">
-      <ServicesProvider services={s}>{ui}</ServicesProvider>
+    <ThemeProvider scheme={opts.scheme ?? 'light'} reducedMotion={opts.reducedMotion}>
+      <ServicesProvider services={s}>
+        <ToastProvider>{ui}</ToastProvider>
+      </ServicesProvider>
     </ThemeProvider>,
   );
 }
@@ -41,3 +51,9 @@ export const device = (
   links: [{ kind: 'ir', remoteId: 'x/y' }],
   ...over,
 });
+
+/** A Touchable draws its fill and border on its first child (`<testID>-surface`): flatten both. */
+export function surfaceStyle(el: TestInstance): ViewStyle {
+  const surface = el.children.find((c): c is TestInstance => typeof c !== 'string');
+  return { ...StyleSheet.flatten(el.props.style), ...StyleSheet.flatten(surface?.props.style) };
+}

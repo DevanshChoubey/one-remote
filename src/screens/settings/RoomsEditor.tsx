@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import type { Room } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Button, Column, Input, Row, Txt } from '@/ui';
+import { Button, Column, ErrorLine, IconButton, Input, Row, Txt } from '@/ui';
 
 const NOT_EMPTY = 'roomNotEmpty';
 
@@ -41,20 +41,19 @@ function RoomRow(props: {
           label={t('common.save')}
           accessibilityLabel={t('settings.saveRoom', { name: room.name })}
           variant="secondary"
+          size="small"
           disabled={trimmed === '' || trimmed === room.name}
           onPress={() => run(store.upsertRoom({ ...room, name: trimmed }))}
         />
-        <Button
-          label="↑"
-          accessibilityLabel={t('settings.roomUp', { name: room.name })}
-          variant="secondary"
+        <IconButton
+          icon="up"
+          label={t('settings.roomUp', { name: room.name })}
           disabled={index === 0}
           onPress={() => moveTo(index - 1)}
         />
-        <Button
-          label="↓"
-          accessibilityLabel={t('settings.roomDown', { name: room.name })}
-          variant="secondary"
+        <IconButton
+          icon="down"
+          label={t('settings.roomDown', { name: room.name })}
           disabled={index === rooms.length - 1}
           onPress={() => moveTo(index + 1)}
         />
@@ -62,6 +61,7 @@ function RoomRow(props: {
           label={t('common.delete')}
           accessibilityLabel={t('settings.removeRoom', { name: room.name })}
           variant="ghost"
+          size="small"
           onPress={() => run(store.removeRoom(room.id))}
         />
       </Row>
@@ -84,11 +84,7 @@ export function RoomsEditor(props: { rooms: Room[] }): ReactElement {
           onError={setError}
         />
       ))}
-      {error ? (
-        <Txt live color="ink2">
-          {t(error)}
-        </Txt>
-      ) : null}
+      {error ? <ErrorLine text={t(error)} /> : null}
     </Column>
   );
 }

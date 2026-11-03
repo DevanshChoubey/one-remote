@@ -1,6 +1,13 @@
 import type { ReactElement, ReactNode } from 'react';
 import { Pressable } from 'react-native';
-import { useTheme } from '@/theme';
+import Animated, {
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { useMotion, useTheme } from '@/theme';
+import type { ColorToken, RadiusToken } from '@/theme';
 
 export interface TouchableProps {
   onPress: () => void;
@@ -15,21 +22,71 @@ export interface TouchableProps {
   checked?: boolean;
   busy?: boolean;
   expanded?: boolean;
-  /** Looks disabled (0.5 opacity) but still takes presses, e.g. to allow a long press. */
+  /** Looks dimmed (0.6, like an off card) but still takes presses, e.g. to allow a long press. */
   dimmed?: boolean;
   accessibilityHint?: string;
+  /** Scale while pressed: 0.97 by default, 1 for none. */
+  pressScale?: number;
+  /** Background tint while pressed; the wrapper draws it. */
+  pressedBg?: ColorToken;
+  /** The wrapper is the visible surface of buttons, chips and menu rows. */
+  bg?: ColorToken;
+  border?: ColorToken;
+  radius?: RadiusToken;
+  /** Stretches to fill its parent (scrims). */
+  fill?: boolean;
+  /** Disabled but not dimmed (a button that is busy keeps its colour and shows a spinner). */
+  noDim?: boolean;
+  /** Opacity when disabled; 0.42 by default. */
+  disabledOpacity?: number;
+  alignSelf?: 'flex-start' | 'center' | 'flex-end' | 'stretch';
+  testID?: string;
   children: ReactNode;
+}
+
+/**
+ * Blends two colours by `t` (0..1). It returns the exact input colour at rest (0 or 1), so a theme
+ * change shows the new token at once and not an blended approximation of it.
+ */
+export function mixColor(t: number, from: string, to: string): string {
+  'worklet';
+  if (t <= 0) return from;
+  if (t >= 1) return to;
+  return interpolateColor(t, [0, 1], [from, to]);
 }
 
 export function Touchable(props: TouchableProps): ReactElement {
   const theme = useTheme();
+  const motion = useMotion();
+  // 0 = at rest, 1 = pressed. Pressing is quick; the release springs back.
+  const press = useSharedValue(0);
+  const target = motion.reduced ? 1 : (props.pressScale ?? 0.97);
+  const base = props.bg ? theme.color[props.bg] : 'transparent';
+  const pressed = props.pressedBg ? theme.color[props.pressedBg] : base;
+  const instant = motion.timing('instant');
+  const release = motion.timing('fast', 'spring');
+  const animated = useAnimatedStyle(
+    () => ({
+      backgroundColor: mixColor(press.value, base, pressed),
+      transform: [{ scale: 1 + (target - 1) * press.value }],
+    }),
+    [base, pressed, target],
+  );
+  const dim = props.disabled && !props.noDim ? (props.disabledOpacity ?? 0.42) : null;
   return (
     <Pressable
       onPress={props.onPress}
       onLongPress={props.onLongPress}
-      onPressIn={props.onPressIn}
-      onPressOut={props.onPressOut}
+      onPressIn={() => {
+        press.set(withTiming(1, instant));
+        props.onPressIn?.();
+      }}
+      onPressOut={() => {
+        press.set(withTiming(0, release));
+        props.onPressOut?.();
+      }}
       disabled={props.disabled}
+      testID={props.testID}
       accessibilityLabel={props.accessibilityLabel}
       accessibilityHint={props.accessibilityHint}
       accessibilityRole={props.accessibilityRole ?? 'button'}
@@ -40,14 +97,31 @@ export function Touchable(props: TouchableProps): ReactElement {
         busy: props.busy,
         expanded: props.expanded,
       }}
-      style={({ pressed }) => ({
+      style={{
         minHeight: theme.touch.min,
         minWidth: theme.touch.min,
         justifyContent: 'center',
-        opacity: props.disabled || props.dimmed ? 0.5 : pressed ? 0.7 : 1,
-      })}
+        opacity: dim ?? (props.dimmed ? 0.6 : 1),
+        ...(props.fill ? { flex: 1, alignSelf: 'stretch' as const } : null),
+        ...(props.alignSelf ? { alignSelf: props.alignSelf } : null),
+      }}
     >
-      {props.children}
+      <Animated.View
+        testID={props.testID ? `${props.testID}-surface` : undefined}
+        style={[
+          {
+            flexGrow: 1,
+            justifyContent: 'center',
+            minHeight: theme.touch.min,
+            minWidth: theme.touch.min,
+            ...(props.border ? { borderColor: theme.color[props.border], borderWidth: 1 } : null),
+            ...(props.radius ? { borderRadius: theme.radius[props.radius] } : null),
+          },
+          animated,
+        ]}
+      >
+        {props.children}
+      </Animated.View>
     </Pressable>
   );
 }

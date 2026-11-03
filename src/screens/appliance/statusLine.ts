@@ -1,7 +1,8 @@
 import { t } from '@/i18n';
 import type { DeviceView } from '@/services';
+import type { StatusKind } from '@/ui/appliance';
 
-export type StatusKind = 'connected' | 'irOnly' | 'fellBack' | 'needsIr';
+export type { StatusKind };
 
 /** The line at the bottom of an AC or fan screen: how the last press went out. */
 export interface StatusLine {

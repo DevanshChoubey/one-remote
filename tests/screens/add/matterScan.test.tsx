@@ -1,6 +1,8 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { Profiler } from 'react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { MatterSetup } from '@/core/matterSetup';
 import { t } from '@/i18n';
+import { darkTokens } from '@/theme';
 import { MatterStep } from '@/screens/add/appliance/MatterStep';
 import { makeServices, renderWith } from '../helpers';
 
@@ -30,7 +32,7 @@ function stub(commission: MatterSetup['commission']): MatterSetup {
   return {
     available: () => true,
     parseCode: (input) => {
-      if (input.startsWith('MT:')) return { kind: 'qr', payload: input };
+      if (input.startsWith('MT:')) return input.length > 3 ? { kind: 'qr', payload: input } : null;
       const digits = input.replace(/-/g, '');
       return /^\d{11}$/.test(digits) ? { kind: 'manual', digits } : null;
     },
@@ -38,11 +40,15 @@ function stub(commission: MatterSetup['commission']): MatterSetup {
   };
 }
 
-async function open(commission: jest.Mock): Promise<{ onDone: jest.Mock }> {
+async function open(
+  commission: jest.Mock,
+  opts: { scheme?: 'light' | 'dark'; reducedMotion?: boolean } = {},
+): Promise<{ onDone: jest.Mock }> {
   const onDone = jest.fn();
   await renderWith(
     { ...makeServices(), matter: stub(commission as unknown as MatterSetup['commission']) },
-    <MatterStep brandId="panasonic" onDone={onDone} onSkip={jest.fn()} />,
+    <MatterStep brandId="panasonic" onLink={jest.fn()} onDone={onDone} onSkip={jest.fn()} />,
+    opts,
   );
   return { onDone };
 }
@@ -58,9 +64,34 @@ describe('MatterStep camera', () => {
   it('starts commissioning when a Matter QR is scanned', async () => {
     const commission = jest.fn(async () => link);
     const { onDone } = await open(commission);
-    mockOnScan?.({ data: 'MT:Y.K9042C00KA0648G00' });
-    await waitFor(() => expect(onDone).toHaveBeenCalledWith(link));
+    await act(async () => mockOnScan?.({ data: 'MT:Y.K9042C00KA0648G00' }));
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith(link), { timeout: 4000 });
     expect(commission).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the beam while scanning and locks on once a Matter code is seen', async () => {
+    await open(jest.fn(async () => link));
+    expect(screen.getByTestId('scan-beam')).toBeTruthy();
+    expect(screen.getByText(t('matter.scanHint'))).toBeTruthy();
+    await act(async () => mockOnScan?.({ data: 'MT:Y.K9042C00KA0648G00' }));
+    expect(screen.queryByTestId('scan-beam')).toBeNull();
+    expect(screen.getByText(t('matter.lockLabel'))).toBeTruthy();
+  });
+
+  it('draws no beam under reduced motion, and still scans', async () => {
+    const commission = jest.fn(async () => link);
+    const { onDone } = await open(commission, { reducedMotion: true });
+    expect(screen.queryByTestId('scan-beam')).toBeNull();
+    expect(screen.getByTestId('camera-frame')).toBeTruthy();
+    await act(async () => mockOnScan?.({ data: 'MT:Y.K9042C00KA0648G00' }));
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith(link), { timeout: 4000 });
+  });
+
+  it('keeps the camera frame on the dark camera surface', async () => {
+    await open(jest.fn(), { scheme: 'dark' });
+    expect(JSON.stringify(screen.getByTestId('camera-frame').props.style)).toContain(
+      darkTokens.color.cameraBg,
+    );
   });
 
   it('ignores a QR that is not a Matter code and says so', async () => {
@@ -69,6 +100,56 @@ describe('MatterStep camera', () => {
     mockOnScan?.({ data: 'https://example.com' });
     await waitFor(() => expect(screen.getByText(t('matter.notMatter'))).toBeTruthy());
     expect(commission).not.toHaveBeenCalled();
+  });
+
+  it('does not re-render when the same non-Matter QR is seen again', async () => {
+    let commits = 0;
+    await renderWith(
+      {
+        ...makeServices(),
+        matter: stub(jest.fn() as unknown as MatterSetup['commission']),
+      },
+      <Profiler id="matter" onRender={() => (commits += 1)}>
+        <MatterStep brandId="panasonic" onLink={jest.fn()} onDone={jest.fn()} onSkip={jest.fn()} />
+      </Profiler>,
+    );
+    await act(async () => mockOnScan?.({ data: 'https://example.com' }));
+    expect(screen.getByText(t('matter.notMatter'))).toBeTruthy();
+    // One more frame settles any stray async render; after that, repeats must be free.
+    await act(async () => mockOnScan?.({ data: 'https://example.com' }));
+    const after = commits;
+    for (let i = 0; i < 5; i++)
+      await act(async () => mockOnScan?.({ data: 'https://example.com' }));
+    expect(commits).toBe(after);
+  });
+
+  it('shows an empty camera frame while the permission prompt is pending', async () => {
+    mockPermission = { granted: false, canAskAgain: true };
+    mockAsk.mockReturnValue(new Promise(() => undefined));
+    await open(jest.fn());
+    expect(screen.getByTestId('camera-frame')).toBeTruthy();
+    expect(screen.queryByText(t('matter.cameraDenied'))).toBeNull();
+  });
+
+  it('recovers from a rejected MT: code and connects on the next scan', async () => {
+    const commission = jest.fn(async () => link);
+    const { onDone } = await open(commission);
+    // A bare MT: payload is rejected by parseCode.
+    await act(async () => mockOnScan?.({ data: 'MT:' }));
+    await waitFor(() => expect(screen.getByText(t('matter.badCode'))).toBeTruthy());
+    expect(screen.queryByText(t('matter.lockLabel'))).toBeNull();
+    await act(async () => mockOnScan?.({ data: 'MT:Y.K9042C00KA0648G00' }));
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith(link), { timeout: 4000 });
+  });
+
+  it('shows the denied panel after a refusal that can still be asked again', async () => {
+    mockPermission = { granted: false, canAskAgain: true };
+    mockAsk.mockResolvedValue(undefined);
+    await open(jest.fn());
+    await waitFor(() => expect(screen.getByText(t('matter.cameraDenied'))).toBeTruthy());
+    expect(screen.queryByTestId('camera-frame')).toBeNull();
+    expect(screen.getByText(t('matter.paste'))).toBeTruthy();
+    expect(screen.getByText(t('matter.enter'))).toBeTruthy();
   });
 
   it('asks for the camera on first open', async () => {
@@ -81,6 +162,7 @@ describe('MatterStep camera', () => {
     mockPermission = { granted: false, canAskAgain: false };
     await open(jest.fn());
     expect(screen.getByText(t('matter.cameraDenied'))).toBeTruthy();
+    expect(screen.queryByTestId('camera-frame')).toBeNull();
     expect(screen.getByText(t('matter.paste'))).toBeTruthy();
     expect(screen.getByText(t('matter.enter'))).toBeTruthy();
   });
@@ -90,7 +172,7 @@ describe('MatterStep camera', () => {
     const commission = jest.fn(async () => link);
     const { onDone } = await open(commission);
     await fireEvent.press(screen.getByText(t('matter.paste')));
-    await waitFor(() => expect(onDone).toHaveBeenCalledWith(link));
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith(link), { timeout: 4000 });
   });
 
   it('rejects a pasted value that is not a code', async () => {

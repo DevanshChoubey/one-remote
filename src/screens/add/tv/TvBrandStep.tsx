@@ -1,26 +1,38 @@
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Box, Button, Column, Screen, Touchable, Txt } from '@/ui';
+import { Button, Column, OptionCard, Screen } from '@/ui';
 
 export function TvBrandStep(props: { onFind: () => void; onManual: () => void }): ReactElement {
   const router = useRouter();
   const { tvBrands } = useServices();
+  // The first brand is picked to begin with, as in the mock; Continue ('Find my TV') goes on.
+  const [picked, setPicked] = useState<string | undefined>(tvBrands[0]?.kind);
   return (
-    <Screen title={t('addTv.title')} onBack={() => router.back()} scroll>
+    <Screen
+      title={t('addTv.title')}
+      onBack={() => router.back()}
+      scroll
+      footer={
+        <Column gap={2}>
+          <Button label={t('addTv.findMine')} onPress={props.onFind} />
+          <Button label={t('addTv.typeAddress')} variant="ghost" onPress={props.onManual} />
+        </Column>
+      }
+    >
       <Column gap={3}>
-        <Button label={t('addTv.findMine')} onPress={props.onFind} />
-        {tvBrands.map((b) => (
-          <Touchable key={b.kind} onPress={props.onFind} accessibilityLabel={t(b.labelKey)}>
-            <Box bg="surface" border="line" radius="md" p={4}>
-              <Txt variant="bodyBold">{t(b.labelKey)}</Txt>
-            </Box>
-          </Touchable>
+        {tvBrands.map((b, i) => (
+          <OptionCard
+            key={b.kind}
+            index={i}
+            icon="tv"
+            title={t(b.labelKey)}
+            selected={picked === b.kind}
+            onPress={() => setPicked(b.kind)}
+          />
         ))}
-        <Touchable onPress={props.onManual} accessibilityLabel={t('addTv.typeAddress')}>
-          <Txt color="accent">{t('addTv.typeAddress')}</Txt>
-        </Touchable>
       </Column>
     </Screen>
   );

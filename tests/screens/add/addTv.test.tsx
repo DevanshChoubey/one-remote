@@ -1,9 +1,16 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { useState } from 'react';
+import type { ReactElement } from 'react';
+import { Linking, Platform } from 'react-native';
 import type { FoundTv, Link, PairedTv } from '@/core';
 import { DeviceError, PairError } from '@/core';
 import { createFakeDriver } from '@/device/testing/fakeDriver';
 import { t } from '@/i18n';
 import { AddTvFlow } from '@/screens/add/tv/AddTvFlow';
+import { SEARCH_MS } from '@/screens/add/tv/FindTvStep';
+import { PairTvStep } from '@/screens/add/tv/PairTvStep';
+import { darkTokens, lightTokens, ThemeProvider } from '@/theme';
+import { OtpCells, PairRing, Radar } from '@/ui/addtv';
 import { createServices } from '@/services';
 import type { Services } from '@/services';
 import { createMemoryStore } from '@/store/memoryStore';
@@ -55,6 +62,11 @@ const androidtvBrand = {
   labelKey: 'addTv.brandAndroidTv',
   pairing: 'code' as const,
 };
+const samsungBrand = {
+  kind: 'samsung' as const,
+  labelKey: 'addTv.brandSamsung',
+  pairing: 'allow' as const,
+};
 const webosBrand = { kind: 'webos' as const, labelKey: 'addTv.brandLg', pairing: 'allow' as const };
 const atv: FoundTv = { kind: 'androidtv', host: '192.168.1.20', name: 'Sony', secure: true };
 
@@ -76,7 +88,7 @@ async function rig(opts: { ir?: boolean } = {}): Promise<Rig> {
     prefs: createMemoryPreferenceStore(),
     drivers,
     tv: setup,
-    tvBrands: [webosBrand, androidtvBrand],
+    tvBrands: [webosBrand, androidtvBrand, samsungBrand],
   });
   await s.store.upsertRoom(room('r1', 'Living room', 0));
   return { s, setup, stopped: fake.stopped, found: (tv) => act(async () => fake.found(tv)) };
@@ -87,6 +99,11 @@ const hang = (): Promise<PairedTv> => new Promise(() => undefined);
 const toFind = async (): Promise<void> => {
   await fireEvent.press(screen.getByLabelText(t('addTv.findMine')));
 };
+
+afterEach(() => {
+  jest.useRealTimers();
+  jest.restoreAllMocks();
+});
 
 beforeEach(() => {
   mockReplace.mockClear();
@@ -105,6 +122,20 @@ describe('Add TV flow', () => {
     expect(screen.getByText(t('addTv.findTitle'))).toBeTruthy();
   });
 
+  it('picking a brand only selects it; Find my TV goes on', async () => {
+    const r = await rig();
+    await renderWith(r.s, <AddTvFlow />);
+    expect(screen.getByLabelText(t('addTv.brandLg')).props.accessibilityState.selected).toBe(true);
+    await fireEvent.press(screen.getByLabelText(t('addTv.brandAndroidTv')));
+    expect(screen.getByLabelText(t('addTv.brandAndroidTv')).props.accessibilityState.selected).toBe(
+      true,
+    );
+    expect(screen.getByLabelText(t('addTv.brandLg')).props.accessibilityState.selected).toBe(false);
+    expect(screen.queryByText(t('addTv.findTitle'))).toBeNull();
+    await toFind();
+    expect(screen.getByText(t('addTv.findTitle'))).toBeTruthy();
+  });
+
   it('goes to the manual step from the brand step', async () => {
     const r = await rig();
     await renderWith(r.s, <AddTvFlow />);
@@ -116,9 +147,10 @@ describe('Add TV flow', () => {
     const r = await rig();
     await renderWith(r.s, <AddTvFlow />);
     await toFind();
-    expect(screen.getByText(t('addTv.sameWifi'))).toBeTruthy();
+    expect(screen.getByText(t('addTv.findBody'))).toBeTruthy();
     await r.found(atv);
-    expect(screen.getByText('Google TV / Android TV · 192.168.1.20')).toBeTruthy();
+    expect(screen.getByText(t('addTv.brandAndroidTv'))).toBeTruthy();
+    expect(screen.getByText('192.168.1.20')).toBeTruthy();
   });
 
   describe('code pairing', () => {
@@ -421,6 +453,7 @@ describe('Add TV flow', () => {
   });
 
   it('deletes the key of a pairing that finishes after the step was left', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
     const r = await rig();
     let finish: (p: PairedTv) => void = () => undefined;
     r.setup.pair.mockImplementationOnce(() => new Promise<PairedTv>((res) => (finish = res)));
@@ -431,10 +464,348 @@ describe('Add TV flow', () => {
     await toFind();
     await r.found(lg);
     await fireEvent.press(screen.getByLabelText('LG OLED C4, 192.168.1.23'));
+    await act(async () => {
+      jest.advanceTimersByTime(15000);
+    });
     await fireEvent.press(screen.getByLabelText(t('addTv.promptMissing')));
     await act(async () => finish(paired()));
-    await waitFor(async () => expect(await r.s.secrets.get('key-new')).toBeNull());
+    // Under fake timers waitFor is unreliable here: let the deletes settle by hand.
+    await act(async () => {
+      for (let i = 0; i < 20; i++) await Promise.resolve();
+    });
+    expect(await r.s.secrets.get('key-new')).toBeNull();
     expect(await r.s.secrets.get('key-new:usn')).toBeNull();
     expect(screen.queryByDisplayValue('LG OLED C4')).toBeNull();
+  });
+});
+
+describe('Add TV, as in the mock', () => {
+  const searchEnds = async (): Promise<void> => {
+    await act(async () => {
+      jest.advanceTimersByTime(SEARCH_MS);
+    });
+  };
+
+  it('says Paired after a first pairing', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    const r = await rig();
+    await renderWith(r.s, <AddTvFlow />);
+    await toFind();
+    await r.found(lg);
+    await fireEvent.press(screen.getByLabelText('LG OLED C4, 192.168.1.23'));
+    expect(await screen.findByText(t('addTv.pairedFirst'))).toBeTruthy();
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(await screen.findByDisplayValue('LG OLED C4')).toBeTruthy();
+  });
+
+  it('says Paired again when pairing a TV that is already added', async () => {
+    const r = await rig();
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    await renderWith(r.s, <PairTvStep tv={lg} again onPaired={jest.fn()} onBack={jest.fn()} />);
+    expect(await screen.findByText(t('addTv.paired'))).toBeTruthy();
+    expect(screen.queryByText(t('addTv.pairedFirst'))).toBeNull();
+  });
+
+  it('shows the prompt-missing link only after 15 seconds', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    const r = await rig();
+    r.setup.pair.mockImplementationOnce(hang);
+    await renderWith(r.s, <PairTvStep tv={lg} onPaired={jest.fn()} onBack={jest.fn()} />);
+    expect(screen.queryByLabelText(t('addTv.promptMissing'))).toBeNull();
+    await act(async () => {
+      jest.advanceTimersByTime(15000);
+    });
+    expect(screen.getByLabelText(t('addTv.promptMissing'))).toBeTruthy();
+  });
+
+  it('shows the pairing ring with the seconds left', async () => {
+    const r = await rig();
+    await renderWith(r.s, <PairRing secondsLeft={42} total={60} phase="wait" />);
+    expect(screen.getByText('42')).toBeTruthy();
+    expect(screen.getByTestId('pair-ring-arc')).toBeTruthy();
+  });
+
+  describe('Radar', () => {
+    it('pings three rings while searching', async () => {
+      const r = await rig();
+      await renderWith(r.s, <Radar searching />);
+      expect(screen.getAllByTestId('radar-ping')).toHaveLength(3);
+    });
+
+    it('draws no rings at rest', async () => {
+      const r = await rig();
+      await renderWith(r.s, <Radar searching={false} />);
+      expect(screen.queryAllByTestId('radar-ping')).toHaveLength(0);
+      expect(screen.getByTestId('radar-core')).toBeTruthy();
+    });
+
+    it('draws no rings under reduced motion, and the core still shows', async () => {
+      const r = await rig();
+      await renderWith(r.s, <Radar searching />, { reducedMotion: true });
+      expect(screen.queryAllByTestId('radar-ping')).toHaveLength(0);
+      expect(screen.getByTestId('radar-core')).toBeTruthy();
+    });
+
+    it('stops the rings when reduced motion turns on while searching', async () => {
+      const ui = (reduced: boolean) => (
+        <ThemeProvider scheme="light" reducedMotion={reduced}>
+          <Radar searching />
+        </ThemeProvider>
+      );
+      const view = await render(ui(false));
+      expect(screen.getAllByTestId('radar-ping')).toHaveLength(3);
+      await view.rerender(ui(true));
+      expect(screen.queryAllByTestId('radar-ping')).toHaveLength(0);
+      expect(screen.getByTestId('radar-core')).toBeTruthy();
+    });
+
+    it('has an accent core in the dark theme', async () => {
+      const r = await rig();
+      await renderWith(r.s, <Radar searching />, { scheme: 'dark' });
+      expect(screen.getByTestId('radar-core')).toHaveStyle({
+        backgroundColor: darkTokens.color.accent,
+      });
+    });
+  });
+
+  describe('Local Network off', () => {
+    const search = async (os: 'ios' | 'android'): Promise<Rig> => {
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+      jest.replaceProperty(Platform, 'OS', os);
+      const r = await rig();
+      await renderWith(r.s, <AddTvFlow />);
+      await toFind();
+      await searchEnds();
+      return r;
+    };
+
+    it('explains it on iOS when a search ends with nothing, and opens Settings', async () => {
+      const open = jest.spyOn(Linking, 'openSettings').mockResolvedValue();
+      await search('ios');
+      expect(screen.getByText(t('addTv.localNetworkOff'))).toBeTruthy();
+      await fireEvent.press(screen.getByLabelText(t('common.openSettings')));
+      expect(open).toHaveBeenCalledTimes(1);
+      expect(screen.getByText(t('addTv.sameWifi'))).toBeTruthy();
+    });
+
+    it('does not mention it on Android', async () => {
+      await search('android');
+      expect(screen.queryByText(t('addTv.localNetworkOff'))).toBeNull();
+      expect(screen.queryByLabelText(t('common.openSettings'))).toBeNull();
+      expect(screen.getByText(t('addTv.sameWifi'))).toBeTruthy();
+    });
+
+    it('does not mention it before the search ends, or when a TV answered', async () => {
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+      jest.replaceProperty(Platform, 'OS', 'ios');
+      const r = await rig();
+      await renderWith(r.s, <AddTvFlow />);
+      await toFind();
+      expect(screen.queryByText(t('addTv.localNetworkOff'))).toBeNull();
+      await r.found(lg);
+      await searchEnds();
+      expect(screen.queryByText(t('addTv.localNetworkOff'))).toBeNull();
+    });
+  });
+
+  describe('Code cells', () => {
+    it('shows the typed characters upper-cased and keeps the label on the one input', async () => {
+      const r = await rig();
+      const onChange = jest.fn();
+      await renderWith(
+        r.s,
+        <OtpCells
+          value="a1b"
+          length={6}
+          invalid={false}
+          onChange={onChange}
+          accessibilityLabel={t('addTv.codeTitle')}
+        />,
+      );
+      expect(screen.getByText('A')).toBeTruthy();
+      expect(screen.getByText('1')).toBeTruthy();
+      await fireEvent.changeText(screen.getByLabelText(t('addTv.codeTitle')), 'a1b2');
+      expect(onChange).toHaveBeenCalledWith('a1b2');
+      expect(screen.getByTestId('otp-cell-3')).toHaveStyle({
+        backgroundColor: lightTokens.color.accent,
+      });
+      expect(screen.getByTestId('otp-cell-0')).toHaveStyle({
+        backgroundColor: lightTokens.color.line,
+      });
+    });
+
+    it('rings the cells in danger when the code is wrong', async () => {
+      const r = await rig();
+      await renderWith(
+        r.s,
+        <OtpCells
+          value="abcdef"
+          length={6}
+          invalid
+          onChange={jest.fn()}
+          accessibilityLabel={t('addTv.codeTitle')}
+        />,
+      );
+      expect(screen.getByTestId('otp-cell-0')).toHaveStyle({
+        backgroundColor: lightTokens.color.danger,
+      });
+    });
+
+    it('shows the wrong-code line and cells on the flow', async () => {
+      const r = await rig();
+      r.setup.pair.mockImplementationOnce(async (_tv, prompts) => {
+        await prompts.askCode(false);
+        await prompts.askCode(true);
+        return paired();
+      });
+      await renderWith(r.s, <AddTvFlow />);
+      await toFind();
+      await r.found(atv);
+      await fireEvent.press(screen.getByLabelText('Sony, 192.168.1.20'));
+      await fireEvent.changeText(screen.getByLabelText(t('addTv.codeTitle')), 'zzzzzz');
+      await fireEvent.press(screen.getByLabelText(t('addTv.codePair')));
+      expect(await screen.findByText(t('addTv.codeWrong'))).toBeTruthy();
+      expect(screen.getByTestId('otp-cell-0')).toHaveStyle({
+        backgroundColor: lightTokens.color.danger,
+      });
+    });
+  });
+});
+
+describe('Add TV, Samsung and the success hold', () => {
+  const samsung: FoundTv = {
+    kind: 'samsung',
+    host: '192.168.1.41',
+    name: 'Samsung Crystal',
+    secure: true,
+  };
+  const samsungPaired: PairedTv = {
+    link: {
+      kind: 'samsung',
+      host: samsung.host,
+      tokenRef: 'samsung-token',
+      pinSha256: 'pin-s',
+    },
+    suggestedName: 'Samsung Crystal',
+  };
+  const fake = (): void => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+  };
+  /** Mounts the step and hands back a way to leave it (unmount it) like Back does. */
+  function Gate(props: {
+    children: ReactElement;
+    leave: { current: () => void };
+  }): ReactElement | null {
+    const [open, setOpen] = useState(true);
+    props.leave.current = () => setOpen(false);
+    return open ? props.children : null;
+  }
+  const flush = (): Promise<void> =>
+    act(async () => {
+      for (let i = 0; i < 20; i++) await Promise.resolve();
+    });
+
+  it('lists the three brands, finds a Samsung and pairs it with the Allow ring', async () => {
+    fake();
+    const r = await rig();
+    r.setup.pair.mockResolvedValueOnce(samsungPaired);
+    await renderWith(r.s, <AddTvFlow />);
+    expect(screen.getByLabelText(t('addTv.brandLg'))).toBeTruthy();
+    expect(screen.getByLabelText(t('addTv.brandAndroidTv'))).toBeTruthy();
+    expect(screen.getByLabelText(t('addTv.brandSamsung'))).toBeTruthy();
+    await toFind();
+    await r.found(samsung);
+    expect(screen.getByText(t('addTv.brandSamsung'))).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Samsung Crystal, 192.168.1.41'));
+    expect(await screen.findByText(t('addTv.pairedFirst'))).toBeTruthy();
+    expect(screen.getByTestId('pair-ring')).toBeTruthy();
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(await screen.findByDisplayValue('Samsung Crystal')).toBeTruthy();
+  });
+
+  it('delivers the result once, after the hold', async () => {
+    fake();
+    const r = await rig();
+    const onPaired = jest.fn();
+    await renderWith(r.s, <PairTvStep tv={lg} onPaired={onPaired} onBack={jest.fn()} />);
+    await flush();
+    expect(onPaired).not.toHaveBeenCalled();
+    await act(async () => {
+      jest.advanceTimersByTime(599);
+    });
+    expect(onPaired).not.toHaveBeenCalled();
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+    });
+    expect(onPaired).toHaveBeenCalledTimes(1);
+    expect(onPaired).toHaveBeenCalledWith(paired());
+  });
+
+  it('deletes the key when the step is left during the hold', async () => {
+    fake();
+    const r = await rig();
+    await r.s.secrets.set('key-new', 'secret');
+    await r.s.secrets.set('key-new:usn', 'u1');
+    const onPaired = jest.fn();
+    const leave = { current: () => undefined };
+    await renderWith(
+      r.s,
+      <Gate leave={leave}>
+        <PairTvStep tv={lg} onPaired={onPaired} onBack={jest.fn()} />
+      </Gate>,
+    );
+    await flush();
+    await act(async () => leave.current());
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+    });
+    await flush();
+    expect(onPaired).not.toHaveBeenCalled();
+    expect(await r.s.secrets.get('key-new')).toBeNull();
+    expect(await r.s.secrets.get('key-new:usn')).toBeNull();
+  });
+
+  it('deletes a Samsung token when the step is left during the hold', async () => {
+    fake();
+    const r = await rig();
+    r.setup.pair.mockResolvedValueOnce(samsungPaired);
+    await r.s.secrets.set('samsung-token', 'tok');
+    const leave = { current: () => undefined };
+    await renderWith(
+      r.s,
+      <Gate leave={leave}>
+        <PairTvStep tv={samsung} onPaired={jest.fn()} onBack={jest.fn()} />
+      </Gate>,
+    );
+    await flush();
+    await act(async () => leave.current());
+    await flush();
+    expect(await r.s.secrets.get('samsung-token')).toBeNull();
+  });
+
+  it('keeps Pair disabled until the code is full', async () => {
+    const r = await rig();
+    r.setup.pair.mockImplementationOnce(async (_tv, prompts) => {
+      await prompts.askCode(false);
+      return paired();
+    });
+    await renderWith(r.s, <AddTvFlow />);
+    await toFind();
+    await r.found(atv);
+    await fireEvent.press(screen.getByLabelText('Sony, 192.168.1.20'));
+    await screen.findByLabelText(t('addTv.codeTitle'));
+    await waitFor(() => expect(screen.getByLabelText(t('addTv.codePair'))).toBeEnabled()).catch(
+      () => undefined,
+    );
+    const pair = (): ReturnType<typeof screen.getByLabelText> =>
+      screen.getByLabelText(t('addTv.codePair'));
+    await fireEvent.changeText(screen.getByLabelText(t('addTv.codeTitle')), 'a1b');
+    expect(pair().props.accessibilityState.disabled).toBe(true);
+    await fireEvent.changeText(screen.getByLabelText(t('addTv.codeTitle')), 'a1b2c3');
+    expect(pair().props.accessibilityState.disabled).toBe(false);
   });
 });

@@ -76,6 +76,8 @@ export interface TvState {
   volume?: number;
   muted?: boolean;
   inputs?: TvInput[];
+  /** The id of the input the TV is showing now (no driver sets it yet). */
+  currentInputId?: string;
 }
 
 export type Command =

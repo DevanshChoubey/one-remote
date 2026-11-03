@@ -1,35 +1,51 @@
 import type { ReactElement } from 'react';
 import type { TvInput } from '@/core';
 import { t } from '@/i18n';
-import { Button, Column, Txt } from '@/ui';
+import { Button, Group, ListItem, Sheet, Txt } from '@/ui';
 
-/** The TV's inputs as buttons; picking one switches the TV to it and closes the sheet. Inputs with
- *  nothing plugged in are still listed (the TV may not detect every device), but look secondary. */
+/** The TV's inputs in a sheet; picking one switches the TV to it and closes the sheet. The one the
+ *  TV shows now is marked, and inputs with nothing plugged in are listed but cannot be picked. */
 export function InputSheet(props: {
+  open: boolean;
+  onClosed: () => void;
   inputs: TvInput[] | undefined;
+  currentInputId?: string;
   onPick: (inputId: string) => void;
   onDone: () => void;
 }): ReactElement {
   const inputs = props.inputs ?? [];
   return (
-    <Column gap={3} testID="tv-inputs">
-      <Txt variant="heading">{t('tv.inputsTitle')}</Txt>
-      {inputs.length === 0 ? <Txt>{t('tv.inputsNone')}</Txt> : null}
-      {inputs.map((input) => (
-        <Button
-          key={input.id}
-          label={input.label}
-          variant={input.connected ? 'primary' : 'secondary'}
-          accessibilityLabel={
-            input.connected ? input.label : t('tv.inputEmpty', { label: input.label })
-          }
-          onPress={() => {
-            props.onPick(input.id);
-            props.onDone();
-          }}
-        />
-      ))}
-      <Button label={t('tv.inputsDone')} variant="ghost" onPress={props.onDone} />
-    </Column>
+    <Sheet
+      open={props.open}
+      onClosed={props.onClosed}
+      onClose={props.onDone}
+      title={t('tv.inputsTitle')}
+      testID="tv-inputs"
+      footer={<Button label={t('common.done')} variant="secondary" onPress={props.onDone} />}
+    >
+      {inputs.length === 0 ? (
+        <Txt>{t('tv.inputsNone')}</Txt>
+      ) : (
+        <Group>
+          {inputs.map((input) => (
+            <ListItem
+              key={input.id}
+              title={input.label}
+              accessibilityLabel={
+                input.connected ? input.label : t('tv.inputEmpty', { label: input.label })
+              }
+              disabled={!input.connected}
+              {...(input.id === props.currentInputId
+                ? { badge: { label: t('tv.inputNow'), tone: 'accent' as const } }
+                : {})}
+              onPress={() => {
+                props.onPick(input.id);
+                props.onDone();
+              }}
+            />
+          ))}
+        </Group>
+      )}
+    </Sheet>
   );
 }

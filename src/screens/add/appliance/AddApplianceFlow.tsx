@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import type { BrandInfo, Device, Link } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
 import { Screen, Txt } from '@/ui';
+import { newId } from '../../shared/newId';
 import { useHomeData } from '../../shared/useHomeData';
 import { NameRoomStep } from '../NameRoomStep';
 import { BrandStep } from './BrandStep';
@@ -16,6 +17,9 @@ import type { FlowEnv, FlowStep } from './flow';
 
 export interface MatterStepProps {
   brandId: string;
+  /** The device has joined: hand the link over at once, so leaving during the success hold loses nothing. */
+  onLink(link: Extract<Link, { kind: 'matter' }>): void;
+  /** The success hold is over: move to the next step. */
   onDone(link: Extract<Link, { kind: 'matter' }>): void;
   onSkip(): void;
 }
@@ -87,6 +91,40 @@ function Flow(props: FlowProps): ReactElement {
     brandName: (id) => brandOf(id)?.name ?? id,
   };
 
+  // A commissioned device is in the fabric already: if the flow is left before it is named, it is
+  // saved with its suggested name in the first room rather than lost (a factory reset otherwise).
+  const [commissioned, setCommissioned] = useState<{
+    link: Extract<Link, { kind: 'matter' }>;
+    brandId: string;
+  } | null>(null);
+  const saved = useRef(false);
+  const rescue = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    rescue.current = (): void => {
+      const c = commissioned;
+      if (!c || saved.current) return;
+      saved.current = true;
+      Promise.all([store.rooms(), store.devices()])
+        .then(([rooms, devices]) => {
+          const room = [...rooms].sort((a, b) => a.order - b.order)[0];
+          if (!room) return undefined;
+          const order = devices
+            .filter((d) => d.roomId === room.id)
+            .reduce((m, d) => Math.max(m, d.order + 1), 0);
+          return store.upsertDevice({
+            id: newId(),
+            kind,
+            links: [c.link],
+            name: suggestedName(c.brandId, env),
+            roomId: room.id,
+            order,
+          });
+        })
+        .catch((e: unknown) => console.error('Could not save the new device', e));
+    };
+  });
+  useEffect(() => () => rescue.current(), []);
+
   const go = (next: FlowStep): void => setHistory((h) => [...h, next]);
   const back = (): void => {
     if (history.length > 1) setHistory((h) => h.slice(0, -1));
@@ -123,12 +161,23 @@ function Flow(props: FlowProps): ReactElement {
 
   switch (step.name) {
     case 'brand':
-      return <BrandStep brands={brands} onPick={(b) => go(afterBrand(b, env))} onBack={back} />;
+      return (
+        <BrandStep
+          brands={brands}
+          kind={kind}
+          onPick={(b) => go(afterBrand(b, env))}
+          onBack={back}
+        />
+      );
     case 'matter':
       return (
         <>
           {props.renderMatterStep?.({
             brandId: step.brandId,
+            onLink: (link) => {
+              setMatterLink(link);
+              setCommissioned({ link, brandId: step.brandId });
+            },
             onDone: (link) => {
               setMatterLink(link);
               go(afterMatter(step.brandId, link, env));
@@ -195,7 +244,18 @@ function Flow(props: FlowProps): ReactElement {
           draft={{ kind, links: step.links }}
           suggestedName={step.suggestedName}
           onBack={back}
-          onDone={home}
+          onSaving={(saving) => {
+            // The named save is under way: leaving now must not add a second, rescued copy.
+            // If it fails, the rescue is armed again.
+            saved.current = true;
+            saving.catch(() => {
+              saved.current = false;
+            });
+          }}
+          onDone={() => {
+            saved.current = true;
+            home();
+          }}
         />
       );
   }

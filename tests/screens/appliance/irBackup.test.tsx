@@ -56,6 +56,13 @@ async function testAndConfirm(): Promise<void> {
   await press(t('addAppliance.yes'));
 }
 
+/** Answers one press: Test, then No (No shows only after a send). */
+async function testAndRefuse(): Promise<void> {
+  await press(t('addAppliance.test'));
+  await waitFor(() => expect(yesEnabled()).toBe(true));
+  await press(t('addAppliance.no'));
+}
+
 beforeEach(() => {
   mockPush.mockClear();
   mockDismiss.mockClear();
@@ -114,8 +121,8 @@ describe('IR backup flow (replaceIrOn)', () => {
     await renderWith(s, <AddApplianceFlow kind="ac" replaceIrOn="d1" />);
     await fireEvent.press(await screen.findByLabelText('Panasonic'));
     // Candidates run dke, jke, nke: say no twice, then confirm nke.
-    await press(t('addAppliance.no'));
-    await press(t('addAppliance.no'));
+    await testAndRefuse();
+    await testAndRefuse();
     expect(await screen.findByText('Panasonic · try 3 of 5')).toBeTruthy();
     await testAndConfirm();
     await testAndConfirm();
@@ -132,8 +139,8 @@ describe('IR backup flow (replaceIrOn)', () => {
     const s = await setup(true, ac([{ kind: 'ir', remoteId: 'panasonic-ac/dke' }]));
     await renderWith(s, <AddApplianceFlow kind="ac" replaceIrOn="d1" />);
     expect(await screen.findByText('Panasonic · try 1 of 5')).toBeTruthy();
-    await press(t('addAppliance.no'));
-    await press(t('addAppliance.no'));
+    await testAndRefuse();
+    await testAndRefuse();
     await testAndConfirm();
     await testAndConfirm();
     await waitFor(async () =>

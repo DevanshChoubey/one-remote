@@ -43,5 +43,8 @@ export default {
   notFound: "Couldn't find the TV on this Wi-Fi",
   pairAgain: 'Pair again',
   paired: 'Paired again',
+  pairedFirst: 'Paired',
+  localNetworkOff:
+    'Local Network is off for One Remote. Turn it on in Settings › Privacy & Security › Local Network.',
   saveFailed: "That didn't save. Try again.",
 } as const;

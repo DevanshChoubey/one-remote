@@ -1,14 +1,17 @@
 import type { ReactElement } from 'react';
-import { ActivityIndicator } from 'react-native';
-import { useTheme } from '@/theme';
 import type { ColorToken } from '@/theme';
-import { Box, Row, Touchable, Txt } from './primitives';
+import { Icon } from './Icon';
+import type { IconName } from './Icon';
+import { Row, Touchable, Txt } from './primitives';
+import { Spinner } from './Spinner';
 
 export interface ButtonProps {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost';
-  icon?: string;
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  /** `key` is 56 px and full width; `small` is 48 px and as wide as its label. */
+  size?: 'key' | 'small';
+  icon?: IconName;
   disabled?: boolean;
   loading?: boolean;
   selected?: boolean;
@@ -18,43 +21,43 @@ export interface ButtonProps {
 
 const LOOK: Record<
   NonNullable<ButtonProps['variant']>,
-  { bg?: ColorToken; border?: ColorToken; text: ColorToken }
+  { bg?: ColorToken; border?: ColorToken; text: ColorToken; pressed: ColorToken }
 > = {
-  primary: { bg: 'accent', text: 'accentInk' },
-  secondary: { bg: 'surface2', border: 'line', text: 'ink' },
-  ghost: { text: 'accent' },
+  primary: { bg: 'accent', text: 'accentInk', pressed: 'accentPressed' },
+  secondary: { bg: 'surface2', border: 'line', text: 'ink', pressed: 'surface2Pressed' },
+  ghost: { text: 'accent', pressed: 'accentSoft' },
+  danger: { bg: 'dangerSoft', border: 'dangerLine', text: 'dangerInk', pressed: 'dangerLine' },
 };
 
 export function Button(props: ButtonProps): ReactElement {
-  const theme = useTheme();
   const look = LOOK[props.variant ?? 'primary'];
-  const blocked = props.disabled === true || props.loading === true;
+  const small = props.size === 'small' || props.variant === 'ghost';
+  const loading = props.loading === true;
+  const blocked = props.disabled === true || loading;
   return (
     <Touchable
       onPress={props.onPress}
       accessibilityLabel={props.accessibilityLabel ?? props.label}
       disabled={blocked}
       selected={props.selected}
-      busy={props.loading === true ? true : undefined}
+      busy={loading ? true : undefined}
+      noDim={loading && props.disabled !== true}
+      bg={look.bg}
+      border={look.border}
+      radius="pill"
+      pressedBg={look.pressed}
+      alignSelf={small ? 'flex-start' : undefined}
     >
-      <Box bg={look.bg} border={look.border} radius="pill" px={6} py={4}>
-        <Row gap={2} align="center" justify="center">
-          {props.loading ? (
-            <ActivityIndicator
-              color={theme.color[look.text]}
-              accessible={false}
-              importantForAccessibility="no"
-            />
-          ) : props.icon ? (
-            <Txt variant="bodyBold" color={look.text}>
-              {props.icon}
-            </Txt>
-          ) : null}
-          <Txt variant="bodyBold" color={look.text}>
-            {props.label}
-          </Txt>
-        </Row>
-      </Box>
+      <Row gap={2} align="center" justify="center" px={small ? 5 : 6} minH={small ? 48 : 56}>
+        {props.loading ? (
+          <Spinner size="sm" color={look.text} />
+        ) : props.icon ? (
+          <Icon name={props.icon} size={20} color={look.text} />
+        ) : null}
+        <Txt variant="bodyBold" color={look.text}>
+          {props.label}
+        </Txt>
+      </Row>
     </Touchable>
   );
 }

@@ -3,6 +3,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { createServices, ServicesProvider } from '@/services';
 import type { Preferences, Services } from '@/services';
 import { ThemeProvider } from '@/theme';
+import { ToastProvider } from '@/ui';
 
 export interface AppProvidersProps {
   children: ReactNode;
@@ -35,7 +36,11 @@ function ThemeFromPrefs(props: { services: Services; children: ReactNode }): Rea
       stop();
     };
   }, [prefs]);
-  return <ThemeProvider preference={theme}>{props.children}</ThemeProvider>;
+  return (
+    <ThemeProvider preference={theme}>
+      <ToastProvider>{props.children}</ToastProvider>
+    </ThemeProvider>
+  );
 }
 
 export function AppProviders(props: AppProvidersProps): ReactElement {

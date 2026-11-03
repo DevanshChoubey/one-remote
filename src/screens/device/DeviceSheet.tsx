@@ -5,7 +5,21 @@ import { isTvLink } from '@/core';
 import type { Device, Link } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Box, Button, Chip, Column, Input, Row, Screen, Txt } from '@/ui';
+import {
+  Box,
+  Button,
+  Chip,
+  Column,
+  ErrorLine,
+  Field,
+  Group,
+  ListItem,
+  Row,
+  Sheet,
+  Skeleton,
+  Txt,
+  useToast,
+} from '@/ui';
 import { useHomeData } from '../shared/useHomeData';
 import { DEVICE_ACTIONS, LINK_ACTIONS } from './linkActions';
 import type { DeviceActionRenderer, LinkActionRenderer } from './linkActions';
@@ -35,31 +49,64 @@ export function DeviceSheet(props: DeviceSheetProps): ReactElement {
   const router = useRouter();
   const data = useHomeData();
   const device = data.devices.find((d) => d.id === props.deviceId);
-  if (!data.loaded) return <Screen title={t('device.title')}>{null}</Screen>;
+  // Closing plays the exit first; the route pops once the Sheet reports it has finished.
+  const [open, setOpen] = useState(true);
+  const close = (): void => setOpen(false);
+  const closed = (): void => router.back();
+  if (!data.loaded) {
+    return (
+      <Sheet
+        open={open}
+        title={t('device.title')}
+        onClose={close}
+        onClosed={closed}
+        testID="device-sheet"
+      >
+        <Box gap={3} testID="device-skeleton">
+          <Skeleton width="40%" height={14} />
+          <Skeleton height={48} radius="md" />
+          <Skeleton width="70%" height={48} radius="md" />
+        </Box>
+      </Sheet>
+    );
+  }
   if (!device) {
     return (
-      <Screen title={t('device.title')} onBack={() => router.back()}>
+      <Sheet
+        open={open}
+        title={t('device.title')}
+        onClose={close}
+        onClosed={closed}
+        testID="device-sheet"
+      >
         <Txt color="ink2">{t('home.notFound')}</Txt>
-      </Screen>
+      </Sheet>
     );
   }
   return (
     <Sheet
-      key={device.id}
-      device={device}
-      rooms={data.rooms}
-      siblings={data.devices.filter((d) => d.roomId === device.roomId)}
-      actions={props.linkActions ?? LINK_ACTIONS}
-      deviceActions={props.deviceActions ?? DEVICE_ACTIONS}
-      store={store}
-      removeDevice={removeDevice}
-      onBack={() => router.back()}
-      onRemoved={() => router.dismissAll()}
-    />
+      open={open}
+      title={t('device.title')}
+      onClose={close}
+      onClosed={closed}
+      testID="device-sheet"
+    >
+      <Body
+        key={device.id}
+        device={device}
+        rooms={data.rooms}
+        siblings={data.devices.filter((d) => d.roomId === device.roomId)}
+        actions={props.linkActions ?? LINK_ACTIONS}
+        deviceActions={props.deviceActions ?? DEVICE_ACTIONS}
+        store={store}
+        removeDevice={removeDevice}
+        onRemoved={() => router.dismissAll()}
+      />
+    </Sheet>
   );
 }
 
-interface SheetProps {
+interface BodyProps {
   device: Device;
   rooms: ReturnType<typeof useHomeData>['rooms'];
   siblings: Device[];
@@ -67,11 +114,10 @@ interface SheetProps {
   deviceActions: readonly DeviceActionRenderer[];
   store: ReturnType<typeof useServices>['store'];
   removeDevice: ReturnType<typeof useServices>['removeDevice'];
-  onBack: () => void;
   onRemoved: () => void;
 }
 
-function Sheet({
+function Body({
   device,
   rooms,
   siblings,
@@ -79,12 +125,12 @@ function Sheet({
   deviceActions,
   store,
   removeDevice,
-  onBack,
   onRemoved,
-}: SheetProps): ReactElement {
+}: BodyProps): ReactElement {
   const [name, setName] = useState(device.name);
   const [confirming, setConfirming] = useState(false);
   const [failed, setFailed] = useState(false);
+  const toast = useToast();
 
   const run = (job: Promise<unknown>, then?: () => void): void => {
     job.then(
@@ -115,106 +161,126 @@ function Sheet({
   const remove = (): Promise<void> => removeDevice(device.id);
   const trimmed = name.trim();
 
-  return (
-    <Screen title={t('device.title')} onBack={onBack} scroll>
-      <Column gap={5}>
-        <Column gap={2}>
-          <Txt variant="bodyBold">{t('device.name')}</Txt>
-          <Input value={name} onChangeText={setName} accessibilityLabel={t('device.name')} />
-          <Button
-            label={t('device.saveName')}
-            variant="secondary"
-            disabled={trimmed === '' || trimmed === device.name}
-            onPress={() => run(store.upsertDevice({ ...device, name: trimmed }))}
-          />
-        </Column>
-
-        <Column gap={2}>
-          <Txt variant="bodyBold">{t('device.room')}</Txt>
-          <Row gap={2} wrap>
-            {rooms.map((r) => (
-              <Chip
-                key={r.id}
-                label={r.name}
-                state={r.id === device.roomId ? 'selected' : 'neutral'}
-                onToggle={() => changeRoom(r.id)}
-              />
-            ))}
-          </Row>
-        </Column>
-
-        <Column gap={2}>
-          <Txt variant="bodyBold">{t('device.order')}</Txt>
-          <Row gap={2}>
-            <Button
-              label={t('device.moveUp')}
-              variant="secondary"
-              disabled={index <= 0}
-              onPress={() => move(index - 1)}
-            />
-            <Button
-              label={t('device.moveDown')}
-              variant="secondary"
-              disabled={index < 0 || index >= ordered.length - 1}
-              onPress={() => move(index + 1)}
-            />
-          </Row>
-        </Column>
-
-        <Column gap={2}>
-          <Txt variant="bodyBold">{t('device.connected')}</Txt>
-          {device.links.map((link, i) => (
-            <Box key={`${link.kind}-${i}`} bg="surface" border="line" radius="md" p={4}>
-              <Column gap={2}>
-                <Row justify="between" align="center">
-                  <Column>
-                    <Txt variant="bodyBold">{t(LINK_LABEL[link.kind])}</Txt>
-                    {linkDetail(link) ? (
-                      <Txt variant="caption" color="ink2">
-                        {linkDetail(link)}
-                      </Txt>
-                    ) : null}
-                  </Column>
-                  <Txt variant="caption" color="ink2">
-                    {i === 0 ? t('device.main') : t('device.backup')}
-                  </Txt>
-                </Row>
-                {actions.map((render, n) => {
-                  const node = render({ device, link });
-                  return node ? <Box key={n}>{node}</Box> : null;
-                })}
-              </Column>
-            </Box>
-          ))}
-        </Column>
-
-        {deviceActions.map((render, n) => {
-          const node = render({ device });
-          return node ? <Box key={n}>{node}</Box> : null;
-        })}
-
-        {failed ? (
-          <Txt live color="ink2">
-            {t('device.failed')}
-          </Txt>
-        ) : null}
-
-        {confirming ? (
-          <Column gap={2}>
-            <Txt>{t('device.removeAsk', { name: device.name })}</Txt>
-            <Row gap={2}>
-              <Button
-                label={t('common.cancel')}
-                variant="secondary"
-                onPress={() => setConfirming(false)}
-              />
-              <Button label={t('device.confirmRemove')} onPress={() => run(remove(), onRemoved)} />
-            </Row>
-          </Column>
-        ) : (
-          <Button label={t('device.remove')} variant="ghost" onPress={() => setConfirming(true)} />
-        )}
+  if (confirming) {
+    return (
+      <Column gap={4}>
+        <Txt variant="heading">{t('device.removeAsk', { name: device.name })}</Txt>
+        {failed ? <ErrorLine text={t('device.failed')} /> : null}
+        <Button
+          label={t('device.confirmRemove')}
+          variant="danger"
+          onPress={() =>
+            run(remove(), () => {
+              toast.show(t('device.removed'), { kind: 'ok' });
+              onRemoved();
+            })
+          }
+        />
+        <Button
+          label={t('common.cancel')}
+          variant="secondary"
+          onPress={() => setConfirming(false)}
+        />
       </Column>
-    </Screen>
+    );
+  }
+
+  return (
+    <Column gap={5}>
+      <Row gap={2} align="end">
+        <Box flex={1}>
+          <Field label={t('device.name')} value={name} onChangeText={setName} />
+        </Box>
+        <Button
+          label={t('device.saveName')}
+          size="small"
+          variant="secondary"
+          disabled={trimmed === '' || trimmed === device.name}
+          onPress={() =>
+            run(store.upsertDevice({ ...device, name: trimmed }), () =>
+              toast.show(t('common.saved'), { kind: 'ok' }),
+            )
+          }
+        />
+      </Row>
+
+      <Column gap={2}>
+        <Txt variant="label" color="ink2">
+          {t('device.room')}
+        </Txt>
+        <Row gap={2} wrap>
+          {rooms.map((r) => (
+            <Chip
+              key={r.id}
+              label={r.name}
+              state={r.id === device.roomId ? 'selected' : 'neutral'}
+              onToggle={() => changeRoom(r.id)}
+            />
+          ))}
+        </Row>
+      </Column>
+
+      <Column gap={2}>
+        <Txt variant="label" color="ink2">
+          {t('device.order')}
+        </Txt>
+        <Row gap={2}>
+          <Button
+            label={t('device.moveUp')}
+            icon="up"
+            size="small"
+            variant="secondary"
+            disabled={index <= 0}
+            onPress={() => move(index - 1)}
+          />
+          <Button
+            label={t('device.moveDown')}
+            icon="down"
+            size="small"
+            variant="secondary"
+            disabled={index < 0 || index >= ordered.length - 1}
+            onPress={() => move(index + 1)}
+          />
+        </Row>
+      </Column>
+
+      <Group label={t('device.connected')}>
+        {device.links.map((link, i) => (
+          <Column key={`${link.kind}-${i}`}>
+            <ListItem
+              title={t(LINK_LABEL[link.kind])}
+              subtitle={linkDetail(link) ?? undefined}
+              badge={
+                i === 0
+                  ? { label: t('device.main'), tone: 'ok' }
+                  : { label: t('device.backup'), tone: 'neutral' }
+              }
+            />
+            {actions.map((render, n) => {
+              const node = render({ device, link });
+              return node ? (
+                <Box key={n} px={4} py={2}>
+                  {node}
+                </Box>
+              ) : null;
+            })}
+          </Column>
+        ))}
+      </Group>
+
+      {deviceActions.map((render, n) => {
+        const node = render({ device });
+        return node ? <Box key={n}>{node}</Box> : null;
+      })}
+
+      {failed ? <ErrorLine text={t('device.failed')} /> : null}
+
+      <Button
+        label={t('device.remove')}
+        variant="danger"
+        icon="trash"
+        onPress={() => setConfirming(true)}
+      />
+    </Column>
   );
 }

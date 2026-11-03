@@ -73,6 +73,37 @@ describe('i18n', () => {
     });
   });
 
+  it('has the mock copy', () => {
+    expect(common.tagline).toBe('Nothing leaves your home network.');
+    expect(common.openSettings).toBe('Open Settings');
+    expect(common.saved).toBe('Saved');
+    expect(addTv.pairedFirst).toBe('Paired');
+    expect(addTv.paired).toBe('Paired again');
+    expect(addTv.localNetworkOff).toBe(
+      'Local Network is off for One Remote. Turn it on in Settings › Privacy & Security › Local Network.',
+    );
+    expect(device.removed).toBe('Device removed');
+    expect(ac.offHint).toBe('Tap power to turn on');
+    expect(tv.inputNow).toBe('Now');
+    expect(tv.voiceSent).toBe('Sent to the TV');
+    expect([ac['mode.cool'], ac['mode.dry'], ac['mode.fan'], ac['mode.auto']]).toEqual([
+      'Cool',
+      'Dry',
+      'Fan',
+      'Auto',
+    ]);
+    expect([ac.swing, ac.sleep]).toEqual(['Swing', 'Sleep']);
+    expect(ac['status.connected']).toBe("Connected · how it's connected");
+    expect([fan.boost, fan.sleep, fan.light]).toEqual(['Boost', 'Sleep', 'Light']);
+    expect(fan['status.connected']).toBe("Connected · how it's connected");
+  });
+
+  it('has no emoji or glyph prefixes in AC and fan labels', () => {
+    for (const v of [...Object.values(ac), ...Object.values(fan)]) {
+      expect(v).not.toMatch(/[←-⯿\u{1F300}-\u{1FAFF}●]/u);
+    }
+  });
+
   it('throws on a missing key in dev', () => {
     expect(() => t('common.nope')).toThrow(/Missing translation key/);
     expect(() => t('nonsense.key')).toThrow();

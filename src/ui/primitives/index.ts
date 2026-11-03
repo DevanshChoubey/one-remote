@@ -1,8 +1,15 @@
+export { AnimatedBox } from './AnimatedBox';
+export type { AnimatedBoxProps } from './AnimatedBox';
 export { Box } from './Box';
 export type { BoxProps } from './Box';
 export { Column } from './Column';
 export { Input } from './Input';
+export type { InputProps } from './Input';
 export { Row } from './Row';
+export { Scroll } from './Scroll';
+export type { ScrollProps } from './Scroll';
 export { Spacer } from './Spacer';
 export { Touchable } from './Touchable';
+export type { TouchableProps } from './Touchable';
 export { Txt } from './Txt';
+export type { TxtProps } from './Txt';

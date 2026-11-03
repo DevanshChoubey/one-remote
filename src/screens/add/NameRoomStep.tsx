@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import type { Device } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Button, Chip, Column, Input, Row, Screen, Txt } from '@/ui';
+import { Button, Chip, Column, ErrorLine, Field, Row, Screen, Rise, Txt } from '@/ui';
 import { newId } from '../shared/newId';
 import { useHomeData } from '../shared/useHomeData';
 
@@ -11,6 +11,8 @@ export interface NameRoomStepProps {
   draft: Omit<Device, 'id' | 'name' | 'roomId' | 'order'>;
   suggestedName: string;
   onDone(d: Device): void;
+  /** Called as the device is written, with the write; a caller can tell the save is under way. */
+  onSaving?: (saving: Promise<void>) => void;
   onBack?: () => void;
 }
 
@@ -79,15 +81,15 @@ export function NameRoomStep(props: NameRoomStepProps): ReactElement {
           order: data.rooms.reduce((m, r) => Math.max(m, r.order + 1), 0),
         })
       : Promise.resolve();
-    roomFirst
-      .then(() => store.upsertDevice(device))
-      .then(
-        () => props.onDone(device),
-        () => {
-          setBusy(false);
-          setError(true);
-        },
-      );
+    const saving = roomFirst.then(() => store.upsertDevice(device));
+    props.onSaving?.(saving);
+    saving.then(
+      () => props.onDone(device),
+      () => {
+        setBusy(false);
+        setError(true);
+      },
+    );
   };
 
   return (
@@ -95,21 +97,20 @@ export function NameRoomStep(props: NameRoomStepProps): ReactElement {
       title={t('add.nameTitle')}
       onBack={props.onBack}
       scroll
-      footer={<Button label={t('common.done')} onPress={save} disabled={!canSave} />}
+      footer={
+        <Column gap={3}>
+          {error ? <ErrorLine text={t('add.saveFailed')} /> : null}
+          <Button label={t('common.done')} onPress={save} disabled={!canSave} />
+        </Column>
+      }
     >
       <Column gap={4}>
         <Txt color="ink2">{t('add.nameStep')}</Txt>
+        <Field label={t('add.name')} value={name} onChangeText={setName} onSubmitEditing={save} />
         <Column gap={2}>
-          <Txt variant="bodyBold">{t('add.name')}</Txt>
-          <Input
-            value={name}
-            onChangeText={setName}
-            accessibilityLabel={t('add.name')}
-            onSubmitEditing={save}
-          />
-        </Column>
-        <Column gap={2}>
-          <Txt variant="bodyBold">{t('add.room')}</Txt>
+          <Txt variant="label" color="ink2">
+            {t('add.room')}
+          </Txt>
           <Row gap={2} wrap>
             {data.rooms.map((r) => (
               <Chip
@@ -125,29 +126,26 @@ export function NameRoomStep(props: NameRoomStepProps): ReactElement {
               onToggle={() => setWantsNew(true)}
             />
           </Row>
-          {creating ? (
-            <Row gap={2} align="center">
+        </Column>
+        {creating ? (
+          <Rise>
+            <Row gap={2} align="end">
               <Column flex={1}>
-                <Input
+                <Field
+                  label={t('add.roomName')}
                   value={roomName}
                   onChangeText={setRoomName}
-                  accessibilityLabel={t('add.roomName')}
                   onSubmitEditing={createRoom}
                 />
               </Column>
               <Button
                 label={t('add.createRoom')}
-                variant="secondary"
+                size="small"
                 onPress={createRoom}
                 disabled={roomName.trim() === ''}
               />
             </Row>
-          ) : null}
-        </Column>
-        {error ? (
-          <Txt live color="ink2">
-            {t('add.saveFailed')}
-          </Txt>
+          </Rise>
         ) : null}
       </Column>
     </Screen>

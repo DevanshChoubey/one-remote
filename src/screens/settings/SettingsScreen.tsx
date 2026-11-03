@@ -1,13 +1,15 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactElement } from 'react';
 import { Platform } from 'react-native';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
 import type { Preferences } from '@/services';
-import { Box, Chip, Column, Row, Screen, Toggle, Touchable, Txt } from '@/ui';
+import { Banner, Box, Column, Group, ListItem, Screen, SegmentedControl, Toggle, Txt } from '@/ui';
 import { useHomeData } from '../shared/useHomeData';
 import { RoomsEditor } from './RoomsEditor';
+
+type Open = 'rooms' | 'privacy' | 'about';
 
 const THEMES = [
   { value: 'system', key: 'settings.themeSystem' },
@@ -43,107 +45,89 @@ function usePreferences(): Preferences | null {
   return current;
 }
 
-/** A row that opens its own detail underneath. */
-function Section(props: {
-  title: string;
-  hint?: string;
-  open: boolean;
-  onToggle: () => void;
-  children: ReactNode;
-}): ReactElement {
-  return (
-    <Column gap={2}>
-      <Touchable
-        onPress={props.onToggle}
-        accessibilityLabel={props.title}
-        accessibilityRole="button"
-        expanded={props.open}
-      >
-        <Row justify="between" align="center">
-          <Txt variant="bodyBold">{props.title}</Txt>
-          <Txt color="ink2">
-            {props.hint ? `${props.hint} ${props.open ? '⌃' : '›'}` : props.open ? '⌃' : '›'}
-          </Txt>
-        </Row>
-      </Touchable>
-      {props.open ? <Box>{props.children}</Box> : null}
-    </Column>
-  );
-}
-
 export function SettingsScreen(): ReactElement {
   const { prefs } = useServices();
   const router = useRouter();
   const current = usePreferences();
   const data = useHomeData();
-  const [open, setOpen] = useState<'rooms' | 'privacy' | 'about' | null>(null);
-  const toggle = (which: 'rooms' | 'privacy' | 'about'): void =>
-    setOpen((o) => (o === which ? null : which));
+  const [open, setOpen] = useState<Open | null>(null);
+  const toggle = (which: Open): void => setOpen((o) => (o === which ? null : which));
   const save = (p: Partial<Preferences>): void => {
     prefs.set(p).catch((e: unknown) => console.error('Could not save preferences', e));
   };
+
+  const row = (key: Open, title: string, subtitle?: string): ReactElement => (
+    <ListItem
+      title={title}
+      subtitle={subtitle}
+      trailing="expand"
+      expanded={open === key}
+      onPress={() => toggle(key)}
+    />
+  );
+  const volumeKeys =
+    Platform.OS === 'ios' ? null : (
+      <Box px={4} py={2} minH={56} justify="center">
+        <Toggle
+          label={t('settings.volumeKeys')}
+          value={current?.volumeKeys ?? true}
+          onChange={(v) => save({ volumeKeys: v })}
+        />
+      </Box>
+    );
 
   return (
     <Screen title={t('settings.title')} onBack={() => router.back()} scroll>
       <Column gap={5}>
         <Column gap={2}>
-          <Txt variant="bodyBold">{t('settings.theme')}</Txt>
-          <Row gap={2} wrap>
-            {THEMES.map((th) => (
-              <Chip
-                key={th.value}
-                label={t(th.key)}
-                state={current?.theme === th.value ? 'selected' : 'neutral'}
-                onToggle={() => save({ theme: th.value })}
-              />
-            ))}
-          </Row>
+          <Txt variant="label" color="ink2">
+            {t('settings.theme')}
+          </Txt>
+          <SegmentedControl
+            label={t('settings.theme')}
+            options={THEMES.map((th) => ({ value: th.value, label: t(th.key) }))}
+            value={current?.theme ?? 'system'}
+            onChange={(v) => save({ theme: v })}
+          />
         </Column>
 
-        {Platform.OS === 'ios' ? null : (
-          <Toggle
-            label={t('settings.volumeKeys')}
-            value={current?.volumeKeys ?? true}
-            onChange={(v) => save({ volumeKeys: v })}
-          />
-        )}
-        <Toggle
-          label={t('settings.haptics')}
-          value={current?.haptics ?? true}
-          onChange={(v) => save({ haptics: v })}
-        />
+        <Group>
+          {volumeKeys}
+          <Box px={4} py={2} minH={56} justify="center">
+            <Toggle
+              label={t('settings.haptics')}
+              value={current?.haptics ?? true}
+              onChange={(v) => save({ haptics: v })}
+            />
+          </Box>
+        </Group>
 
-        <Section
-          title={t('settings.rooms')}
-          hint={t('settings.roomsHint')}
-          open={open === 'rooms'}
-          onToggle={() => toggle('rooms')}
-        >
-          <RoomsEditor rooms={data.rooms} />
-        </Section>
-
-        <Section
-          title={t('settings.privacy')}
-          hint={t('settings.privacyHint')}
-          open={open === 'privacy'}
-          onToggle={() => toggle('privacy')}
-        >
-          <Txt color="ink2">{t('settings.privacyBody')}</Txt>
-        </Section>
-
-        <Section
-          title={t('settings.about')}
-          open={open === 'about'}
-          onToggle={() => toggle('about')}
-        >
-          <Column gap={3}>
-            <Txt color="ink2">{t('settings.licenseApp')}</Txt>
-            <Txt color="ink2">{t('settings.licenseOss')}</Txt>
-            <Txt color="ink2">{t('settings.licenseEncoders')}</Txt>
-            <Txt color="ink2">{t('settings.licenseFanCodes')}</Txt>
-            <Txt color="ink2">{t('settings.licenseSourceOffer')}</Txt>
-          </Column>
-        </Section>
+        <Group>
+          {row('rooms', t('settings.rooms'), t('settings.roomsHint'))}
+          {open === 'rooms' ? (
+            <Box p={4}>
+              <RoomsEditor rooms={data.rooms} />
+            </Box>
+          ) : null}
+          {row('privacy', t('settings.privacy'), t('settings.privacyHint'))}
+          {open === 'privacy' ? (
+            <Box p={4}>
+              <Banner tone="ok" icon="lock" text={t('settings.privacyBody')} />
+            </Box>
+          ) : null}
+          {row('about', t('settings.about'))}
+          {open === 'about' ? (
+            <Box p={4}>
+              <Column gap={3}>
+                <Txt color="ink2">{t('settings.licenseApp')}</Txt>
+                <Txt color="ink2">{t('settings.licenseOss')}</Txt>
+                <Txt color="ink2">{t('settings.licenseEncoders')}</Txt>
+                <Txt color="ink2">{t('settings.licenseFanCodes')}</Txt>
+                <Txt color="ink2">{t('settings.licenseSourceOffer')}</Txt>
+              </Column>
+            </Box>
+          ) : null}
+        </Group>
       </Column>
     </Screen>
   );

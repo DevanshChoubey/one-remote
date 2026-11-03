@@ -3,7 +3,7 @@ import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Button, Column, Txt } from '@/ui';
+import { Button, Column, ErrorLine } from '@/ui';
 import { useKnownDevice } from '../device/useKnownDevice';
 
 /** The one LG TV code set (NEC), so a TV needs no test. */
@@ -36,11 +36,7 @@ export function IrBackupAction(props: { deviceId: string }): ReactElement | null
     return (
       <Column gap={2}>
         <Button label={t('irBackup.add')} variant="secondary" onPress={add} />
-        {failed ? (
-          <Txt live color="ink2">
-            {t('irBackup.failed')}
-          </Txt>
-        ) : null}
+        {failed ? <ErrorLine text={t('irBackup.failed')} /> : null}
       </Column>
     );
   }

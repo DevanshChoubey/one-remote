@@ -4,7 +4,7 @@ import type { FoundTv } from '@/core';
 import { DeviceError } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Button, Column, Input, Screen, Txt } from '@/ui';
+import { Button, Column, Field, Screen } from '@/ui';
 
 export interface ManualIpStepProps {
   onFound: (tv: FoundTv) => void;
@@ -25,11 +25,16 @@ export function ManualIpStep(props: ManualIpStepProps): ReactElement {
   const [host, setHost] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [shake, setShake] = useState(0);
+  const fail = (text: string): void => {
+    setError(text);
+    setShake((n) => n + 1);
+  };
 
   const find = (): void => {
     const address = host.trim();
     if (!isIpv4(address)) {
-      setError(t('addTv.badIp'));
+      fail(t('addTv.badIp'));
       return;
     }
     setError(null);
@@ -38,11 +43,11 @@ export function ManualIpStep(props: ManualIpStepProps): ReactElement {
       (hit) => {
         setBusy(false);
         if (hit) props.onFound(hit);
-        else setError(t('addTv.noAnswer'));
+        else fail(t('addTv.noAnswer'));
       },
       (e: unknown) => {
         setBusy(false);
-        setError(
+        fail(
           e instanceof DeviceError && e.code === 'notLocal'
             ? t('addTv.notLocal')
             : t('addTv.noAnswer'),
@@ -52,22 +57,25 @@ export function ManualIpStep(props: ManualIpStepProps): ReactElement {
   };
 
   return (
-    <Screen title={t('addTv.manualTitle')} onBack={props.onBack} scroll>
+    <Screen
+      title={t('addTv.manualTitle')}
+      onBack={props.onBack}
+      scroll
+      footer={<Button label={t('addTv.ipFind')} onPress={find} loading={busy} />}
+    >
       <Column gap={4}>
-        <Txt color="ink2">{t('addTv.manualHint')}</Txt>
-        <Input
+        <Field
+          label={t('addTv.ipLabel')}
+          helper={t('addTv.manualHint')}
           value={host}
           onChangeText={setHost}
-          accessibilityLabel={t('addTv.ipLabel')}
           placeholder="192.168.1.23"
+          keyboardType="decimal-pad"
           onSubmitEditing={find}
+          error={error}
+          shakeKey={shake}
+          autoFocus
         />
-        {error ? (
-          <Txt live color="danger">
-            {error}
-          </Txt>
-        ) : null}
-        <Button label={t('addTv.ipFind')} onPress={find} loading={busy} />
       </Column>
     </Screen>
   );

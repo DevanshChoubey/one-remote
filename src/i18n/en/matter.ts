@@ -3,6 +3,8 @@ export default {
   intro:
     'Your AC works with Matter, so this phone can control it over your home Wi-Fi, with no cloud. In the AC’s current app (MirAIe, Google Home or another), open the AC, choose the option that adds it to another app or turns on pairing mode, and scan the QR code it shows, or the one on the AC’s sticker.',
   scanLabel: 'Camera: point it at the Matter QR code',
+  scanHint: 'Point at the Matter QR code',
+  lockLabel: 'Matter code',
   notMatter: 'That is not a Matter code. Point the camera at the AC’s Matter QR code.',
   cameraDenied: 'The camera is off for this app. Paste or type the code instead.',
   paste: 'Paste code',
