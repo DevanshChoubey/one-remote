@@ -28,7 +28,9 @@ export function IconButton(props: IconButtonProps): ReactElement {
       radius="pill"
       bg={props.flat ? undefined : 'surface'}
       border={props.flat ? undefined : 'line'}
-      pressedBg="surface2Pressed"
+      pressedBg="surface2"
+      pressScale={0.92}
+      disabledOpacity={0.4}
     >
       <Box w={48} h={48} align="center" justify="center">
         <Icon name={props.icon} color={props.tone === 'power' ? 'dangerInk' : 'ink'} />
