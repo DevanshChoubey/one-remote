@@ -53,7 +53,7 @@ export function KeyButton(props: KeyButtonProps): ReactElement {
   return flat || accent ? (
     key
   ) : (
-    <Box bg="surface" radius="pill" shadow="card">
+    <Box bg="surface" circle={size} shadow="card" testID="tv-key-shadow">
       {key}
       <SentRing trigger={sent} />
     </Box>

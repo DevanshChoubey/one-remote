@@ -73,6 +73,12 @@ describe('KeyButton', () => {
     );
     const style = surfaceStyle(screen.getByRole('button', { name: t('tv.goBack') }));
     expect(style).toMatchObject({ width: 84, height: 84, borderRadius: 42 });
+    // The shadow wrapper shows through the key while it is dimmed, so it is an exact circle too.
+    expect(screen.getByTestId('tv-key-shadow')).toHaveStyle({
+      width: 84,
+      height: 84,
+      borderRadius: 42,
+    });
   });
 });
 
