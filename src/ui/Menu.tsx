@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import { Modal } from 'react-native';
+import { Modal, useWindowDimensions } from 'react-native';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -34,12 +34,17 @@ export interface MenuProps {
   onClosed?: () => void;
 }
 
+/** The mock's `.menu { min-width: 220px }`: a longer label widens the panel, up to the gutters. */
 const PANEL_W = 220;
+const GUTTER = 16;
 /** The mock's `.menu` padding and check size. */
 const PANEL_PAD = 6;
 const CHECK = 24;
-/** The mock puts the menu 104 px from the top of a phone whose status bar is 44 px: 60 px below it. */
-const BELOW_STATUS_BAR = 60;
+/**
+ * The mock's menu starts 4 px under the bar (bar ends at 100, menu at 104). In the app a bare
+ * screen's bar ends 64 px below the status bar (16 top padding + 48 bar), so the menu opens at 68.
+ */
+const BELOW_STATUS_BAR = 68;
 
 /**
  * A pop-up menu under the top-right of the bar. A tap outside, or Android back, closes it. It
@@ -53,6 +58,9 @@ export function Menu(props: MenuProps): ReactElement | null {
   const progress = useSharedValue(0);
   const reduced = motion.reduced;
   const drop = motion.lift / 2;
+  const screenW = useWindowDimensions().width;
+  // The panel's laid-out width, so the scale stays anchored to its top-right corner.
+  const panelW = useSharedValue(PANEL_W);
 
   // Mount as soon as `open` turns true (adjusting state while rendering, not in an effect).
   if (props.open && !mounted) setMounted(true);
@@ -97,7 +105,7 @@ export function Menu(props: MenuProps): ReactElement | null {
       opacity: progress.value,
       transform: [
         { translateY: (1 - progress.value) * -drop },
-        { translateX: (PANEL_W * (1 - scale)) / 2 },
+        { translateX: (panelW.value * (1 - scale)) / 2 },
         { scale },
       ],
     };
@@ -125,16 +133,21 @@ export function Menu(props: MenuProps): ReactElement | null {
           </Touchable>
         </Box>
         <AnimatedBox
-          float={{ top, right: 16 }}
+          float={{ top, right: GUTTER }}
           bg="surface"
           border="line"
           radius="md"
           shadow="pop"
-          w={PANEL_W}
+          maxW={Math.max(PANEL_W, screenW - 2 * GUTTER)}
           testID={props.testID}
           animatedStyle={style}
         >
-          <Animated.View style={{ padding: PANEL_PAD }}>
+          <Animated.View
+            style={{ padding: PANEL_PAD, minWidth: PANEL_W }}
+            onLayout={(e) => {
+              panelW.value = e.nativeEvent.layout.width;
+            }}
+          >
             {props.items.map((item) => (
               <Fragment key={item.key}>
                 {item.dividerBefore ? (
@@ -154,7 +167,10 @@ export function Menu(props: MenuProps): ReactElement | null {
                   pressScale={1}
                 >
                   <Row align="center" justify="between" gap={3} px={4} minH={48}>
-                    <Txt color={item.current ? 'ink2' : 'ink'}>{item.label}</Txt>
+                    {/* Shrinks (and wraps) only once the panel has reached its widest. */}
+                    <Animated.View style={{ flexShrink: 1 }}>
+                      <Txt color={item.current ? 'ink2' : 'ink'}>{item.label}</Txt>
+                    </Animated.View>
                     {item.current ? <Icon name="check" size={CHECK} color="ink2" /> : null}
                   </Row>
                 </Touchable>
