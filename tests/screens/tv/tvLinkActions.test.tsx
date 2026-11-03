@@ -61,7 +61,7 @@ describe('TvLinkActions', () => {
     const r = await rig();
     await renderWith(r.s, <TvLinkActions deviceId="tv1" />);
     expect(await screen.findByText('192.168.1.23')).toBeTruthy();
-    expect(screen.getByText(t('addTv.address'))).toBeTruthy();
+    expect(screen.getAllByText(t('addTv.address'))).toHaveLength(2);
   });
 
   it('saves the new address from Find TV again', async () => {

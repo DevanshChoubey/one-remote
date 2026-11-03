@@ -53,11 +53,11 @@ export function DeviceSheet(props: DeviceSheetProps): ReactElement {
   if (!data.loaded) {
     return (
       <Sheet open title={t('device.title')} onClose={close} testID="device-sheet">
-        <Column gap={3}>
+        <Box gap={3} testID="device-skeleton">
           <Skeleton width="40%" height={14} />
           <Skeleton height={48} radius="md" />
           <Skeleton width="70%" height={48} radius="md" />
-        </Column>
+        </Box>
       </Sheet>
     );
   }

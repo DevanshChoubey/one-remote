@@ -87,8 +87,18 @@ describe('DeviceSheet as a bottom sheet', () => {
   });
 
   it('shows skeleton bars while loading', async () => {
-    await renderWith(makeServices(), <DeviceSheet deviceId="d1" />);
+    const s = makeServices();
+    jest.spyOn(s.store, 'rooms').mockReturnValue(new Promise(() => undefined));
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
     expect(screen.getByText(t('device.title'))).toBeTruthy();
+    expect(screen.getByTestId('device-skeleton').children).toHaveLength(3);
+  });
+
+  it('says the device is gone inside the sheet', async () => {
+    await renderWith(makeServices(), <DeviceSheet deviceId="nope" />);
+    expect(await screen.findByText(t('home.notFound'))).toBeTruthy();
+    expect(screen.getByTestId('device-sheet')).toBeTruthy();
+    expect(screen.queryByTestId('device-skeleton')).toBeNull();
   });
 });
 
