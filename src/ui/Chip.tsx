@@ -5,7 +5,7 @@ import type { ColorToken } from '@/theme';
 import { useMotion, useTheme } from '@/theme';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
-import { AnimatedBox, Box, Row, Touchable } from './primitives';
+import { AnimatedBox, Row, Touchable } from './primitives';
 import { mixColor } from './primitives/Touchable';
 
 export type ChipState = 'neutral' | 'selected';
@@ -27,12 +27,14 @@ const LOOK: Record<ChipState, { bg: ColorToken; border: ColorToken; text: ColorT
   selected: { bg: 'accent', border: 'accent', text: 'accentInk' },
 };
 
-const DISABLED_LOOK = { bg: 'surface2', border: 'line', text: 'ink2' } as const;
+/** Mock `.chip` gap between the icon and the label. */
+const ICON_GAP = 6;
 
 export function Chip(props: ChipProps): ReactElement {
   const theme = useTheme();
   const motion = useMotion();
-  const look = props.disabled ? DISABLED_LOOK : LOOK[props.state];
+  // Disabled keeps the normal look; the Touchable dims it to .42 (mock `.chip.is-disabled`).
+  const look = LOOK[props.state];
   const selected = props.state === 'selected';
   // Fill and colour fade `fast` when the state changes; a theme change recolours at once.
   const on = useSharedValue(selected ? 1 : 0);
@@ -40,8 +42,8 @@ export function Chip(props: ChipProps): ReactElement {
     const to = selected ? 1 : 0;
     on.value = motion.reduced ? to : withTiming(to, motion.timing('fast'));
   }, [selected, on, motion]);
-  const off = props.disabled ? DISABLED_LOOK : LOOK.neutral;
-  const lit = props.disabled ? DISABLED_LOOK : LOOK.selected;
+  const off = LOOK.neutral;
+  const lit = LOOK.selected;
   const offBg = theme.color[off.bg];
   const litBg = theme.color[lit.bg];
   const offLine = theme.color[off.border];
@@ -63,16 +65,17 @@ export function Chip(props: ChipProps): ReactElement {
   const offIcon = useAnimatedStyle(() => ({ opacity: 1 - on.value }));
   const litIcon = useAnimatedStyle(() => ({ opacity: on.value }));
   const row = (
-    <Row gap={2} align="center" justify="center" px={4} minH={48}>
+    <Row align="center" justify="center" px={4} minH={48}>
       {props.icon ? (
-        <Box w={18} h={18}>
+        // The mock's 6 px icon gap (not a space step).
+        <Animated.View testID="chip-icon" style={{ width: 18, height: 18, marginRight: ICON_GAP }}>
           <AnimatedBox animatedStyle={offIcon}>
             <Icon name={props.icon} size={18} color={off.text} />
           </AnimatedBox>
           <AnimatedBox float={{ top: 0, left: 0 }} animatedStyle={litIcon}>
             <Icon name={props.icon} size={18} color={lit.text} />
           </AnimatedBox>
-        </Box>
+        </Animated.View>
       ) : null}
       <Animated.Text
         style={[

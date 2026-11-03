@@ -23,6 +23,8 @@ export interface SegmentedControlProps<V extends string> {
 
 const PAD = 4;
 const GAP = 2;
+/** Mock `.seg button .i` margin-right. */
+const ICON_GAP = 6;
 
 export function SegmentedControl<V extends string>(props: SegmentedControlProps<V>): ReactElement {
   const theme = useTheme();
@@ -54,12 +56,25 @@ export function SegmentedControl<V extends string>(props: SegmentedControlProps<
       style={{
         opacity: props.disabled ? 0.42 : 1,
         backgroundColor: theme.color.surface2,
-        borderColor: theme.color.line,
-        borderWidth: 1,
         borderRadius: theme.radius.pill,
         padding: PAD,
       }}
     >
+      {/* The mock's ring is an inset box-shadow: drawn over the edge, it takes no layout space. */}
+      <Animated.View
+        testID="segment-ring"
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          borderRadius: theme.radius.pill,
+          borderWidth: 1,
+          borderColor: theme.color.line,
+        }}
+      />
       <Animated.View
         testID="segment-thumb"
         pointerEvents="none"
@@ -91,9 +106,11 @@ export function SegmentedControl<V extends string>(props: SegmentedControlProps<
                 radius="pill"
                 pressScale={1}
               >
-                <Row gap={2} align="center" justify="center" px={2}>
+                <Row align="center" justify="center" px={2}>
                   {o.icon ? (
-                    <Icon name={o.icon} size={18} color={selected ? 'ink' : 'ink2'} />
+                    <Animated.View style={{ marginRight: ICON_GAP }}>
+                      <Icon name={o.icon} size={18} color={selected ? 'ink' : 'ink2'} />
+                    </Animated.View>
                   ) : null}
                   <Txt variant="label" color={selected ? 'ink' : 'ink2'}>
                     {o.label}
