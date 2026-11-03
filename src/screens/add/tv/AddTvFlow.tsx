@@ -5,7 +5,7 @@ import { isTvLink } from '@/core';
 import type { Device, FoundTv, PairedTv } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Button, Column, Screen, Txt } from '@/ui';
+import { Button, EmptyState, Screen } from '@/ui';
 import { NameRoomStep } from '../NameRoomStep';
 import { FindTvStep } from './FindTvStep';
 import { ManualIpStep } from './ManualIpStep';
@@ -100,14 +100,18 @@ export function AddTvFlow(): ReactElement {
       );
     case 'duplicate':
       return (
-        <Screen title={t('addTv.title')} onBack={() => setStep({ name: 'find' })}>
-          <Column gap={4}>
-            <Txt>{t('addTv.duplicate', { name: step.existing.name })}</Txt>
-            <Button
-              label={t('addTv.openIt')}
-              onPress={() => router.replace(`/device/${step.existing.id}`)}
-            />
-          </Column>
+        <Screen onBack={() => setStep({ name: 'find' })}>
+          <EmptyState
+            art="tv"
+            title={t('addTv.duplicate', { name: step.existing.name })}
+            body=""
+            action={
+              <Button
+                label={t('addTv.openIt')}
+                onPress={() => router.replace(`/device/${step.existing.id}`)}
+              />
+            }
+          />
         </Screen>
       );
     case 'name':

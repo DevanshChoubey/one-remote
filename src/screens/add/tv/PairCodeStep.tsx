@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { t } from '@/i18n';
-import { Button, Column, Input, Screen, Txt } from '@/ui';
+import { Button, Column, ErrorLine, Screen, Txt } from '@/ui';
+import { OtpCells } from '@/ui/addtv';
 
 export interface PairCodeStepProps {
   /** True after a code the TV refused. */
@@ -22,23 +23,22 @@ export function PairCodeStep(props: PairCodeStepProps): ReactElement {
     if (props.ready && code.length > 0) props.onSubmit(code.toUpperCase());
   };
   return (
-    <Screen title={t('addTv.pairTitle')} onBack={props.onBack} scroll>
+    <Screen
+      title={t('addTv.pairTitle')}
+      onBack={props.onBack}
+      scroll
+      footer={<Button label={t('addTv.codePair')} onPress={submit} disabled={!props.ready} />}
+    >
       <Column gap={4}>
         <Txt variant="heading">{t('addTv.codeTitle')}</Txt>
-        <Input
+        <OtpCells
           value={code}
-          onChangeText={setCode}
+          length={props.codeLength}
+          invalid={props.wrong}
+          onChange={setCode}
           accessibilityLabel={t('addTv.codeTitle')}
-          autoCapitalize="characters"
-          maxLength={props.codeLength}
-          onSubmitEditing={submit}
         />
-        {props.wrong ? (
-          <Txt live color="danger">
-            {t('addTv.codeWrong')}
-          </Txt>
-        ) : null}
-        <Button label={t('addTv.codePair')} onPress={submit} disabled={!props.ready} />
+        {props.wrong ? <ErrorLine text={t('addTv.codeWrong')} /> : null}
         <Button label={t('addTv.codeNew')} variant="ghost" onPress={props.onNewCode} />
       </Column>
     </Screen>
