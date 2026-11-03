@@ -102,7 +102,7 @@ export function TouchPad(props: { onKey: (k: TvKey) => void }): ReactElement {
             <TapRipple x={ripple.x} y={ripple.y} trigger={ripple.n} />
           </PadLayers>
           <AnimatedBox animatedStyle={hintStyle} px={6} align="center">
-            <Txt variant="label" color="ink2">
+            <Txt variant="label" weight="regular" color="ink2" align="center">
               {t('tv.touchpadHint')}
             </Txt>
           </AnimatedBox>

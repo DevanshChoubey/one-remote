@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Fragment, useEffect } from 'react';
 import type { ReactElement } from 'react';
 import Animated, {
   cancelAnimation,
@@ -68,9 +68,13 @@ export function Equaliser(props: { active: boolean; color?: ColorToken }): React
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moving]);
   return (
-    <Box direction="row" align="center" gap={1} h={PEAK}>
+    // The mock's bars sit 3 px apart (finer than the 4 px space grid).
+    <Box direction="row" align="center" h={PEAK}>
       {bars.map((v, i) => (
-        <Bar key={i} height={v} color={props.color ?? 'bg'} />
+        <Fragment key={i}>
+          {i > 0 ? <Box w={3} /> : null}
+          <Bar height={v} color={props.color ?? 'bg'} />
+        </Fragment>
       ))}
     </Box>
   );
