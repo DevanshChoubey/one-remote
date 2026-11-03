@@ -1,18 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  // eslint-disable-next-line no-restricted-imports -- no Scroll primitive yet; see the 1C report
-  ScrollView,
-  useWindowDimensions,
-} from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, useWindowDimensions } from 'react-native';
 import { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { t } from '@/i18n';
 import { useMotion } from '@/theme';
 import { IconButton } from './IconButton';
-import { AnimatedBox, Box, Row, Touchable, Txt } from './primitives';
+import { AnimatedBox, Box, Row, Scroll, Touchable, Txt } from './primitives';
 
 export interface SheetProps {
   open: boolean;
@@ -114,15 +107,9 @@ export function Sheet(props: SheetProps): ReactElement | null {
             </Box>
             <IconButton icon="close" label={t('common.close')} onPress={props.onClose} flat />
           </Row>
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            style={{ flexShrink: 1 }}
-          >
-            <Box px={5} py={3} gap={3}>
-              {props.children}
-            </Box>
-          </ScrollView>
+          <Scroll keyboardShouldPersistTaps="handled" px={5} py={3} contentGap={3}>
+            {props.children}
+          </Scroll>
           {props.footer ? (
             <Box px={5} py={2}>
               {props.footer}

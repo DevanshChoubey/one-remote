@@ -6,6 +6,8 @@ export { Column } from './Column';
 export { Input } from './Input';
 export type { InputProps } from './Input';
 export { Row } from './Row';
+export { Scroll } from './Scroll';
+export type { ScrollProps } from './Scroll';
 export { Spacer } from './Spacer';
 export { Touchable } from './Touchable';
 export type { TouchableProps } from './Touchable';

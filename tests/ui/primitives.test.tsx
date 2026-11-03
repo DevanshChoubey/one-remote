@@ -3,7 +3,7 @@ import type { StyleProp } from 'react-native';
 import * as RN from 'react-native';
 import { StyleSheet } from 'react-native';
 import { darkTokens, lightTokens, ThemeProvider } from '@/theme';
-import { Box, Touchable, Txt } from '@/ui/primitives';
+import { Box, Scroll, Touchable, Txt } from '@/ui/primitives';
 
 function flat(style: unknown, state = { pressed: false }): Record<string, unknown> {
   const resolved =
@@ -118,5 +118,84 @@ describe('theme preference', () => {
     );
     expect(flat(screen.getByTestId('b').props.style).backgroundColor).toBe(darkTokens.color.bg);
     spy.mockRestore();
+  });
+});
+
+describe('primitives type scale and Scroll', () => {
+  it('Txt size, weight, align and underline override the variant', async () => {
+    await render(
+      wrap(
+        <Txt size="otp" weight="semibold" align="center" underline>
+          7
+        </Txt>,
+      ),
+    );
+    const s = flat(screen.getByText('7').props.style);
+    expect(s.fontSize).toBe(lightTokens.size.otp);
+    expect(s.fontWeight).toBe('600');
+    expect(s.textAlign).toBe('center');
+    expect(s.textDecorationLine).toBe('underline');
+  });
+
+  it('Txt size tokens match the mock scale', () => {
+    expect(lightTokens.size).toMatchObject({
+      badge: 12,
+      banner: 14,
+      cardName: 18,
+      otp: 26,
+      displaySup: 28,
+      welcome: 30,
+      ring: 32,
+    });
+    expect(lightTokens.font.semibold.fontWeight).toBe('600');
+  });
+
+  it('Txt captionBold is 13 bold', async () => {
+    await render(wrap(<Txt variant="captionBold">c</Txt>));
+    const s = flat(screen.getByText('c').props.style);
+    expect(s.fontSize).toBe(13);
+    expect(s.fontWeight).toBe('700');
+  });
+
+  it('Txt keeps its variant when no override is given', async () => {
+    await render(wrap(<Txt variant="heading">h</Txt>));
+    const s = flat(screen.getByText('h').props.style);
+    expect(s.fontSize).toBe(lightTokens.size.heading);
+    expect(s.textAlign).toBeUndefined();
+  });
+
+  it('Box maxW, overflow and busy', async () => {
+    await render(wrap(<Box testID="b" maxW={300} overflow="hidden" busy />));
+    const el = screen.getByTestId('b');
+    const s = flat(el.props.style);
+    expect(s.maxWidth).toBe(300);
+    expect(s.overflow).toBe('hidden');
+    expect(el.props.accessibilityState).toEqual({ busy: true });
+  });
+
+  it('Box merges selected and busy', async () => {
+    await render(wrap(<Box testID="b" selected busy={false} />));
+    expect(screen.getByTestId('b').props.accessibilityState).toEqual({
+      selected: true,
+      busy: false,
+    });
+  });
+
+  it('Scroll takes spacing props and a content gap', async () => {
+    await render(
+      wrap(
+        <Scroll testID="s" px={5} py={3} contentGap={3} keyboardShouldPersistTaps="handled">
+          <Txt>in</Txt>
+        </Scroll>,
+      ),
+    );
+    const sv = screen.getByTestId('s');
+    expect(sv.props.keyboardShouldPersistTaps).toBe('handled');
+    expect(screen.getByText('in')).toBeTruthy();
+    const content = sv.props.contentContainerStyle;
+    const c = flat(content);
+    expect(c.paddingHorizontal).toBe(lightTokens.space(5));
+    expect(c.paddingVertical).toBe(lightTokens.space(3));
+    expect(c.gap).toBe(lightTokens.space(3));
   });
 });

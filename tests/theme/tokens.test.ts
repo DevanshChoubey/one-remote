@@ -111,7 +111,12 @@ describe('tokens', () => {
   });
 
   it('uses the system font only', () => {
-    expect(Object.keys(lightTokens.font).sort()).toEqual(['body', 'bodyBold', 'heading']);
+    expect(Object.keys(lightTokens.font).sort()).toEqual([
+      'body',
+      'bodyBold',
+      'heading',
+      'semibold',
+    ]);
     expect(JSON.stringify(lightTokens.font)).not.toMatch(/fontFamily/);
   });
 
