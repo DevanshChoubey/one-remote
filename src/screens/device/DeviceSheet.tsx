@@ -187,22 +187,24 @@ function Body({
 
   return (
     <Column gap={5}>
-      <Row gap={2} align="end">
-        <Box flex={1}>
-          <Field label={t('device.name')} value={name} onChangeText={setName} />
-        </Box>
-        <Button
-          label={t('device.saveName')}
-          size="small"
-          variant="secondary"
-          disabled={trimmed === '' || trimmed === device.name}
-          onPress={() =>
-            run(store.upsertDevice({ ...device, name: trimmed }), () =>
-              toast.show(t('common.saved'), { kind: 'ok' }),
-            )
-          }
-        />
-      </Row>
+      <Field
+        label={t('device.name')}
+        value={name}
+        onChangeText={setName}
+        trailing={
+          <Button
+            label={t('device.saveName')}
+            size="small"
+            variant="secondary"
+            disabled={trimmed === '' || trimmed === device.name}
+            onPress={() =>
+              run(store.upsertDevice({ ...device, name: trimmed }), () =>
+                toast.show(t('common.saved'), { kind: 'ok' }),
+              )
+            }
+          />
+        }
+      />
 
       <Column gap={2}>
         <Txt variant="label" color="ink2">

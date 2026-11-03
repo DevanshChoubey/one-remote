@@ -130,22 +130,20 @@ export function NameRoomStep(props: NameRoomStepProps): ReactElement {
         </Column>
         {creating ? (
           <Rise>
-            <Row gap={2} align="end">
-              <Column flex={1}>
-                <Field
-                  label={t('add.roomName')}
-                  value={roomName}
-                  onChangeText={setRoomName}
-                  onSubmitEditing={createRoom}
+            <Field
+              label={t('add.roomName')}
+              value={roomName}
+              onChangeText={setRoomName}
+              onSubmitEditing={createRoom}
+              trailing={
+                <Button
+                  label={t('add.createRoom')}
+                  size="small"
+                  onPress={createRoom}
+                  disabled={roomName.trim() === ''}
                 />
-              </Column>
-              <Button
-                label={t('add.createRoom')}
-                size="small"
-                onPress={createRoom}
-                disabled={roomName.trim() === ''}
-              />
-            </Row>
+              }
+            />
           </Rise>
         ) : null}
       </Column>

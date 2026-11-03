@@ -7,6 +7,7 @@ import {
   Button,
   EmptyState,
   ErrorLine,
+  Field,
   Group,
   ListItem,
   Menu,
@@ -201,6 +202,23 @@ describe('Menu (mock .menu)', () => {
       paddingHorizontal: 8,
       paddingVertical: 4,
     });
+  });
+});
+
+describe('Field trailing (mock .row: input flex 1 and a .btn.sm)', () => {
+  it('centres a small button on the input, with the label above both', async () => {
+    await render(
+      wrap(
+        <Field
+          label="Name"
+          value="LG"
+          onChangeText={jest.fn()}
+          trailing={<Button label="Save name" size="small" onPress={jest.fn()} />}
+        />,
+      ),
+    );
+    expect(flat(screen.getByTestId('field-row').props.style).alignItems).toBe('center');
+    expect(flat(screen.getByLabelText('Save name').props.style).alignSelf).toBeUndefined();
   });
 });
 
