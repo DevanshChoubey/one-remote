@@ -7,7 +7,7 @@ import { Box, Column, Txt } from './primitives';
 
 export interface EmptyStateProps {
   title: string;
-  body: string;
+  body?: string;
   action?: ReactNode;
   /** A big icon (or the app mark) above the title. */
   art?: IconName | 'mark';
@@ -50,7 +50,7 @@ export function EmptyState(props: EmptyStateProps): ReactElement {
         </Box>
       ) : null}
       <Txt variant="heading">{props.title}</Txt>
-      <Txt color="ink2">{props.body}</Txt>
+      {props.body ? <Txt color="ink2">{props.body}</Txt> : null}
       {props.action}
     </Column>
   );

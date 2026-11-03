@@ -1,6 +1,7 @@
-import { render, screen } from '@testing-library/react-native';
+import type {} from 'react-native-reanimated/lib/typescript/jestUtils/index.native';
+import { act, render, screen } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
-import { StyleSheet } from 'react-native';
+import { processColor, StyleSheet } from 'react-native';
 import { darkTokens, lightTokens, ThemeProvider } from '@/theme';
 import {
   Badge,
@@ -85,6 +86,12 @@ describe('surfaces', () => {
     expect(screen.getByText('None').props.accessibilityRole).toBe('header');
     await render(wrap(<EmptyState title="Hi" body="Welcome" art="mark" />));
     expect(screen.getByTestId('mark')).toBeTruthy();
+  });
+
+  it('EmptyState renders without a body', async () => {
+    await render(wrap(<EmptyState title="Gone" art="alert" />));
+    expect(screen.getByText('Gone')).toBeTruthy();
+    expect(screen.getByTestId('empty-art')).toBeTruthy();
   });
 
   it('OptionCard is pressable by label and rises with an index', async () => {
@@ -172,6 +179,109 @@ describe('surfaces', () => {
     const el = screen.getByLabelText('Bar');
     expect(el.props.accessibilityState).toEqual({ selected: true });
     expect(el.props.accessibilityValue).toEqual({ min: 0, max: 10, now: 3 });
+  });
+
+  describe('motion', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    const advance = async (ms: number): Promise<void> => {
+      await act(async () => {
+        jest.advanceTimersByTime(ms);
+      });
+    };
+
+    it('Rise goes from hidden and 14 px low to visible and in place', async () => {
+      await render(
+        wrap(
+          <Rise testID="r">
+            <Txt>x</Txt>
+          </Rise>,
+        ),
+      );
+      expect(screen.getByTestId('r')).toHaveAnimatedStyle({
+        opacity: 0,
+        transform: [{ translateY: lightTokens.motion.lift }],
+      });
+      await advance(400);
+      expect(screen.getByTestId('r')).toHaveAnimatedStyle({
+        opacity: 1,
+        transform: [{ translateY: 0 }],
+      });
+    });
+
+    it('Rise under reduced motion fades without a translate', async () => {
+      await render(
+        wrap(
+          <Rise testID="r">
+            <Txt>x</Txt>
+          </Rise>,
+          { reducedMotion: true },
+        ),
+      );
+      expect(screen.getByTestId('r')).toHaveAnimatedStyle({
+        opacity: 0,
+        transform: [{ translateY: 0 }],
+      });
+    });
+
+    it('an indexed Card starts later than the first one', async () => {
+      await render(
+        wrap(
+          <>
+            <Card index={0} testID="c0">
+              <Txt>a</Txt>
+            </Card>
+            <Card index={4} testID="c4">
+              <Txt>b</Txt>
+            </Card>
+          </>,
+        ),
+      );
+      await advance(150);
+      expect(screen.getByTestId('c4').parent).toHaveAnimatedStyle({ opacity: 0 });
+      expect(screen.getByTestId('c0').parent).not.toHaveAnimatedStyle({ opacity: 0 });
+      await advance(600);
+      expect(screen.getByTestId('c4').parent).toHaveAnimatedStyle({ opacity: 1 });
+    });
+
+    it('an indexed OptionCard is delayed by its index', async () => {
+      await render(
+        wrap(<OptionCard title="TV" icon="tv" onPress={jest.fn()} index={4} testID="o" />),
+      );
+      await advance(100);
+      expect(screen.getByTestId('o').parent).toHaveAnimatedStyle({ opacity: 0 });
+      await advance(600);
+      expect(screen.getByTestId('o').parent).toHaveAnimatedStyle({ opacity: 1 });
+    });
+
+    it('a live StatusDot dims below full opacity', async () => {
+      await render(wrap(<StatusDot tone="warn" live testID="dot" />));
+      await advance(700);
+      expect(screen.getByTestId('dot')).not.toHaveAnimatedStyle({ opacity: 1 });
+    });
+
+    it('ResultDisc ok draws the check in okInk (dash length 21), light and dark', async () => {
+      for (const scheme of ['light', 'dark'] as const) {
+        const tokens = scheme === 'light' ? lightTokens : darkTokens;
+        await render(wrap(<ResultDisc kind="ok" label="Done" />, { scheme }));
+        expect(screen.getByTestId('result-check').props.stroke.payload).toBe(
+          processColor(tokens.color.okInk),
+        );
+        await advance(800);
+        // Reanimated's Jest build does not mirror useAnimatedProps onto svg nodes, so the
+        // dashoffset cannot be read back; the full-length dash and the stroke are asserted.
+        expect(screen.getByTestId('result-check').props.strokeDasharray).toEqual([21, 21]);
+      }
+    });
+
+    it('ResultDisc bad shows a dangerInk alert, light and dark', async () => {
+      for (const scheme of ['light', 'dark'] as const) {
+        const tokens = scheme === 'light' ? lightTokens : darkTokens;
+        await render(wrap(<ResultDisc kind="bad" label="Failed" />, { scheme }));
+        expect(screen.getByTestId('result-alert').props.stroke).toBe(tokens.color.dangerInk);
+      }
+    });
   });
 
   it('Rise renders its children', async () => {

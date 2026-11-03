@@ -14,7 +14,7 @@ export interface OptionCardProps {
   onPress: () => void;
   badge?: BadgeProps;
   disabled?: boolean;
-  /** Position in a staggered list (the rise is added with the motion). */
+  /** Position in a staggered list (the card rises in after `index` steps). */
   index?: number;
   accessibilityLabel?: string;
   testID?: string;

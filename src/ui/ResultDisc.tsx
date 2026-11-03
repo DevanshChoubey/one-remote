@@ -56,6 +56,7 @@ function Check(props: { size: number }): ReactElement {
       importantForAccessibility="no"
     >
       <AnimatedPath
+        testID="result-check"
         d={CHECK_PATH}
         stroke={theme.color.okInk}
         strokeWidth={3.2}
@@ -97,7 +98,11 @@ export function ResultDisc(props: ResultDiscProps): ReactElement {
       accessibilityRole="image"
       animatedStyle={animatedStyle}
     >
-      {ok ? <Check size={52} /> : <Icon name="alert" size={44} color="dangerInk" />}
+      {ok ? (
+        <Check size={52} />
+      ) : (
+        <Icon name="alert" size={44} color="dangerInk" testID="result-alert" />
+      )}
     </AnimatedBox>
   );
 }

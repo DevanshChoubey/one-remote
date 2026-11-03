@@ -11,6 +11,8 @@ export interface CardProps {
   index?: number;
   /** Lays children out in a row, at least 76 high. */
   row?: boolean;
+  /** Takes the free space in a row. */
+  flex?: number;
 }
 
 export function Card(props: CardProps): ReactElement {
@@ -26,10 +28,17 @@ export function Card(props: CardProps): ReactElement {
       align={props.row ? 'center' : undefined}
       minH={props.row ? 76 : undefined}
       opacity={props.off ? 0.6 : undefined}
+      flex={props.index === undefined ? props.flex : undefined}
       testID={props.testID}
     >
       {props.children}
     </Box>
   );
-  return props.index === undefined ? card : <Rise index={props.index}>{card}</Rise>;
+  return props.index === undefined ? (
+    card
+  ) : (
+    <Rise index={props.index} flex={props.flex}>
+      {card}
+    </Rise>
+  );
 }

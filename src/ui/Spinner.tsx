@@ -51,7 +51,7 @@ export function Spinner(props: SpinnerProps): ReactElement {
     borderWidth: width,
     borderColor: ring,
     borderRightColor: 'transparent',
-    opacity: reduced ? blink.value : 0.9,
+    opacity: reduced ? blink.value : 1,
     transform: [{ rotate: `${turn.value}deg` }],
   }));
   return (
