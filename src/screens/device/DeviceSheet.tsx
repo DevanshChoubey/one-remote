@@ -5,21 +5,7 @@ import { isTvLink } from '@/core';
 import type { Device, Link } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import {
-  Box,
-  Button,
-  Chip,
-  Column,
-  ErrorLine,
-  Field,
-  Group,
-  ListItem,
-  Row,
-  Sheet,
-  Skeleton,
-  Txt,
-  useToast,
-} from '@/ui';
+import { Box, Button, Chip, Column, Field, Group, ListItem, Row, Sheet, Txt, useToast } from '@/ui';
 import { useHomeData } from '../shared/useHomeData';
 import { DEVICE_ACTIONS, LINK_ACTIONS } from './linkActions';
 import type { DeviceActionRenderer, LinkActionRenderer } from './linkActions';
@@ -62,11 +48,8 @@ export function DeviceSheet(props: DeviceSheetProps): ReactElement {
         onClosed={closed}
         testID="device-sheet"
       >
-        <Box gap={3} testID="device-skeleton">
-          <Skeleton width="40%" height={14} />
-          <Skeleton height={48} radius="md" />
-          <Skeleton width="70%" height={48} radius="md" />
-        </Box>
+        {/* Mock "Device settings, loading": the title and nothing else. */}
+        {null}
       </Sheet>
     );
   }
@@ -103,6 +86,26 @@ export function DeviceSheet(props: DeviceSheetProps): ReactElement {
         onRemoved={() => router.dismissAll()}
       />
     </Sheet>
+  );
+}
+
+/** Mock `.sect`: 13 px bold ink2, 4 px in, 4 px above what it names. */
+function Section(props: { label: string }): ReactElement {
+  return (
+    <Box px={1}>
+      <Txt variant="captionBold" color="ink2">
+        {props.label}
+      </Txt>
+    </Box>
+  );
+}
+
+/** Mock: a failed save is one plain status sentence, not a red error line. */
+function Failed(): ReactElement {
+  return (
+    <Txt color="ink2" live>
+      {t('device.failed')}
+    </Txt>
   );
 }
 
@@ -164,8 +167,9 @@ function Body({
   if (confirming) {
     return (
       <Column gap={4}>
-        <Txt variant="heading">{t('device.removeAsk', { name: device.name })}</Txt>
-        {failed ? <ErrorLine text={t('device.failed')} /> : null}
+        <Txt variant="heading">{t('device.removeTitle', { name: device.name })}</Txt>
+        <Txt color="ink2">{t('device.removeAsk', { name: device.name })}</Txt>
+        {failed ? <Failed /> : null}
         <Button
           label={t('device.confirmRemove')}
           variant="danger"
@@ -206,10 +210,8 @@ function Body({
         }
       />
 
-      <Column gap={2}>
-        <Txt variant="label" color="ink2">
-          {t('device.room')}
-        </Txt>
+      <Column gap={1}>
+        <Section label={t('device.room')} />
         <Row gap={2} wrap>
           {rooms.map((r) => (
             <Chip
@@ -222,10 +224,8 @@ function Body({
         </Row>
       </Column>
 
-      <Column gap={2}>
-        <Txt variant="label" color="ink2">
-          {t('device.order')}
-        </Txt>
+      <Column gap={1}>
+        <Section label={t('device.order')} />
         <Row gap={2}>
           <Button
             label={t('device.moveUp')}
@@ -250,34 +250,34 @@ function Body({
 
       <Group label={t('device.connected')}>
         {device.links.map((link, i) => (
-          <Column key={`${link.kind}-${i}`}>
-            <ListItem
-              title={t(LINK_LABEL[link.kind])}
-              subtitle={linkDetail(link) ?? undefined}
-              badge={
-                i === 0
-                  ? { label: t('device.main'), tone: 'ok' }
-                  : { label: t('device.backup'), tone: 'neutral' }
-              }
-            />
-            {actions.map((render, n) => {
-              const node = render({ device, link });
-              return node ? (
-                <Box key={n} px={4} py={2}>
-                  {node}
-                </Box>
-              ) : null;
-            })}
-          </Column>
+          <ListItem
+            key={`${link.kind}-${i}`}
+            title={t(LINK_LABEL[link.kind])}
+            subtitle={linkDetail(link) ?? undefined}
+            badge={
+              i === 0
+                ? { label: t('device.main'), tone: 'ok' }
+                : { label: t('device.backup'), tone: 'neutral' }
+            }
+          />
         ))}
       </Group>
+
+      {/* Mock: a link's own block (the TV address, Find TV again, Pair again) is a section of its
+          own after the group, not a card nested inside it. */}
+      {device.links.flatMap((link, i) =>
+        actions.map((render, n) => {
+          const node = render({ device, link });
+          return node ? <Box key={`${link.kind}-${i}-${n}`}>{node}</Box> : null;
+        }),
+      )}
 
       {deviceActions.map((render, n) => {
         const node = render({ device });
         return node ? <Box key={n}>{node}</Box> : null;
       })}
 
-      {failed ? <ErrorLine text={t('device.failed')} /> : null}
+      {failed ? <Failed /> : null}
 
       <Button
         label={t('device.remove')}

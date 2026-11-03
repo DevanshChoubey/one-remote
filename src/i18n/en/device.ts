@@ -14,6 +14,7 @@ export default {
   main: 'main',
   backup: 'backup',
   remove: 'Remove device',
+  removeTitle: 'Remove {name}?',
   removeAsk: 'Remove {name}? The app forgets it. The device itself is not touched.',
   confirmRemove: 'Yes, remove',
   failed: "That didn't save. Try again.",
