@@ -316,8 +316,10 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     setRepairing(true);
     router.push(`/device-sheet/${deviceId}`);
   };
+  // The vertical padding keeps the keys' shadows inside the row, which is one faded layer while
+  // connecting.
   const keyRow = (
-    <Row px={1} align="center" justify={hasMic ? 'between' : 'center'}>
+    <Row px={1} py={2} align="center" justify={hasMic ? 'between' : 'center'}>
       <KeyButton label={t('tv.goBack')} icon="back" size={64} onPress={() => key('back')} />
       {hasMic ? null : <Box w={56} />}
       <KeyButton label={t('tv.home')} icon="home" size={84} onPress={() => key('home')} />
