@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { t } from '@/i18n';
-import { Button, Column, ErrorLine, Screen, Txt } from '@/ui';
+import { Button, Column, ErrorLine, Screen } from '@/ui';
 import { OtpCells } from '@/ui/addtv';
 
 export interface PairCodeStepProps {
@@ -24,7 +24,8 @@ export function PairCodeStep(props: PairCodeStepProps): ReactElement {
   };
   return (
     <Screen
-      title={t('addTv.pairTitle')}
+      title={t('addTv.codeTitle')}
+      largeTitle
       onBack={props.onBack}
       scroll
       footer={
@@ -36,7 +37,6 @@ export function PairCodeStep(props: PairCodeStepProps): ReactElement {
       }
     >
       <Column gap={4}>
-        <Txt variant="heading">{t('addTv.codeTitle')}</Txt>
         <OtpCells
           value={code}
           length={props.codeLength}

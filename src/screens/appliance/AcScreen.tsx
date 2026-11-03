@@ -17,7 +17,6 @@ import {
   Screen,
   SegmentedControl,
   Skeleton,
-  Txt,
   useToast,
 } from '@/ui';
 import { Dial, LinkLine, Stepper } from '@/ui/appliance';
@@ -165,7 +164,7 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
       title={view.device.name}
       onBack={() => router.back()}
       scroll
-      subtitle={subtitle ? <Txt color="ink2">{subtitle}</Txt> : undefined}
+      subtitle={subtitle || undefined}
       actions={
         <IconButton
           icon="power"

@@ -18,9 +18,14 @@ export function KindPicker(props: { onBack?: () => void }): ReactElement {
   const { drivers } = useServices();
   const canIr = drivers.some((d) => d.kind === 'ir' && d.available());
   return (
-    <Screen title={t('add.title')} onBack={props.onBack ?? (() => router.back())} scroll>
+    <Screen
+      title={t('add.title')}
+      subtitle={t('add.question')}
+      largeTitle
+      onBack={props.onBack ?? (() => router.back())}
+      scroll
+    >
       <Column gap={3}>
-        <Txt variant="heading">{t('add.question')}</Txt>
         {canIr ? null : <Banner icon="ir" text={t('add.noIr')} />}
         {KINDS.map((k, i) => (
           <OptionCard

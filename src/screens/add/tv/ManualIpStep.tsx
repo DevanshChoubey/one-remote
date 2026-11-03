@@ -59,6 +59,7 @@ export function ManualIpStep(props: ManualIpStepProps): ReactElement {
   return (
     <Screen
       title={t('addTv.manualTitle')}
+      largeTitle
       onBack={props.onBack}
       scroll
       footer={<Button label={t('addTv.ipFind')} onPress={find} loading={busy} />}

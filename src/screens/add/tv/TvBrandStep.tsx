@@ -13,6 +13,7 @@ export function TvBrandStep(props: { onFind: () => void; onManual: () => void })
   return (
     <Screen
       title={t('addTv.title')}
+      largeTitle
       onBack={() => router.back()}
       scroll
       footer={

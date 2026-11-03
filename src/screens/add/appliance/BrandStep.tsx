@@ -19,7 +19,7 @@ export function BrandStep(props: BrandStepProps): ReactElement {
     Linking.openURL(BRAND_REQUEST_URL).catch((e: unknown) => console.error('No mail app', e));
   };
   return (
-    <Screen title={t('addAppliance.brandTitle')} onBack={props.onBack} scroll>
+    <Screen title={t('addAppliance.brandTitle')} largeTitle onBack={props.onBack} scroll>
       <Column gap={3}>
         {props.brands.map((b, i) => (
           <OptionCard

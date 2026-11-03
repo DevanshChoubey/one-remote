@@ -98,8 +98,7 @@ export function HomeScreen(): ReactElement {
 
   if (loading) {
     return (
-      <Screen scroll>
-        {header}
+      <Screen scroll header={header}>
         <Box
           gap={3}
           accessibilityLabel={t('common.loading')}
@@ -129,8 +128,7 @@ export function HomeScreen(): ReactElement {
     [0],
   );
   return (
-    <Screen scroll>
-      {header}
+    <Screen scroll header={header}>
       <Column gap={4}>
         {home.showNoIrBanner ? <Banner icon="ir" text={t('home.noIrBanner')} /> : null}
         {home.sections.map((section, si) => (

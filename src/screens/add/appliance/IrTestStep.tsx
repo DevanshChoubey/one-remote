@@ -83,6 +83,7 @@ export function IrTestStep(props: IrTestStepProps): ReactElement {
   return (
     <Screen
       title={t('addAppliance.testTitle')}
+      largeTitle
       onBack={props.onBack}
       scroll
       footer={

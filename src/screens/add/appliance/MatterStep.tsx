@@ -236,6 +236,8 @@ export function MatterStep(props: MatterStepProps): ReactElement {
   return (
     <Screen
       title={t('matter.connectingTitle')}
+      subtitle={t('matter.connectingHint')}
+      largeTitle
       onBack={phase.name === 'failed' ? props.onSkip : undefined}
       scroll
       footer={
@@ -255,7 +257,6 @@ export function MatterStep(props: MatterStepProps): ReactElement {
       }
     >
       <Column gap={4}>
-        <Txt color="ink2">{t('matter.connectingHint')}</Txt>
         <StepList steps={STEPS.map((s) => ({ label: STEP_LABEL[s], state: state(s) }))} />
         {phase.name === 'failed' ? <ErrorLine text={phase.error} /> : null}
         {phase.name === 'success' ? (

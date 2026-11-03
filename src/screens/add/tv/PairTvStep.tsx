@@ -170,7 +170,7 @@ export function PairTvStep(props: PairTvStepProps): ReactElement {
   );
 
   return (
-    <Screen title={t('addTv.pairTitle')} onBack={props.onBack} scroll>
+    <Screen title={t('addTv.pairTitle')} largeTitle onBack={props.onBack} scroll>
       <Column gap={4} align="center">
         {art}
         {done !== null ? (

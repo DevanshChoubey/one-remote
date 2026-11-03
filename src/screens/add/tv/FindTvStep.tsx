@@ -58,9 +58,14 @@ export function FindTvStep(props: FindTvStepProps): ReactElement {
   const ended = waited && none;
 
   return (
-    <Screen title={t('addTv.findTitle')} onBack={props.onBack} scroll>
+    <Screen
+      title={t('addTv.findTitle')}
+      subtitle={t('addTv.findSub')}
+      largeTitle
+      onBack={props.onBack}
+      scroll
+    >
       <Column gap={4}>
-        <Txt color="ink2">{t('addTv.findSub')}</Txt>
         {ended && Platform.OS === 'ios' ? (
           <Column gap={3}>
             <Banner tone="error" icon="lock" text={t('addTv.localNetworkOff')} />

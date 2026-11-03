@@ -95,6 +95,8 @@ export function NameRoomStep(props: NameRoomStepProps): ReactElement {
   return (
     <Screen
       title={t('add.nameTitle')}
+      subtitle={t('add.nameStep')}
+      largeTitle
       onBack={props.onBack}
       scroll
       footer={
@@ -105,7 +107,6 @@ export function NameRoomStep(props: NameRoomStepProps): ReactElement {
       }
     >
       <Column gap={4}>
-        <Txt color="ink2">{t('add.nameStep')}</Txt>
         <Field label={t('add.name')} value={name} onChangeText={setName} onSubmitEditing={save} />
         <Column gap={2}>
           <Txt variant="label" color="ink2">

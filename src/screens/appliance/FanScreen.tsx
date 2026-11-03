@@ -125,7 +125,7 @@ function FanRemote({ view }: { view: DeviceView }): ReactElement {
       title={view.device.name}
       onBack={() => router.back()}
       scroll
-      subtitle={room ? <Txt color="ink2">{room}</Txt> : undefined}
+      subtitle={room || undefined}
       actions={
         <IconButton
           icon="power"
