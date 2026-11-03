@@ -1,19 +1,20 @@
 import type { ReactElement, ReactNode } from 'react';
 import { Box } from './primitives';
+import { Rise } from './Rise';
 
 export interface CardProps {
   children: ReactNode;
   testID?: string;
   /** Looks switched off (0.6). */
   off?: boolean;
-  /** Position in a staggered list (the rise is added with the motion). */
+  /** Position in a staggered list: the card rises in after `index` steps. */
   index?: number;
   /** Lays children out in a row, at least 76 high. */
   row?: boolean;
 }
 
 export function Card(props: CardProps): ReactElement {
-  return (
+  const card = (
     <Box
       bg="surface"
       border="line"
@@ -30,4 +31,5 @@ export function Card(props: CardProps): ReactElement {
       {props.children}
     </Box>
   );
+  return props.index === undefined ? card : <Rise index={props.index}>{card}</Rise>;
 }

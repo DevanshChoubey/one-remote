@@ -19,7 +19,7 @@ const LOOK: Record<
 export function Badge(props: BadgeProps): ReactElement {
   const look = LOOK[props.tone ?? 'neutral'];
   return (
-    <Box bg={look.bg} border={look.border} radius="pill" px={2} py={1}>
+    <Box bg={look.bg} border={look.border} radius="pill" px={3} py={1}>
       <Txt variant="caption" color={look.text}>
         {props.label}
       </Txt>

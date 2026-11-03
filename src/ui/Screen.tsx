@@ -27,7 +27,7 @@ const ONE_PAGE = [0];
 export function Screen(props: ScreenProps): ReactElement {
   const theme = useTheme();
   const header = props.bare ? null : props.onBack ? (
-    <Row gap={2} align="center">
+    <Row gap={2} align="center" minH={theme.touch.min}>
       <IconButton
         icon="back"
         label={t('common.back')}
@@ -40,7 +40,17 @@ export function Screen(props: ScreenProps): ReactElement {
             {props.title}
           </Txt>
         ) : null}
-        {props.subtitle}
+        {props.subtitle === undefined || props.subtitle === null ? null : (
+          <Row gap={2} align="center">
+            {typeof props.subtitle === 'string' ? (
+              <Txt variant="caption" color="ink2" numberOfLines={1}>
+                {props.subtitle}
+              </Txt>
+            ) : (
+              props.subtitle
+            )}
+          </Row>
+        )}
       </Box>
       {props.actions}
     </Row>
@@ -57,11 +67,11 @@ export function Screen(props: ScreenProps): ReactElement {
     </Row>
   ) : null;
   const content = props.bare ? (
-    <Column flex={1} gap={4} px={5} py={4}>
+    <Column flex={1} gap={4} px={4} py={4}>
       {props.children}
     </Column>
   ) : (
-    <Column gap={4} px={5} py={4}>
+    <Column gap={4} px={4} py={4}>
       {header}
       {props.children}
     </Column>
@@ -85,7 +95,7 @@ export function Screen(props: ScreenProps): ReactElement {
           <Box flex={1}>{content}</Box>
         )}
         {props.footer ? (
-          <Box px={5} py={3}>
+          <Box px={4} py={3}>
             {props.footer}
           </Box>
         ) : null}

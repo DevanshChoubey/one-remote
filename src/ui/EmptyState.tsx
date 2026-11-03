@@ -33,7 +33,7 @@ export function EmptyState(props: EmptyStateProps): ReactElement {
       p={6}
     >
       {props.art === 'mark' ? (
-        <Mark size={96} />
+        <Mark size={96} animate={false} />
       ) : props.art ? (
         <Box
           w={104}
@@ -44,6 +44,7 @@ export function EmptyState(props: EmptyStateProps): ReactElement {
           shadow="card"
           align="center"
           justify="center"
+          testID="empty-art"
         >
           <Icon name={props.art} size={48} strokeWidth={1.7} color={TONE[props.tone ?? 'accent']} />
         </Box>

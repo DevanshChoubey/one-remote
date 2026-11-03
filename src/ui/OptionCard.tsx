@@ -4,6 +4,7 @@ import type { BadgeProps } from './Badge';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
 import { Box, Column, Row, Touchable, Txt } from './primitives';
+import { Rise } from './Rise';
 import { Tile } from './Tile';
 
 export interface OptionCardProps {
@@ -21,7 +22,7 @@ export interface OptionCardProps {
 
 /** A big choice row: tile, name, optional badge and a chevron. */
 export function OptionCard(props: OptionCardProps): ReactElement {
-  return (
+  const card = (
     <Touchable
       onPress={props.onPress}
       accessibilityLabel={props.accessibilityLabel ?? props.title}
@@ -33,7 +34,7 @@ export function OptionCard(props: OptionCardProps): ReactElement {
       pressedBg="surface2"
       pressScale={0.985}
     >
-      <Row gap={3} align="center" px={4} minH={88}>
+      <Row gap={4} align="center" px={5} py={4} minH={88}>
         <Tile icon={props.icon} size={56} />
         <Box flex={1}>
           <Column gap={1}>
@@ -46,8 +47,9 @@ export function OptionCard(props: OptionCardProps): ReactElement {
           </Column>
         </Box>
         {props.badge ? <Badge {...props.badge} /> : null}
-        <Icon name="chev" size={20} color="ink2" />
+        <Icon name="chev" size={22} color="ink2" />
       </Row>
     </Touchable>
   );
+  return props.index === undefined ? card : <Rise index={props.index}>{card}</Rise>;
 }
