@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
-import { AccessibilityInfo, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Platform, StyleSheet } from 'react-native';
 import { darkTokens, lightTokens, ThemeProvider } from '@/theme';
 import { Button, Mark, Menu, Sheet, ToastProvider, useToast } from '@/ui';
 
@@ -89,6 +89,33 @@ describe('overlays', () => {
       announce.mockRestore();
     });
 
+    it('on Android leaves an error toast to the live region, so it is spoken once', async () => {
+      jest.replaceProperty(Platform, 'OS', 'android');
+      const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+      await render(wrap(<Raise message="Nope" opts={{ kind: 'error' }} />));
+      await fireEvent.press(screen.getByLabelText('raise'));
+      expect(screen.getByTestId('toast').props.accessibilityLiveRegion).toBe('assertive');
+      expect(announce).not.toHaveBeenCalled();
+      announce.mockRestore();
+      jest.restoreAllMocks();
+    });
+
+    it('is not taken by a mounted but closed Sheet', async () => {
+      await render(
+        wrap(
+          <>
+            <Raise message="Saved" />
+            <Sheet open={false} onClose={jest.fn()} title="Inputs" testID="sheet">
+              <Button label="x" onPress={jest.fn()} />
+            </Sheet>
+          </>,
+        ),
+      );
+      await fireEvent.press(screen.getByLabelText('raise'));
+      expect(screen.getAllByTestId('toast')).toHaveLength(1);
+      expect(screen.queryByTestId('sheet')).toBeNull();
+    });
+
     it('is drawn once, inside the Sheet window while a Sheet is open', async () => {
       const make = (open: boolean) =>
         wrap(
@@ -125,6 +152,22 @@ describe('overlays', () => {
   });
 
   describe('Sheet', () => {
+    it('draws its panel above the scrim', async () => {
+      await render(
+        wrap(
+          <Sheet open onClose={jest.fn()} title="Inputs" testID="sheet">
+            <Button label="x" onPress={jest.fn()} />
+          </Sheet>,
+        ),
+      );
+      // The scrim is the floating box holding the full-screen close target; the panel holds the title.
+      const scrim = screen.getAllByLabelText('Close')[0]?.parent?.parent;
+      const panel = screen.getByText('Inputs').parent?.parent?.parent;
+      const z = (n: typeof scrim): number => StyleSheet.flatten(n?.props.style)?.zIndex ?? 0;
+      expect(z(panel)).toBeGreaterThanOrEqual(z(scrim));
+      expect(StyleSheet.flatten(panel?.props.style)?.position).toBe('absolute');
+    });
+
     it('closes from Android back exactly once, even when back is pressed again during the exit', async () => {
       jest.useFakeTimers();
       const onClose = jest.fn();

@@ -51,11 +51,12 @@ interface ToastShared {
 const ToastSharedContext = createContext<ToastShared | null>(null);
 
 /** For a Sheet: draw the toast inside its own window while it is mounted. */
-export function useToastHost(): { active: boolean; node: ReactElement | null } {
+export function useToastHost(enabled = true): { active: boolean; node: ReactElement | null } {
   const shared = useContext(ToastSharedContext);
   const register = shared?.registerHost;
-  useEffect(() => (register ? register() : undefined), [register]);
-  if (!shared) return { active: false, node: null };
+  // Only a host that is on screen takes the toast; a closed Sheet would draw it nowhere.
+  useEffect(() => (register && enabled ? register() : undefined), [register, enabled]);
+  if (!shared || !enabled) return { active: false, node: null };
   return {
     active: true,
     node: shared.shown ? (
@@ -140,7 +141,8 @@ export function ToastProvider(props: { children: ReactNode }): ReactElement {
   const spokenMessage = shown?.message;
   const spokenKind = shown?.opts.kind;
   useEffect(() => {
-    if (spoken !== undefined && spokenKind === 'error' && spokenMessage) {
+    // Android speaks the assertive live region itself; announcing too would say it twice.
+    if (Platform.OS === 'ios' && spoken !== undefined && spokenKind === 'error' && spokenMessage) {
       AccessibilityInfo.announceForAccessibility(spokenMessage);
     }
   }, [spoken, spokenKind, spokenMessage]);

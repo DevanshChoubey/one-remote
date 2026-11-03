@@ -244,6 +244,14 @@ function Flow(props: FlowProps): ReactElement {
           draft={{ kind, links: step.links }}
           suggestedName={step.suggestedName}
           onBack={back}
+          onSaving={(saving) => {
+            // The named save is under way: leaving now must not add a second, rescued copy.
+            // If it fails, the rescue is armed again.
+            saved.current = true;
+            saving.catch(() => {
+              saved.current = false;
+            });
+          }}
           onDone={() => {
             saved.current = true;
             home();

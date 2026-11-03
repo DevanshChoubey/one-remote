@@ -11,6 +11,8 @@ export interface NameRoomStepProps {
   draft: Omit<Device, 'id' | 'name' | 'roomId' | 'order'>;
   suggestedName: string;
   onDone(d: Device): void;
+  /** Called as the device is written, with the write; a caller can tell the save is under way. */
+  onSaving?: (saving: Promise<void>) => void;
   onBack?: () => void;
 }
 
@@ -79,15 +81,15 @@ export function NameRoomStep(props: NameRoomStepProps): ReactElement {
           order: data.rooms.reduce((m, r) => Math.max(m, r.order + 1), 0),
         })
       : Promise.resolve();
-    roomFirst
-      .then(() => store.upsertDevice(device))
-      .then(
-        () => props.onDone(device),
-        () => {
-          setBusy(false);
-          setError(true);
-        },
-      );
+    const saving = roomFirst.then(() => store.upsertDevice(device));
+    props.onSaving?.(saving);
+    saving.then(
+      () => props.onDone(device),
+      () => {
+        setBusy(false);
+        setError(true);
+      },
+    );
   };
 
   return (

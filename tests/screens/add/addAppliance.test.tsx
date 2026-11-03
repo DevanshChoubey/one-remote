@@ -267,6 +267,25 @@ describe('the Matter step', () => {
     );
   });
 
+  it('saves once when the flow is left while the named save is still being written', async () => {
+    const { s } = await setup({ hasIr: true, matter: true });
+    await renderWith(s, <AddApplianceFlow kind="ac" renderMatterStep={matterStep} />);
+    await fireEvent.press(await screen.findByLabelText('Panasonic'));
+    await press('Pair');
+    await press(t('addAppliance.skip'));
+    expect(await screen.findByDisplayValue('Panasonic AC')).toBeTruthy();
+    // Press Done and leave in the same tick, before the write resolves.
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText(t('common.done')));
+      screen.unmount();
+    });
+    await waitFor(async () => expect(await s.store.devices()).toHaveLength(1));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(await s.store.devices()).toHaveLength(1);
+  });
+
   it('offers it when plugged in, then an IR backup that can be skipped', async () => {
     const { s } = await setup({ hasIr: true, matter: true });
     await renderWith(s, <AddApplianceFlow kind="ac" renderMatterStep={matterStep} />);

@@ -35,7 +35,7 @@ export function Sheet(props: SheetProps): ReactElement | null {
   const [mounted, setMounted] = useState(props.open);
   const progress = useSharedValue(0);
   const reduced = motion.reduced;
-  const toastHost = useToastHost();
+  const toastHost = useToastHost(props.open || mounted);
 
   // Mount as soon as `open` turns true (adjusting state while rendering, not in an effect).
   if (props.open && !mounted) setMounted(true);
@@ -108,7 +108,9 @@ export function Sheet(props: SheetProps): ReactElement | null {
             <Box flex={1} />
           </Touchable>
         </AnimatedBox>
+        {/* Floats like the scrim so it draws above it (a floating box sits over in-flow ones). */}
         <AnimatedBox
+          float={{ left: 0, right: 0, bottom: 0 }}
           bg="bg"
           topRadius="sheet"
           shadow="sheet"
