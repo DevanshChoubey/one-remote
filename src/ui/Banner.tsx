@@ -22,7 +22,7 @@ export function Banner(props: BannerProps): ReactElement {
   return (
     <Box bg={look.bg} radius="md" px={4} py={3} testID={props.testID}>
       <Row gap={3} align="start">
-        <Icon name={props.icon ?? look.icon} size={20} />
+        <Icon name={props.icon ?? look.icon} size={20} color="ink" />
         <Box flex={1}>
           <Txt variant="caption">{props.text}</Txt>
         </Box>

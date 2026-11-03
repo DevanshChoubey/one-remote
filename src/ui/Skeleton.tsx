@@ -1,5 +1,17 @@
+import { useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
+import type { LayoutChangeEvent } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import { useMotion, useTheme } from '@/theme';
 import type { RadiusToken } from '@/theme';
+import { AnimatedBox } from './primitives/AnimatedBox';
 import { Box, Row } from './primitives';
 import { Tile } from './Tile';
 
@@ -9,9 +21,76 @@ export interface SkeletonProps {
   radius?: RadiusToken;
 }
 
-/** A grey placeholder bar. */
+const SWEEP_MS = 1500;
+const BLINK_MS = 1600;
+const BAND_SHARE = 0.6;
+const BAND_OPACITY = 0.7;
+
+/** A placeholder bar with a light band sweeping across it; reduced motion: a slow blink. */
 export function Skeleton(props: SkeletonProps): ReactElement {
-  return <Box bg="line" w={props.width} h={props.height} radius={props.radius ?? 'sm'} />;
+  const theme = useTheme();
+  const motion = useMotion();
+  const reduced = motion.reduced;
+  const [barWidth, setBarWidth] = useState(0);
+  const sweep = useSharedValue(0);
+  const blink = useSharedValue(1);
+  const ease = motion.ease.standard;
+  useEffect(() => {
+    cancelAnimation(sweep);
+    cancelAnimation(blink);
+    sweep.value = 0;
+    blink.value = 1;
+    if (reduced) {
+      const half = { duration: BLINK_MS / 2, easing: ease };
+      blink.value = withRepeat(withSequence(withTiming(0.5, half), withTiming(1, half)), -1);
+    } else {
+      sweep.value = withRepeat(withTiming(1, { duration: SWEEP_MS, easing: ease }), -1);
+    }
+    return () => {
+      cancelAnimation(sweep);
+      cancelAnimation(blink);
+    };
+  }, [reduced, ease, sweep, blink]);
+  const bandWidth = barWidth * BAND_SHARE;
+  const bandStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: -bandWidth + sweep.value * (barWidth + bandWidth) }],
+  }));
+  const barStyle = useAnimatedStyle(() => ({ opacity: reduced ? blink.value : 1 }));
+  const onLayout = (e: LayoutChangeEvent): void => setBarWidth(e.nativeEvent.layout.width);
+  return (
+    <AnimatedBox
+      bg="surface2"
+      w={props.width}
+      h={props.height}
+      radius={props.radius ?? 'sm'}
+      animatedStyle={barStyle}
+    >
+      <Animated.View
+        onLayout={onLayout}
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: 0,
+          bottom: 0,
+          left: 0,
+          right: 0,
+          overflow: 'hidden',
+          borderRadius: theme.radius[props.radius ?? 'sm'],
+        }}
+      >
+        {reduced ? null : (
+          <AnimatedBox
+            testID="skeleton-band"
+            bg="surface"
+            h="100%"
+            w={bandWidth}
+            opacity={BAND_OPACITY}
+            animatedStyle={bandStyle}
+          />
+        )}
+      </Animated.View>
+    </AnimatedBox>
+  );
 }
 
 /** A device card while it loads: tile, two bars and a switch pill. */

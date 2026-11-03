@@ -22,7 +22,9 @@ export function AnimatedBox(props: AnimatedBoxProps): ReactElement {
       accessible={props.accessibilityLabel ? true : undefined}
       accessibilityLabel={props.accessibilityLabel}
       accessibilityRole={props.accessibilityRole}
+      accessibilityValue={props.accessibilityValue}
       accessibilityLiveRegion={props.accessibilityLiveRegion}
+      accessibilityState={props.selected === undefined ? undefined : { selected: props.selected }}
     >
       {props.children}
     </Animated.View>
