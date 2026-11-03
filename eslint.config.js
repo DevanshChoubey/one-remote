@@ -2,6 +2,17 @@ const expoConfig = require('eslint-config-expo/flat');
 
 const RN_VISUAL = ['View', 'Text', 'Pressable', 'TextInput', 'Image', 'ScrollView', 'StyleSheet'];
 
+// Drawing and animated components are built under src/ui; screens and routes only compose them.
+const svgRestriction = {
+  group: ['react-native-svg', 'react-native-svg/**'],
+  message: 'Draw with @/ui (Icon and the src/ui components) instead.',
+};
+const reanimatedRestriction = {
+  name: 'react-native-reanimated',
+  importNames: ['default', 'Animated', 'createAnimatedComponent'],
+  message: 'Use AnimatedBox from @/ui/primitives; Reanimated hooks are fine.',
+};
+
 const rnVisualRestriction = {
   paths: [
     {
@@ -20,6 +31,8 @@ const rnVisualRestriction = {
 const DEV_SPIKE_FILES = [
   // tv lane
   'app/dev/tv-spike.tsx',
+  // ui lane
+  'app/dev/svg-spike.tsx',
   // ir lane
   // matter lane
 ];
@@ -350,8 +363,9 @@ module.exports = [
       'no-restricted-imports': [
         'error',
         {
-          ...rnVisualRestriction,
+          paths: [...rnVisualRestriction.paths, reanimatedRestriction],
           patterns: [
+            svgRestriction,
             { group: ['**/app/**'], message: 'Screens must not import from app/.' },
             ...serviceImports,
             socketImports,
@@ -369,8 +383,8 @@ module.exports = [
       'no-restricted-imports': [
         'error',
         {
-          ...rnVisualRestriction,
-          patterns: [...serviceImports, socketImports, micImports, fetchImports],
+          paths: [...rnVisualRestriction.paths, reanimatedRestriction],
+          patterns: [svgRestriction, ...serviceImports, socketImports, micImports, fetchImports],
         },
       ],
       'import/no-default-export': 'off',

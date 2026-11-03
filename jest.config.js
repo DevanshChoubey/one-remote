@@ -8,6 +8,9 @@ module.exports = {
     '/node_modules/react-native-reanimated/plugin/',
     '/node_modules/@react-native/babel-preset/',
   ],
+  // Reanimated's Jest resolver swaps its native-only modules for the web ones, so hooks run in Node.
+  resolver: 'react-native-reanimated/jest/resolver',
+  setupFiles: ['<rootDir>/tests/setup/reanimated.ts'],
   moduleNameMapper: { '^@/(.*)$': '<rootDir>/src/$1' },
   collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
   // Every gate always applies: Jest fails if a gated folder goes missing, so a rename cannot
