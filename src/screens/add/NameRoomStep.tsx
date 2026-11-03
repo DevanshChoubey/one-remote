@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import type { Device } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Button, Chip, Column, Input, Row, Screen, Txt } from '@/ui';
+import { Button, Chip, Column, ErrorLine, Field, Row, Screen, Rise, Txt } from '@/ui';
 import { newId } from '../shared/newId';
 import { useHomeData } from '../shared/useHomeData';
 
@@ -99,17 +99,11 @@ export function NameRoomStep(props: NameRoomStepProps): ReactElement {
     >
       <Column gap={4}>
         <Txt color="ink2">{t('add.nameStep')}</Txt>
+        <Field label={t('add.name')} value={name} onChangeText={setName} onSubmitEditing={save} />
         <Column gap={2}>
-          <Txt variant="bodyBold">{t('add.name')}</Txt>
-          <Input
-            value={name}
-            onChangeText={setName}
-            accessibilityLabel={t('add.name')}
-            onSubmitEditing={save}
-          />
-        </Column>
-        <Column gap={2}>
-          <Txt variant="bodyBold">{t('add.room')}</Txt>
+          <Txt variant="label" color="ink2">
+            {t('add.room')}
+          </Txt>
           <Row gap={2} wrap>
             {data.rooms.map((r) => (
               <Chip
@@ -125,30 +119,28 @@ export function NameRoomStep(props: NameRoomStepProps): ReactElement {
               onToggle={() => setWantsNew(true)}
             />
           </Row>
-          {creating ? (
-            <Row gap={2} align="center">
+        </Column>
+        {creating ? (
+          <Rise>
+            <Row gap={2} align="end">
               <Column flex={1}>
-                <Input
+                <Field
+                  label={t('add.roomName')}
                   value={roomName}
                   onChangeText={setRoomName}
-                  accessibilityLabel={t('add.roomName')}
                   onSubmitEditing={createRoom}
                 />
               </Column>
               <Button
                 label={t('add.createRoom')}
-                variant="secondary"
+                size="small"
                 onPress={createRoom}
                 disabled={roomName.trim() === ''}
               />
             </Row>
-          ) : null}
-        </Column>
-        {error ? (
-          <Txt live color="ink2">
-            {t('add.saveFailed')}
-          </Txt>
+          </Rise>
         ) : null}
+        {error ? <ErrorLine text={t('add.saveFailed')} /> : null}
       </Column>
     </Screen>
   );

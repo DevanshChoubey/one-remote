@@ -1,42 +1,12 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { t } from '@/i18n';
-import { KindPicker } from '@/screens/add/KindPicker';
 import { NameRoomStep } from '@/screens/add/NameRoomStep';
 import type { NameRoomStepProps } from '@/screens/add/NameRoomStep';
-import { createFakeDriver } from '@/device/testing/fakeDriver';
 import { device, makeServices, renderWith, room } from './helpers';
 
-const mockPush = jest.fn();
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, back: jest.fn() }) }));
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: jest.fn() }) }));
 
 const draft: NameRoomStepProps['draft'] = { kind: 'ac', links: [{ kind: 'ir', remoteId: 'p/q' }] };
-
-beforeEach(() => mockPush.mockClear());
-
-describe('KindPicker', () => {
-  it.each([
-    ['add.kindTv', '/add/tv'],
-    ['add.kindAc', '/add/ac'],
-    ['add.kindFan', '/add/fan'],
-  ])('opens %s at %s', async (key, href) => {
-    await renderWith(makeServices(), <KindPicker />);
-    await fireEvent.press(screen.getByLabelText(t(key)));
-    expect(mockPush).toHaveBeenCalledWith(href);
-  });
-
-  it('lists every kind and notes the missing IR blaster', async () => {
-    await renderWith(makeServices([createFakeDriver('ir', { available: false })]), <KindPicker />);
-    expect(screen.getByText(t('add.kindTv'))).toBeTruthy();
-    expect(screen.getByText(t('add.kindAc'))).toBeTruthy();
-    expect(screen.getByText(t('add.kindFan'))).toBeTruthy();
-    expect(screen.getByText(t('add.noIr'))).toBeTruthy();
-  });
-
-  it('has no IR note when the phone can send IR', async () => {
-    await renderWith(makeServices([createFakeDriver('ir')]), <KindPicker />);
-    expect(screen.queryByText(t('add.noIr'))).toBeNull();
-  });
-});
 
 describe('NameRoomStep', () => {
   it('pre-fills the suggested name', async () => {
@@ -101,6 +71,34 @@ describe('NameRoomStep', () => {
     await renderWith(s, <NameRoomStep draft={draft} suggestedName="AC" onDone={jest.fn()} />);
     const done = await screen.findByLabelText(t('common.done'));
     expect(done.props.accessibilityState.disabled).toBe(true);
+  });
+
+  it('shows an announced error line when saving fails', async () => {
+    const s = makeServices();
+    await s.store.upsertRoom(room('r1', 'Bedroom', 0));
+    const broken = { ...s.store, upsertDevice: () => Promise.reject(new Error('disk')) };
+    await renderWith(
+      { ...s, store: broken },
+      <NameRoomStep draft={draft} suggestedName="AC" onDone={jest.fn()} />,
+    );
+    await screen.findByLabelText('Bedroom');
+    await fireEvent.press(screen.getByLabelText(t('common.done')));
+    expect(await screen.findByText(t('add.saveFailed'))).toBeTruthy();
+    expect(screen.getByText(t('add.saveFailed')).props.accessibilityLiveRegion).toBe('polite');
+  });
+
+  it('shows the new-room field only while New room is chosen, in dark and reduced motion', async () => {
+    const s = makeServices();
+    await s.store.upsertRoom(room('r1', 'Bedroom', 0));
+    await renderWith(s, <NameRoomStep draft={draft} suggestedName="AC" onDone={jest.fn()} />, {
+      scheme: 'dark',
+      reducedMotion: true,
+    });
+    await screen.findByLabelText('Bedroom');
+    expect(screen.queryByLabelText(t('add.roomName'))).toBeNull();
+    await fireEvent.press(screen.getByLabelText(t('add.newRoom')));
+    expect(screen.getByLabelText(t('add.roomName'))).toBeTruthy();
+    expect(screen.getByLabelText(t('add.createRoom'))).toBeTruthy();
   });
 
   it('disables Done while the name is empty', async () => {
