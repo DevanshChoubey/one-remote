@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import Animated, {
   useAnimatedProps,
   useAnimatedStyle,
@@ -32,6 +32,11 @@ export interface DialProps {
   /** The line under the number (the mode name, or the hint while off). */
   caption: string;
   accessibilityLabel: string;
+  /** Screen reader increment / decrement (the same as the steppers). */
+  onIncrement?: () => void;
+  onDecrement?: () => void;
+  /** Floated over the dial's box (the steppers at its bottom corners). */
+  children?: ReactNode;
 }
 
 /** The AC dial: a 270 degree arc that fills with the setpoint, the number rolling in its centre. */
@@ -63,8 +68,8 @@ export function Dial(props: DialProps): ReactElement {
   const dash = `${ARC} 999`;
   const digits = String(Math.round(props.value)).split('');
   return (
-    <Box w={SIZE} h={SIZE}>
-      <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} accessible={false}>
+    <Animated.View style={{ width: '100%', maxWidth: SIZE, aspectRatio: 1, alignSelf: 'center' }}>
+      <Svg width="100%" height="100%" viewBox={`0 0 ${SIZE} ${SIZE}`} accessible={false}>
         <G rotation={135} origin={`${CENTRE}, ${CENTRE}`}>
           <Circle
             cx={CENTRE}
@@ -102,13 +107,18 @@ export function Dial(props: DialProps): ReactElement {
       </Svg>
       <Box float={{ top: 0, right: 0, bottom: 0, left: 0 }} align="center" justify="center">
         <Animated.View style={{ marginTop: -38, alignItems: 'center' }}>
-          <Box
-            align="center"
-            justify="center"
-            h={DIGIT_H}
-            accessibilityRole="image"
+          <Animated.View
+            accessible
+            accessibilityRole="adjustable"
             accessibilityLabel={props.accessibilityLabel}
+            accessibilityValue={{ min: props.min, max: props.max, now: props.value }}
+            accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+            onAccessibilityAction={(e) => {
+              if (e.nativeEvent.actionName === 'increment') props.onIncrement?.();
+              if (e.nativeEvent.actionName === 'decrement') props.onDecrement?.();
+            }}
             accessibilityLiveRegion="polite"
+            style={{ height: DIGIT_H, alignItems: 'center', justifyContent: 'center' }}
           >
             {props.on ? (
               <Row justify="center">
@@ -127,7 +137,7 @@ export function Dial(props: DialProps): ReactElement {
                 </Txt>
               </Animated.View>
             )}
-          </Box>
+          </Animated.View>
           <Animated.View style={{ marginTop: 6 }}>
             <Txt variant="bodyBold" color="ink2">
               {props.caption}
@@ -135,7 +145,8 @@ export function Dial(props: DialProps): ReactElement {
           </Animated.View>
         </Animated.View>
       </Box>
-    </Box>
+      {props.children}
+    </Animated.View>
   );
 }
 

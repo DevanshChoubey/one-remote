@@ -16,6 +16,7 @@ import {
   Screen,
   SegmentedControl,
   Skeleton,
+  Touchable,
   Txt,
   useToast,
 } from '@/ui';
@@ -128,6 +129,13 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
   const canUp =
     live && nextAc(state, { setpoint: state.setpoint + 1 }, caps).setpoint !== state.setpoint;
 
+  const lower = (): void => {
+    if (canDown) press({ setpoint: state.setpoint - 1 });
+  };
+  const raise = (): void => {
+    if (canUp) press({ setpoint: state.setpoint + 1 });
+  };
+
   const room = rooms.find((r) => r.id === view.device.roomId)?.name;
   const subtitle =
     shown.roomTemp === undefined
@@ -157,35 +165,26 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
       }
     >
       <Column gap={5}>
-        <Row justify="center">
-          <Box w={290} h={290} testID="ac-dial">
-            <Dial
-              value={state.setpoint}
-              min={clampSetpoint(-1000, caps)}
-              max={clampSetpoint(1000, caps)}
-              on={power}
-              tone={MODE_TONE[state.mode]}
-              caption={power ? modeName : t('ac.offHint')}
-              accessibilityLabel={
-                power ? t('ac.setpoint', { temp: state.setpoint, mode: modeName }) : t('ac.off')
-              }
-            />
+        <Column align="center">
+          <Dial
+            value={state.setpoint}
+            min={clampSetpoint(-1000, caps)}
+            max={clampSetpoint(1000, caps)}
+            on={power}
+            tone={MODE_TONE[state.mode]}
+            caption={power ? modeName : t('ac.offHint')}
+            accessibilityLabel={
+              power ? t('ac.setpoint', { temp: state.setpoint, mode: modeName }) : t('ac.off')
+            }
+            onIncrement={raise}
+            onDecrement={lower}
+          >
             <Row float={{ left: 0, right: 0, bottom: -6 }} justify="between" px={3}>
-              <Stepper
-                icon="minus"
-                label={t('ac.lower')}
-                onPress={() => press({ setpoint: state.setpoint - 1 })}
-                disabled={!canDown}
-              />
-              <Stepper
-                icon="plus"
-                label={t('ac.raise')}
-                onPress={() => press({ setpoint: state.setpoint + 1 })}
-                disabled={!canUp}
-              />
+              <Stepper icon="minus" label={t('ac.lower')} onPress={lower} disabled={!canDown} />
+              <Stepper icon="plus" label={t('ac.raise')} onPress={raise} disabled={!canUp} />
             </Row>
-          </Box>
-        </Row>
+          </Dial>
+        </Column>
 
         <SegmentedControl
           label={t('ac.modeTitle')}
@@ -197,13 +196,25 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
 
         <Row gap={2} wrap justify="center">
           {fans.length > 1 ? (
-            <Chip
-              icon="wind"
-              label={state.fan === 'auto' ? t('ac.fanAuto') : t('ac.fanChip', { speed: state.fan })}
-              state="neutral"
+            <Touchable
+              onPress={() => press({ fan: fans[(fans.indexOf(state.fan) + 1) % fans.length] })}
               disabled={!live}
-              onToggle={() => press({ fan: fans[(fans.indexOf(state.fan) + 1) % fans.length] })}
-            />
+              accessibilityLabel={
+                state.fan === 'auto' ? t('ac.fanAuto') : t('ac.fanChip', { speed: state.fan })
+              }
+              accessibilityHint={t('ac.fanHint')}
+              radius="pill"
+              pressScale={0.95}
+            >
+              <Chip
+                icon="wind"
+                label={
+                  state.fan === 'auto' ? t('ac.fanAuto') : t('ac.fanChip', { speed: state.fan })
+                }
+                state="neutral"
+                disabled={!live}
+              />
+            </Touchable>
           ) : null}
           {caps.swing === true ? (
             <Chip

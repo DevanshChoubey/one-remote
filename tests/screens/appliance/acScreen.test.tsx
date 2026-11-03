@@ -1,3 +1,4 @@
+import type { TestInstance as ReactTestInstance } from 'test-renderer';
 import { processColor } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { defaultAcState } from '@/core';
@@ -18,6 +19,13 @@ const FULL: Capabilities = {
   acFan: ['auto', 1, 2, 3],
   swing: true,
   sleep: true,
+};
+
+// The fan chip is a button around a labelled chip, so its label matches twice: take the button.
+const fanChip = async (): Promise<ReactTestInstance> => {
+  const [button] = await screen.findAllByLabelText(t('ac.fanAuto'));
+  if (!button) throw new Error('no fan chip');
+  return button;
 };
 
 const at = (temp: number): string => t('ac.setpoint', { temp, mode: t('ac.modeName.cool') });
@@ -70,7 +78,7 @@ describe('AcScreen design', () => {
 
   it('cycles the fan speed from one chip', async () => {
     const { sent } = await setup(FULL, on);
-    await fireEvent.press(await screen.findByLabelText(t('ac.fanAuto')));
+    await fireEvent.press(await fanChip());
     await waitFor(() => expect(sent()).toEqual([{ ...on, fan: 1 }]));
   });
 
@@ -112,6 +120,27 @@ describe('AcScreen design', () => {
     await renderWith(s, <AcScreen deviceId="d1" />);
     await screen.findByLabelText(t('ac.status.connected'));
     expect(screen.queryByText(/●/)).toBeNull();
+  });
+});
+
+describe('Dial accessibility', () => {
+  it('is adjustable and steps like the steppers', async () => {
+    const { sent } = await setup(FULL, on);
+    const dial = await screen.findByLabelText(at(24));
+    expect(dial.props.accessibilityRole).toBe('adjustable');
+    expect(dial.props.accessibilityValue).toEqual({ min: 16, max: 30, now: 24 });
+    await fireEvent(dial, 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
+    await waitFor(() => expect(sent()).toEqual([{ ...on, setpoint: 25 }]));
+    await fireEvent(screen.getByLabelText(at(25)), 'accessibilityAction', {
+      nativeEvent: { actionName: 'decrement' },
+    });
+    await waitFor(() => expect(sent()).toEqual([{ ...on, setpoint: 25 }, on]));
+  });
+
+  it('hints that the fan chip cycles', async () => {
+    await setup(FULL, on);
+    const chip = await fanChip();
+    expect(chip.props.accessibilityHint).toBe(t('ac.fanHint'));
   });
 });
 

@@ -15,6 +15,7 @@ export default {
   'modeName.fan': 'Fan',
   'modeName.auto': 'Auto',
   fanAuto: 'Fan auto',
+  fanHint: 'Tap to change the fan speed',
   fanChip: 'Fan {speed}',
   notFound: 'This AC is not in the app any more.',
   swing: 'Swing',
