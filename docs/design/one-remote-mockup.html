@@ -541,6 +541,32 @@ button.li:active, .li.is-pressed { background: var(--color-surface2); }
 :root[data-motion="reduce"] .beam, :root[data-motion="reduce"] .radar i, :root[data-motion="reduce"] .micwrap::before, :root[data-motion="reduce"] .micwrap::after, :root[data-motion="reduce"] .eq i, :root[data-motion="reduce"] .fan-spin.on .i, :root[data-motion="reduce"] .irphone.fire i { animation: none; }
 :root[data-motion="reduce"] * { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; }
 :root[data-motion="reduce"] .spinner, :root[data-motion="reduce"] .sk::after { animation-duration: 1.4s !important; animation-iteration-count: infinite !important; }
+/* ---- added: screen index, tags, a phone forced to dark ---- */
+.device.dk { color-scheme: dark; --color-bg: #0d0f12; --color-surface: #1c2027; --color-surface2: #232832; --color-ink: #eef1f5; --color-ink2: #9aa3b2; --color-line: #2b313b; --color-accent: #6a96ff; --color-accent-ink: #0d0f12; --color-ok-ink: #4cc88c; --color-danger-ink: #ff8b8f; --color-scrim: rgba(0, 0, 0, .6);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, .4); --shadow-pop: 0 10px 28px rgba(0, 0, 0, .55), 0 0 0 1px #2b313b; --shadow-sheet: 0 -10px 40px rgba(0, 0, 0, .6); }
+.ftags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.ftag { font-size: 12px; font-weight: 700; line-height: 1; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--stage-line); color: var(--stage-ink2); }
+.ftag.new { background: var(--stage-ink); color: var(--stage); border-color: transparent; }
+.ftag.copy { border-style: dashed; }
+.idx-sum { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0 0 16px; font-size: 15px; }
+.idx-sum b { font-size: 22px; letter-spacing: -.01em; }
+.idx-filter { display: inline-flex; border: 1px solid var(--stage-line); border-radius: 999px; padding: 3px; margin-bottom: 16px; }
+.idx-filter button { min-height: 36px; padding: 0 14px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--stage-ink2); }
+.idx-filter button[aria-pressed="true"] { background: var(--stage-ink); color: var(--stage); }
+table.idx { width: 100%; max-width: 1180px; border-collapse: collapse; font-size: 14px; }
+table.idx th { text-align: left; padding: 8px 12px 8px 0; border-bottom: 2px solid var(--stage-line); position: sticky; top: 0; background: var(--stage); z-index: 2; }
+table.idx td { padding: 7px 12px 7px 0; border-bottom: 1px solid var(--stage-line); vertical-align: top; }
+table.idx tr.grp td { padding: 22px 0 6px; font-size: 16px; font-weight: 700; border-bottom: 2px solid var(--stage-line); }
+table.idx td.src { font: 12.5px ui-monospace, "SF Mono", Menlo, monospace; color: var(--stage-ink2); word-break: break-word; }
+table.idx a { color: var(--stage-ink); font-weight: 600; }
+table.idx tr.miss td { background: #e5484d33; }
+@media (max-width: 700px) { table.idx td.src, table.idx th.src { display: none; } }
+.acc-body { padding: 4px var(--space-4) var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); animation: fade-in var(--dur-base) var(--ease-standard) both; }
+.li .tail { color: var(--color-ink2); font-size: var(--font-size-caption); }
+.li .i.flip { transform: rotate(-90deg); }
+figure.fig:target .device { outline: 3px solid var(--color-accent); outline-offset: 6px; }
+.idx-wrap { overflow-x: auto; max-width: 100%; }
+@media (max-width: 760px) { .layout > *, main, section.flow { min-width: 0; max-width: 100vw; } }
 </style>
 </head>
 <body>
@@ -594,19 +620,23 @@ button.li:active, .li.is-pressed { background: var(--color-surface2); }
 <aside class="index" aria-label="Page index">
   <h2>One Remote mock</h2>
   <nav>
+    <a href="#s-index">Screen index</a>
     <a href="#s-proto">Try it</a>
     <a href="#s-tokens">Visual system</a>
     <a href="#s-start">Start and Home</a>
     <a href="#s-tv">TV remote</a>
+    <a href="#s-voice">Voice</a>
     <a href="#s-ac">Air conditioner</a>
     <a href="#s-fan">Fan</a>
     <a href="#s-addtv">Add a TV</a>
     <a href="#s-addac">Add an AC or fan</a>
     <a href="#s-matter" class="sub">Matter QR scan</a>
     <a href="#s-sheet">Settings and sheets</a>
+    <a href="#s-dark">Dark theme</a>
     <a href="#s-comp">Components</a>
     <a href="#s-motion">Motion</a>
     <a href="#s-changes">Token changes</a>
+    <a href="#s-copy">Copy changes</a>
   </nav>
 </aside>
 
@@ -628,6 +658,12 @@ button.li:active, .li.is-pressed { background: var(--color-surface2); }
     <button class="solo" id="replay-all">Replay all animations</button>
   </div>
 </header>
+
+<section class="flow" id="s-index">
+  <h2>Screen index</h2>
+  <p>Every screen of the app and every state it can be in, read from <code class="i2">src/screens</code>, the status types in <code class="i2">src/device</code>, <code class="i2">src/screens/tv/tvMode.ts</code> and <code class="i2">src/voice</code>, and the copy in <code class="i2">src/i18n/en</code> (including the Panasonic lane's AC, fan, IR and Matter screens). Each row links to the phone that draws it; "New" marks what was added when this index was written. Tap Frame to jump to it.</p>
+  <div id="index-table"></div>
+</section>
 
 <section class="flow" id="s-proto">
   <h2>Try it</h2>
@@ -651,6 +687,12 @@ button.li:active, .li.is-pressed { background: var(--color-surface2); }
   <h2>TV remote</h2>
   <p>Google TV style: a bar with Back, name, power, keyboard and ⋮; a flexible touchpad with a 44 px dot; Back (64), Home (84) and a 64 px ink mic below. Works the same for LG, Android TV / Google TV and Samsung.</p>
   <div class="figs" data-figs="tv"></div>
+</section>
+
+<section class="flow" id="s-voice">
+  <h2>Voice</h2>
+  <p>Hold the mic: Android TV / Google TV boxes take native voice; LG and Samsung dictate on the phone and type into the TV's open search box; with neither, the mic is not drawn. The app shows "Listening…" while the finger is down and a single line under the keys when something goes wrong.</p>
+  <div class="figs" data-figs="voice"></div>
 </section>
 
 <section class="flow" id="s-ac">
@@ -689,6 +731,12 @@ button.li:active, .li.is-pressed { background: var(--color-surface2); }
   <div class="figs" data-figs="sheet"></div>
 </section>
 
+<section class="flow" id="s-dark">
+  <h2>Dark theme</h2>
+  <p>The page switch above changes every phone. These are always dark, whatever the page setting, so the key screens can be compared at a glance.</p>
+  <div class="figs" data-figs="dark"></div>
+</section>
+
 <section class="flow" id="s-comp">
   <h2>Components and states</h2>
   <p>The same pieces as <code class="i2">src/ui</code>, in every state: default, pressed, disabled, loading, selected, error. Tap the pressed examples to feel the press.</p>
@@ -706,6 +754,14 @@ button.li:active, .li.is-pressed { background: var(--color-surface2); }
   <h2>Token changes for the app</h2>
   <p>What this mock needs that <code class="i2">src/theme/tokens.ts</code> does not have yet. Everything else is the app's current value.</p>
   <div id="changes"></div>
+</section>
+<section class="flow" id="s-copy">
+  <h2>Copy changes for the app</h2>
+  <p>Strings the mock shows that are not in <code class="i2">src/i18n/en</code> yet. Frames that use them carry a "copy not in app yet" tag.</p>
+  <ul>
+    <li><b>Voice, sent (proposed):</b> "Sent to the TV". The app has no sent or heard state after a voice message; this is the proposal (Voice section).</li>
+    <li><b>Local network denied (iOS):</b> "Local Network is off for One Remote. Turn it on in Settings &rsaquo; Privacy &amp; Security &rsaquo; Local Network." with an "Open Settings" button (Add TV section).</li>
+  </ul>
 </section>
 </div>
 </div>
@@ -761,17 +817,18 @@ S.home = (p = {}) => { const st = p.state || 'loaded';
   if (st === 'loading') return scr(`<header class="bar" style="align-items:flex-start;min-height:56px"><div class="bt">${Head('Home')}<span class="sk" style="display:block;height:13px;width:70px;margin-top:6px"></span></div><div class="row gap2">${IBtn('gear', 'Settings', null, { disabled: true })}${IBtn('plus', 'Add a device', null, { disabled: true })}</div></header><div class="scroll" aria-busy="true" aria-label="Loading"><span class="sk" style="height:13px;width:90px;margin:8px 4px 0"></span>${SkelCard()}${SkelCard()}${SkelCard()}<span class="sk" style="height:13px;width:70px;margin:12px 4px 0"></span>${SkelCard()}${SkelCard()}</div>`, { attrs: 'data-screen="home"' });
   if (st === 'empty') return scr(`<header class="bar" style="justify-content:flex-end">${IBtn('gear', 'Settings', 'go', { arg: 'settings' })}</header><div class="empty"><div class="mark" style="animation:none;width:96px;height:96px;border-radius:30px" aria-hidden="true"><svg viewBox="0 0 64 64" style="width:56px;height:56px"><path d="M20 15.5a22 22 0 1024 0M32 6v22"/></svg></div><h1 class="t-title" style="margin-top:12px">One Remote</h1><p class="t-body ink2" style="max-width:300px">Your TV, ACs and fans in one place. No account, no ads, nothing leaves your home network.</p></div>${Btn('Add your first device', { act: 'go', arg: 'addKind' })}`, { attrs: 'data-screen="home"' });
   if (st === 'corrupt') return scr(`<header class="bar" style="justify-content:flex-end">${IBtn('gear', 'Settings', 'go', { arg: 'settings' })}</header>${Empty('alert', "Your saved devices can't be read", 'The saved data looks damaged. It has been left untouched, and changes are paused so nothing is lost.')}`, { attrs: 'data-screen="home"' });
+  if (st === 'many') return manyHome();
   if (st === 'noir') return scr(`${head('<p class="t-cap">4 devices</p>')}<div class="scroll">${Banner("This phone has no IR blaster. Devices that only take IR can't be controlled from it.", '', 'ir')}<p class="room">Living room</p>${DevCard('tv1', { n: 0 })}${DevCard('ac1', { n: 1 })}<p class="room">Bedroom</p>${DevCard('ac2', { needsIr: true, n: 2 })}${DevCard('fan1', { needsIr: true, on: false, n: 3 })}</div>`, { attrs: 'data-screen="home"' });
   return scr(`${head('<p class="t-cap">6 devices</p>')}<div class="scroll"><p class="room">Living room</p>${DevCard('tv1', { n: 0 })}${DevCard('ac1', { n: 1 })}${DevCard('fan1', { n: 2 })}<p class="room">Bedroom</p>${DevCard('tv2', { n: 3 })}${DevCard('ac2', { n: 4, on: false })}<p class="room">Study</p>${DevCard('tv3', { n: 5 })}</div>`, { attrs: 'data-screen="home"' });
 };
 
 /* ---- TV ---- */
-const tvStatus = (st, brand) => ({ ready: ['Wi-Fi · connected', ''], connecting: ['Connecting…', 'warn live'], off: ['Off', 'warn'], waking: ['Turning on…', 'warn live'], wakefail: ['Off', 'warn'], unreachable: ["Can't reach it", 'err'], finding: ['Looking…', 'warn live'], found: ['Wi-Fi · connected', ''], notfound: ["Can't reach it", 'err'], notpaired: ['Pair again', 'err'], ir: ['Sent over IR', 'warn'], keyboard: ['Wi-Fi · connected', ''] }[st] || ['Wi-Fi · connected', '']);
+const tvStatus = (st, brand) => ({ ready: ['Wi-Fi · connected', ''], connecting: ['Connecting…', 'warn live'], off: ['Off', 'warn'], waking: ['Turning on…', 'warn live'], wakefail: ['Off', 'warn'], unreachable: ["Can't reach it", 'err'], finding: ['Looking…', 'warn live'], found: ['Wi-Fi · connected', ''], notfound: ["Can't reach it", 'err'], notpaired: ['Pair again', 'err'], cantturnon: ['Off', 'warn'], ir: ['Sent over IR', 'warn'], keyboard: ['Wi-Fi · connected', ''] }[st] || ['Wi-Fi · connected', '']);
 const live = st => ['ready', 'ir', 'keyboard', 'notpaired'].includes(st);
 function tvBody(st, o = {}) {
   const brand = o.brand || 'lg';
   const pads = `<div class="pads"><div class="pad touch${o.dot ? ' static-dot' : ''}" role="application" aria-label="Touchpad. Swipe to move, tap to select. For buttons instead, choose D-pad above."><span class="hint">Swipe to move · Tap to select</span><span class="tdot"></span><span class="tap"></span></div><div class="pad dpad dp"><div class="ring"><button class="k u" aria-label="Up" ${act('key')}>${I('up')}</button><button class="k l" aria-label="Left" ${act('key')}>${I('left')}</button><button class="k r" aria-label="Right" ${act('key')}>${I('right')}</button><button class="k d" aria-label="Down" ${act('key')}>${I('down')}</button><button class="ok" aria-label="OK" ${act('key')}>OK</button></div></div></div>`;
-  const keys = `<div class="keys${o.listening ? ' lst' : ''}"><button class="key b${o.pressed === 'back' ? ' is-pressed' : ''}" aria-label="Back" ${act('key')}>${I('back')}</button><button class="key h" aria-label="Home" ${act('key')}>${I('home')}</button><div class="micwrap"><span class="mlabel" aria-live="polite"><span class="eq"><i></i><i></i><i></i><i></i></span>Listening…</span><button class="mic" aria-label="Hold to talk" data-mic>${I('mic')}</button></div></div>`;
+  const keys = `<div class="keys${o.listening ? ' lst' : ''}"${o.nomic ? ' style="justify-content:center;gap:56px"' : ''}><button class="key b${o.pressed === 'back' ? ' is-pressed' : ''}" aria-label="Back" ${act('key')}>${I('back')}</button><button class="key h" aria-label="Home" ${act('key')}>${I('home')}</button>${o.nomic ? '' : `<div class="micwrap"><span class="mlabel" aria-live="polite"><span class="eq"><i></i><i></i><i></i><i></i></span>Listening…</span><button class="mic" aria-label="Hold to talk" data-mic>${I('mic')}</button></div>`}</div>`;
   if (st === 'ready' || st === 'ir') return `${pads}${keys}${o.problem ? `<p class="t-cap center" role="status">${o.problem}</p>` : ''}`;
   if (st === 'notpaired') return `<div class="dim">${pads}</div>${Banner('Pair the TV again from ⋯', 'err', 'lock')}${Btn('Pair again', { act: 'go', arg: 'addTvPair', p: { brand, again: true } })}`;
   if (st === 'connecting') return `<div class="conn-pad"><span class="sk"></span><span class="badge2">${spin}Connecting…</span></div><div class="dim">${keys}</div>`;
@@ -779,6 +836,7 @@ function tvBody(st, o = {}) {
   const panel = (art, ic, title, body, rest) => `<div class="tv-panel fade"><div class="art ${art}">${I(ic)}</div><h2 class="t-head">${title}</h2>${body}${rest || ''}</div>`;
   if (st === 'off') return panel('off', 'power', 'The TV is off', '<p class="t-body ink2">Tap power to turn it on.</p>', `${Btn('Turn on', { act: 'turnon' })}<p class="t-cap">Uses IR on this phone, or Wi-Fi wake if the TV allows it</p>`);
   if (st === 'waking') return panel('off', 'power', 'The TV is off', '<p class="t-body ink2" role="status">Turning on…</p>', `<div style="margin-top:8px">${spin.replace('spinner','spinner lg')}</div>`);
+  if (st === 'cantturnon') return panel('off', 'power', 'The TV is off', '<p class="t-body ink2">Tap power to turn it on.</p>', `<p class="t-body ink2" role="status">This TV can't be turned on from the phone. Use its remote.</p>`);
   if (st === 'wakefail') return panel('off', 'power', 'The TV is off', '<p class="t-body ink2">Tap power to turn it on.</p>', `${Btn('Turn on', { act: 'turnon' })}<p class="t-cap">Uses IR on this phone, or Wi-Fi wake if the TV allows it</p><p class="t-body ink2" role="status" style="text-align:left;margin-top:8px">${WAKEFAIL[brand]}</p>`);
   const un = (extra, loading) => panel('bad', 'wifioff', "Can't reach it", `<p class="t-body ink2">Not on the same Wi-Fi as the TV, or the TV's address changed. Looking again…</p>`, `<div class="stk">${Btn('Find TV again', { loading, act: 'findagain' })}${Btn('Wi-Fi settings', { v: 'secondary', act: 'toast', arg: 'Opens your phone’s Wi-Fi settings' })}</div>${extra || ''}`);
   if (st === 'unreachable') return un();
@@ -788,7 +846,7 @@ function tvBody(st, o = {}) {
   return '';
 }
 S.tv = (p = {}) => { const id = p.id || 'tv1', d = D[id], st = p.state || 'ready', [txt, dot] = tvStatus(st, d.brand);
-  const actions = `${IBtn('power', 'Power', st === 'off' || st === 'waking' || st === 'wakefail' ? 'turnon' : 'power', { cls: 'pw' })}${live(st) && st !== 'keyboard' ? IBtn('keyboard', 'Keyboard', 'kbd') : ''}${IBtn('more', 'More', 'menu', { exp: !!p.menu })}`;
+  const actions = `${IBtn('power', 'Power', st === 'off' || st === 'waking' || st === 'wakefail' ? 'turnon' : st === 'cantturnon' ? 'cantpower' : 'power', { cls: 'pw' })}${live(st) && st !== 'keyboard' ? IBtn('keyboard', 'Keyboard', 'kbd') : ''}${IBtn('more', 'More', 'menu', { exp: !!p.menu })}`;
   return scr(`${Bar({ title: d.name, sub: txt, dot, actions })}<div class="tv-body${p.listening ? ' listening' : ''}">${tvBody(st, { ...p, brand: d.brand })}</div>`, { attrs: `data-screen="tv" data-id="${id}" data-state="${st}" data-pad="${p.pad || 'touchpad'}" data-brand="${d.brand}"` }); };
 const menuHTML = (pad, liveTv) => `<div class="menu" role="menu">${liveTv ? `<button role="menuitem" ${pad === 'touchpad' ? 'aria-current="true"' : ''} ${act('pad', 'touchpad')}>Touchpad${pad === 'touchpad' ? I('check') : ''}</button><button role="menuitem" ${pad === 'dpad' ? 'aria-current="true"' : ''} ${act('pad', 'dpad')}>D-pad${pad === 'dpad' ? I('check') : ''}</button><button role="menuitem" ${act('inputs')}>Input</button><hr>` : ''}<button role="menuitem" ${act('settings')}>Device settings</button></div>`;
 
@@ -827,12 +885,13 @@ S.addTvCode = (p = {}) => { const e = p.err, code = p.code ?? '4F7'; const cells
 S.addTvDup = () => scr(`${Bar({ title: '' })}${Empty('tv', 'This TV is already added as LG OLED C4', '', Btn('Open it', { act: 'open', arg: 'tv1' }))}`);
 
 /* ---- Add: name and room ---- */
-S.addName = (p = {}) => scr(`${Bar({ title: '' })}${Head('Name it', 'Last step')}<div class="field"><label for="nm">Name</label><input id="nm" class="input${p.err ? '' : ' focus'}" value="${esc(p.name || 'Panasonic AC')}"></div><div class="col" style="gap:8px"><p class="sect">Room</p><div class="chips" data-group>${['Living room', 'Bedroom', 'Study'].map((r, i) => Chip(r, { sel: !p.newRoom && i === 1 })).join('')}${Chip('＋ New room', { sel: !!p.newRoom, act: 'newroom' })}</div></div>${p.newRoom ? `<div class="field rise"><label for="rm">Room name</label><div class="row gap2"><input id="rm" class="input focus" value="Guest room" style="flex:1"><button class="btn primary sm" style="width:auto" ${act('toast', 'Added Guest room')}>Add room</button></div></div>` : ''}<div class="grow"></div>${Btn('Save', { act: 'savedev', p: { name: p.name || 'Panasonic AC' } })}`, { attrs: 'data-screen="name"' });
+S.addName = (p = {}) => scr(`${Bar({ title: '' })}${Head('Name it', 'Last step')}<div class="field"><label for="nm">Name</label><input id="nm" class="input${p.err ? '' : ' focus'}" value="${esc(p.empty ? '' : p.name || 'Panasonic AC')}" ${p.empty ? 'aria-invalid="true"' : ''}></div><div class="col" style="gap:8px"><p class="sect">Room</p><div class="chips" data-group>${['Living room', 'Bedroom', 'Study'].map((r, i) => Chip(r, { sel: !p.newRoom && i === 1 })).join('')}${Chip('＋ New room', { sel: !!p.newRoom, act: 'newroom' })}</div></div>${p.newRoom ? `<div class="field rise"><label for="rm">Room name</label><div class="row gap2"><input id="rm" class="input focus" value="Guest room" style="flex:1"><button class="btn primary sm" style="width:auto" ${act('toast', 'Added Guest room')}>Add room</button></div></div>` : ''}<div class="grow"></div>${p.saveFailed ? Err("Couldn't save the device. Try again.") : ''}${Btn('Done', { act: 'savedev', p: { name: p.name || 'Panasonic AC' }, disabled: !!p.empty })}`, { attrs: 'data-screen="name"' });
 
 /* ---- Add: AC / fan ---- */
 S.addBrand = (p = {}) => { const fan = p.kind === 'fan'; return scr(`${Bar({ title: '' })}${Head('Which brand?')}<div class="col gap3">${(fan ? [['Atomberg', 'addIrTest']] : [['Panasonic', 'addMatter']]).map(([n, go]) => `<button class="card press rise" ${act('go', go, { kind: p.kind })}><span class="tile">${I(fan ? 'fan' : 'ac')}</span><span class="meta nm">${n}</span>${fan ? '' : '<span class="badge acc">Matter</span>'}${I('chev', 'chev')}</button>`).join('')}<div class="card is-disabled" style="opacity:.6"><span class="tile">${I('room')}</span><span class="meta nm" style="font-weight:600">Other brands · Not yet supported</span></div></div><button class="link" style="align-self:flex-start" ${act('toast', 'Opens your email app. Nothing is sent automatically.')}>Brand missing? Tell us (opens email, nothing sent automatically)</button>`); };
 S.addMatter = (p = {}) => { const m = p.mode || 'scan';
   const cam = m === 'denied' ? `<div class="cam denied" role="img" aria-label="Camera: point it at the Matter QR code"><div>${I('cameraoff')}The camera is off for this app. Paste or type the code instead.</div></div>` :
+    m === 'asking' ? `<div class="cam" role="img" aria-label="Camera: point it at the Matter QR code"><span class="hint">Point at the Matter QR code</span></div>` :
     m === 'type' ? '' : `<div class="cam${p.locked ? ' locked' : ''}" role="img" aria-label="Camera: point it at the Matter QR code"><span class="hint">Point at the Matter QR code</span><div class="qr">${QR()}</div><div class="br"><b></b><b></b><b></b><b></b></div><span class="beam"></span><span class="lockbadge">${I('check')}Matter code</span></div>`;
   const typed = m === 'type' ? `<div class="field fade"><label for="mc">Matter setup code</label><input id="mc" class="input${p.err ? ' err' : ' focus'}" placeholder="11 digits, or the text that starts with MT:" value="${p.err ? '1234567' : ''}" aria-label="Matter setup code">${p.err ? Err('Check the code and try again.') : ''}</div>${Btn('Connect', { act: 'matterconnect' })}` : '';
   return scr(`${Bar({ title: 'Add with a Matter code' })}<div class="scroll" style="gap:16px"><p class="t-body ink2" style="font-size:15px">Your AC works with Matter, so this phone can control it over your home Wi-Fi, with no cloud. In the AC’s current app (MirAIe, Google Home or another), open the AC, choose the option that adds it to another app or turns on pairing mode, and scan the QR code it shows, or the one on the AC’s sticker.</p>${cam}${typed}${p.notMatter ? Err('That is not a Matter code. Point the camera at the AC’s Matter QR code.') : ''}</div>${m === 'type' ? '' : `<div class="col gap2">${Btn('Paste code', { v: 'secondary', icon: 'clip', act: 'matterconnect' })}${Btn('Enter code instead', { v: 'secondary', act: 'matterswap', arg: 'type' })}</div>`}${Btn('Not now', { v: 'ghost', act: 'go', arg: 'addIrTest', p: { kind: 'ac' } })}`, { attrs: `data-screen="matter" data-mode="${m}"${p.auto ? ' data-auto="scan"' : ''}` }); };
@@ -841,21 +900,64 @@ const ERRT = { notFound: 'Could not find the AC. Make sure pairing mode is on, t
 S.addConnecting = (p = {}) => { const st = p.st || ['act', 'pending', 'pending'], err = p.err;
   const ic = s => s === 'done' ? I('check') : s === 'fail' ? I('close') : s === 'act' ? spin : '';
   return scr(`${Bar({ title: '', back: !!err })}${Head('Connecting', 'Keep this phone on the same Wi-Fi as the AC. This can take up to a minute.')}<div class="steps" role="list">${STEPN.map((n, i) => `<div class="stp ${st[i]}" role="listitem" data-step="${i}"><span class="ic">${ic(st[i])}</span><span>${n}</span></div>`).join('')}</div>${err ? `<div class="col gap3 rise">${Err(ERRT[err])}</div>` : ''}<div class="grow"></div>${err ? `${Btn('Try again', { act: 'matterretry' })}${Btn('Not now', { v: 'ghost', act: 'back' })}` : ''}`, { attrs: `data-screen="connecting"${p.auto ? ` data-auto="${p.auto}"` : ''}` }); };
-S.addIrTest = (p = {}) => { const ph = p.phase || 'test', fan = p.kind === 'fan', n = p.n ?? 1, tot = 6;
-  const q = ph === 'test' || ph === 'sending' || ph === 'fail' ? (fan ? 'This sets the fan to speed 3. Did it start or change speed?' : 'This turns the AC on, Cool 24°. Did it beep or turn on?') : fan ? 'Now press Test to toggle the light. Did it change?' : 'Now press Test to set 25°. Did it change?';
-  return scr(`${Bar({ title: '' })}${Head('Test the remote')}<div class="col gap2"><p class="t-cap" style="font-weight:700">${fan ? 'Atomberg' : 'Panasonic'} · try ${n} of ${tot}</p><div class="pbar"><i style="width:${n / tot * 100}%"></i></div></div><div class="irphone${ph === 'sending' ? ' fire' : ''}" aria-hidden="true">${I('ir').replace('class="i ', 'class="i ')}<i></i><i></i><i></i></div><div class="col gap2 center" style="text-align:center"><h2 class="t-head">${fan ? 'Point at the fan, press Test' : 'Point at the AC, press Test'}</h2><p class="t-body ink2">${q}</p>${ph === 'fail' ? Err("Couldn't send the test. Try again") : ''}</div><div class="grow"></div>${ph === 'ask' ? `${Btn('Yes, it worked', { act: 'go', arg: 'addName', p: {} })}${Btn('No, try next', { v: 'secondary', act: 'irnext' })}` : `${Btn('Test', { loading: ph === 'sending', icon: ph === 'sending' ? null : 'play', act: 'irtest' })}`}${Btn('Skip', { v: 'ghost', act: 'go', arg: 'addNoCodes', p: { kind: p.kind } })}`, { attrs: 'data-screen="irtest"' }); };
 S.addNoCodes = (p = {}) => scr(`${Bar({ title: '' })}${Empty('alert', 'No codes yet', `Sorry, we don't have codes for this ${p.kind === 'fan' ? 'fan' : 'AC'} yet.`)}${Btn('Back to Home', { act: 'home' })}`);
 S.addNoIr = () => scr(`${Bar({ title: '' })}${Empty('ir', 'This phone has no IR blaster', 'Only ACs with the Matter logo work from this phone. Phones with IR (many Xiaomi, Redmi, Poco, iQOO, Vivo) can control the rest.')}<div class="col gap2">${Btn('Add with a Matter code', { act: 'go', arg: 'addMatter' })}${Btn('Add anyway (for another phone)', { v: 'secondary', act: 'go', arg: 'addName' })}</div>`);
 
 /* ---- Settings ---- */
-S.settings = (p = {}) => scr(`${Bar({ title: 'Settings' })}<div class="scroll"><div class="col" style="gap:8px"><p class="sect">Theme</p>${Seg(['System', 'Light', 'Dark'], 0, 'themeseg')}</div><div class="group"><div class="li"><span class="meta nm">Phone volume keys control the TV</span>${Switch(true, 'Phone volume keys control the TV')}</div><div class="li"><span class="meta nm">Vibrate on press</span>${Switch(true, 'Vibrate on press')}</div></div><div class="group"><button class="li" ${act('toast', 'Rooms: rename, reorder')}><span class="meta"><span class="nm">Rooms</span><span class="sb">Rename, reorder</span></span>${I('chev', 'chev')}</button><button class="li" ${act('toast', 'Local network only')}><span class="meta"><span class="nm">Privacy</span><span class="sb">Local network only</span></span>${I('chev', 'chev')}</button><button class="li" ${act('toast', 'About and licences')}><span class="meta nm">About and licences</span>${I('chev', 'chev')}</button></div>${Banner('One Remote talks only to devices on your home network. It has no account, no ads and no analytics, and nothing is sent to a server.', 'ok', 'lock')}</div>`);
 
 /* ---- sheets (overlay html) ---- */
 const sheetSettings = (o = {}) => { const id = o.id || 'tv1', d = D[id];
-  const links = d.k === 'tv' ? `<div class="li"><span class="meta"><span class="nm">Wi-Fi</span><span class="sb">${d.ip}</span></span><span class="badge ok">main</span></div>${o.repair ? `<button class="li" ${act('go', 'addTvPair', { brand: d.brand, again: true })}><span class="meta nm">Pair again</span>${I('chev', 'chev')}</button>` : ''}` : `<div class="li"><span class="meta"><span class="nm">Matter</span></span><span class="badge ok">main</span></div><div class="li"><span class="meta"><span class="nm">IR</span></span><span class="badge">backup</span></div><button class="li" ${act('toast', 'IR backup added')}><span class="meta nm">Redo IR backup</span>${I('chev', 'chev')}</button>`;
-  return `<div class="scrim" ${act('sheet-close')}></div><div class="sheet" role="dialog" aria-label="Device settings"><span class="grab"></span><div class="row" style="justify-content:space-between"><h2 class="t-head">Device settings</h2>${IBtn('close', 'Close', 'sheet-close', { cls: 'flat' })}</div><div class="scroll" style="max-height:560px">${o.confirm ? `<div class="col gap4 fade"><p class="t-head">Remove ${d.name}?</p><p class="t-body ink2">Remove ${d.name}? The app forgets it. The device itself is not touched.</p>${Btn('Yes, remove', { v: 'danger', act: 'removed' })}${Btn('Cancel', { v: 'secondary', act: 'sheet-confirm', arg: 0 })}</div>` : `<div class="field"><label for="dn">Name</label><div class="row gap2"><input id="dn" class="input" value="${d.name}" style="flex:1"><button class="btn secondary sm" style="width:auto" ${act('toast', 'Saved', { kind: 'ok' })}>Save name</button></div></div><div class="col" style="gap:8px"><p class="sect">Room</p><div class="chips" data-group>${['Living room', 'Bedroom', 'Study'].map(r => Chip(r, { sel: r === d.room })).join('')}</div></div><div class="col" style="gap:8px"><p class="sect">Order on Home</p><div class="row gap2"><button class="btn secondary sm" style="flex:1;width:auto" ${act('toast', 'Moved up')}>${I('up')}Move up</button><button class="btn secondary sm" style="flex:1;width:auto" ${act('toast', 'Moved down')}>${I('down')}Move down</button></div></div><div class="col" style="gap:8px"><p class="sect">How it's connected</p><div class="group">${links}</div></div>${Btn('Remove device', { v: 'danger', icon: 'trash', act: 'sheet-confirm', arg: 1 })}`}</div></div>`; };
-const sheetInputs = () => `<div class="scrim" ${act('sheet-close')}></div><div class="sheet" role="dialog" aria-label="Inputs"><span class="grab"></span><h2 class="t-head">Inputs</h2><div class="group">${['HDMI 1', 'HDMI 2', 'Live TV'].map((x, i) => `<button class="li" ${act('toast', x)}><span class="meta nm">${x}</span>${i === 0 ? '<span class="badge acc">Now</span>' : ''}</button>`).join('')}<div class="li" style="opacity:.7"><span class="meta nm">HDMI 3, nothing connected</span></div></div>${Btn('Done', { act: 'sheet-close' })}</div>`;
+  const links = d.k === 'tv' ? `<div class="li"><span class="meta"><span class="nm">Wi-Fi</span><span class="sb">${d.ip}</span></span><span class="badge ok">main</span></div>${o.repair ? `<button class="li" ${act('go', 'addTvPair', { brand: d.brand, again: true })}><span class="meta nm">Pair again</span>${I('chev', 'chev')}</button>` : ''}` : `<div class="li"><span class="meta"><span class="nm">Matter</span></span><span class="badge ok">main</span></div>${o.matterOnly ? '' : `<div class="li"><span class="meta"><span class="nm">IR</span></span><span class="badge">backup</span></div><button class="li" ${act('toast', 'IR backup added')}><span class="meta nm">Redo IR backup</span>${I('chev', 'chev')}</button>`}`;
+  return `<div class="scrim" ${act('sheet-close')}></div><div class="sheet" role="dialog" aria-label="Device settings"><span class="grab"></span><div class="row" style="justify-content:space-between"><h2 class="t-head">Device settings</h2>${IBtn('close', 'Close', 'sheet-close', { cls: 'flat' })}</div><div class="scroll" style="max-height:560px">${o.confirm ? `<div class="col gap4 fade"><p class="t-head">Remove ${d.name}?</p><p class="t-body ink2">Remove ${d.name}? The app forgets it. The device itself is not touched.</p>${Btn('Yes, remove', { v: 'danger', act: 'removed' })}${Btn('Cancel', { v: 'secondary', act: 'sheet-confirm', arg: 0 })}</div>` : `<div class="field"><label for="dn">Name</label><div class="row gap2"><input id="dn" class="input" value="${d.name}" style="flex:1"><button class="btn secondary sm" style="width:auto" ${act('toast', 'Saved', { kind: 'ok' })}>Save name</button></div></div><div class="col" style="gap:8px"><p class="sect">Room</p><div class="chips" data-group>${['Living room', 'Bedroom', 'Study'].map(r => Chip(r, { sel: r === d.room })).join('')}</div></div><div class="col" style="gap:8px"><p class="sect">Order on Home</p><div class="row gap2"><button class="btn secondary sm" style="flex:1;width:auto" ${act('toast', 'Moved up')}>${I('up')}Move up</button><button class="btn secondary sm" style="flex:1;width:auto" ${act('toast', 'Moved down')}>${I('down')}Move down</button></div></div><div class="col" style="gap:8px"><p class="sect">How it's connected</p><div class="group">${links}</div></div>${sheetExtra(o, d)}${Btn('Remove device', { v: 'danger', icon: 'trash', act: 'sheet-confirm', arg: 1 })}`}</div></div>`; };
+const sheetInputs = (none) => `<div class="scrim" ${act('sheet-close')}></div><div class="sheet" role="dialog" aria-label="Inputs"><span class="grab"></span><h2 class="t-head">Inputs</h2>${none ? `<p class="t-body ink2" role="status">The TV hasn't listed its inputs yet. Try again in a moment.</p>` : `<div class="group">${['HDMI 1', 'HDMI 2', 'Live TV'].map((x, i) => `<button class="li" ${act('toast', x)}><span class="meta nm">${x}</span>${i === 0 ? '<span class="badge acc">Now</span>' : ''}</button>`).join('')}<div class="li" style="opacity:.7"><span class="meta nm">HDMI 3, nothing connected</span></div></div>`}${Btn('Done', { act: 'sheet-close' })}</div>`;
 const sysAlert = () => `<div class="scrim"></div><div class="sysalert" role="alertdialog"><div><h4>“One Remote” would like to find and connect to devices on your local network</h4>One Remote finds and controls your TV on your home Wi-Fi.</div><button>Don’t Allow</button><button style="font-weight:700">OK</button></div>`;
+
+/* =====================================================================================
+   6b. MORE SCREENS AND STATES (added so every screen in src/ has a drawn frame)
+   ===================================================================================== */
+const sysPrompt = (title, body, btns) => `<div class="scrim"></div><div class="sysalert" role="alertdialog"><div><h4>${title}</h4>${body}</div>${btns.map((b, i) => `<button${i === btns.length - 1 ? ' style="font-weight:700"' : ''}>${b}</button>`).join('')}</div>`;
+const Sm = (label, o = {}) => `<button class="btn ${o.v || 'secondary'} sm${o.disabled ? ' is-disabled' : ''}" style="width:auto" ${o.disabled ? 'aria-disabled="true"' : ''} ${act(o.act || 'toast', o.arg != null ? o.arg : label)}>${label}</button>`;
+
+/* a remote whose device was removed (home.notFound, ac.notFound, fan.notFound) */
+S.gone = (p = {}) => scr(`${Bar({ title: p.title || 'One Remote' })}<p class="t-body ink2" role="status">${p.text || 'This device is no longer here.'}</p>`, { attrs: 'data-screen="gone"' });
+S.irbLoading = () => scr(`${Bar({ title: 'Which brand?' })}<p class="t-body ink2" role="status">Loading…</p>`, { attrs: 'data-screen="irb"' });
+S.devLoading = () => scr(`${Bar({ title: 'Device settings' })}`, { attrs: 'data-screen="devload"' });
+
+/* Home with 12 devices, long names and cards whose state is not known yet */
+const MANY = [
+  ['Living room upstairs, next to the landing', [['tv', 'Samsung The Frame 55" QLED (upstairs landing)', 'YouTube · Vol 18', true], ['ac', 'Panasonic Inverter AC 1.5 ton, hall side', 'Cool · 24°', true], ['fan', 'Atomberg Renesa Smart ceiling fan', 'Speed 3', true], ['tv', 'Airtel Xstream box', '', true]]],
+  ['Master bedroom with the attached balcony and study nook', [['ac', 'Panasonic AC', 'Off', false], ['fan', 'Bedside fan', 'Off', false], ['tv', 'LG OLED C4', 'Vol 12', true], ['tv', 'Mi Box 4K', 'Netflix', true]]],
+  ['Study', [['ac', 'Daikin AC', 'Dry · 26°', true], ['fan', 'Table fan', 'Speed 1', true], ['tv', 'Samsung Crystal', 'On', true], ['fan', 'Exhaust fan', 'Off', false]]],
+];
+const manyHome = () => { let k = 0; const body = MANY.map(([r, ds]) => `<p class="room">${r}</p>${ds.map(([kind, name, sum, on]) => { const id = 'x' + (k++); D[id] = { k: kind, brand: 'atv', name, room: r, on, sum: sum === 'Off' ? 'Off' : sum, ip: '192.168.1.60' }; return DevCard(id, { n: k, on }); }).join('')}`).join('');
+  return scr(`<header class="bar" style="align-items:flex-start;min-height:56px"><div class="bt">${Head('Home').replace('<h1', '<h1 data-t="home"')}<p class="t-cap">12 devices</p></div><div class="row gap2">${IBtn('gear', 'Settings', 'go', { arg: 'settings' })}${IBtn('plus', 'Add a device', 'go', { arg: 'addKind' })}</div></header><div class="scroll">${body}</div>`, { attrs: 'data-screen="home"' }); };
+
+/* TV link actions inside Device settings (src/screens/tv/TvLinkActions.tsx) */
+const tvLinkBlock = (k, d) => { const lock = ['busy', 'allow', 'code', 'wrong'].includes(k);
+  const note = { busy: 'Looking…', found: 'Found the TV at 192.168.1.23', notfound: "Couldn't find the TV on this Wi-Fi", allow: 'Press "Allow" on the TV', paired: 'Paired again', denied: 'The TV said no. Try again and choose Allow.', timeout: "The TV didn't answer in time." }[k];
+  const ask = (k === 'code' || k === 'wrong') ? `<div class="col gap2 fade"><label class="t-cap" for="lc">Type the code shown on the TV</label><input id="lc" class="input${k === 'wrong' ? ' err' : ' focus'}" value="${k === 'wrong' ? '4F7K2B' : '4F7'}" aria-label="Type the code shown on the TV">${k === 'wrong' ? Err("That code didn't match. Check the TV and try again.") : ''}<div class="row gap2">${Sm('Pair', { v: 'primary', disabled: false })}${Sm('Cancel', { v: 'ghost' })}</div></div>` : '';
+  return `<div class="col gap2"><p class="sect">TV address</p><div class="group"><div class="li"><span class="meta nm">TV address</span><span class="tail">${d.ip}</span></div></div><div class="row gap2" style="flex-wrap:wrap">${Sm('Find TV again', { disabled: lock })}${Sm('Pair again', { disabled: lock })}</div>${ask}${note ? `<p class="t-cap" role="status">${k === 'busy' ? spin.replace('class="spinner"', 'class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:-2px;margin-right:6px"') : ''}${note}</p>` : ''}</div>`; };
+const sheetExtra = (o, d) => `${o.tvlink ? tvLinkBlock(o.tvlink, d) : ''}${o.irb ? `<div class="col gap2">${Btn('Add IR backup', { v: 'secondary', act: 'toast', arg: 'IR backup added' })}${o.irbFail ? `<p class="t-body ink2" role="status">That didn't save. Try again.</p>` : ''}</div>` : ''}${o.failed ? `<p class="t-body ink2" role="status">That didn't save. Try again.</p>` : ''}`;
+
+/* Settings: Rooms, Privacy and About open in place, like src/screens/settings/SettingsScreen.tsx */
+const ROOMS3 = ['Living room', 'Bedroom', 'Study'];
+const roomRow = (name, i, n) => `<div class="col gap2"><input class="input" value="${esc(name)}" aria-label="Name of ${esc(name)}"><div class="row gap2" style="flex-wrap:wrap">${Sm('Save', { disabled: true, arg: 'Saved' })}${Sm('↑', { disabled: i === 0, arg: 'Moved up' })}${Sm('↓', { disabled: i === n - 1, arg: 'Moved down' })}${Sm('Delete', { v: 'ghost', arg: 'Move or remove its devices first' })}</div></div>`;
+S.settings = (p = {}) => { const open = p.open || '', rooms = p.rooms ?? ROOMS3, ti = p.theme ?? 0;
+  const row = (key, title, hint) => `<button class="li" aria-expanded="${open === key}" ${act('acc', key)}><span class="meta"><span class="nm">${title}</span>${hint ? `<span class="sb">${hint}</span>` : ''}</span>${I(open === key ? 'up' : 'chev', 'chev')}</button>`;
+  const roomsBody = `<div class="acc-body">${rooms.length === 0 ? '<p class="t-body ink2">No rooms yet. You add one when you name a device.</p>' : rooms.map((r, i) => roomRow(r, i, rooms.length)).join('')}${p.roomMsg ? `<p class="t-body ink2" role="status">${p.roomMsg}</p>` : ''}</div>`;
+  const privBody = `<div class="acc-body">${Banner('One Remote talks only to devices on your home network. It has no account, no ads and no analytics, and nothing is sent to a server.', 'ok', 'lock')}</div>`;
+  const aboutBody = `<div class="acc-body"><p class="t-body ink2">One Remote. The licence of the app as a whole is still to be decided.</p><p class="t-body ink2">Built with Expo, React Native and other open-source libraries, each under its own licence.</p><p class="t-body ink2">IR encoders: IRremoteESP8266, LGPL-2.1</p><p class="t-body ink2">Fan IR codes: MIT licence</p><p class="t-body ink2">The source of the LGPL IR encoder is available on request for at least three years: devanshc13@gmail.com.</p></div>`;
+  return scr(`${Bar({ title: 'Settings' })}<div class="scroll"><div class="col" style="gap:8px"><p class="sect">Theme</p>${Seg(['System', 'Light', 'Dark'], ti, 'themeseg')}</div><div class="group"><div class="li"><span class="meta nm">Phone volume keys control the TV</span>${Switch(true, 'Phone volume keys control the TV')}</div><div class="li"><span class="meta nm">Vibrate on press</span>${Switch(true, 'Vibrate on press')}</div></div><div class="group">${row('rooms', 'Rooms', 'Rename, reorder')}${open === 'rooms' ? roomsBody : ''}${row('privacy', 'Privacy', 'Local network only')}${open === 'privacy' ? privBody : ''}${row('about', 'About and licences')}${open === 'about' ? aboutBody : ''}</div></div>`, { attrs: `data-screen="settings" data-open="${open}" data-ti="${ti}"` }); };
+
+/* Matter: errors the app words that the first mock did not draw */
+Object.assign(ERRT, { badCode: 'The AC did not accept that code. Check it, or get a fresh one, and try again.', unavailable: 'Matter is not available on this phone.', cancelled: 'Cancelled.', unreachable: 'Could not reach the AC. Try again.', rejected: 'The AC refused the request. Try again.' });
+
+/* IR test with the real two-press walk: Test, Yes (did it beep?), Test again, Yes (did it change?) */
+S.addIrTest = (p = {}) => { const ph = p.phase || 'test', fan = p.kind === 'fan', n = p.n ?? 1, tot = 6;
+  const second = ['confirm', 'sending2', 'ask2'].includes(ph), sending = ph === 'sending' || ph === 'sending2', asking = ph === 'ask' || ph === 'ask2';
+  const q = second ? (fan ? 'Now press Test to toggle the light. Did it change?' : 'Now press Test to set 25°. Did it change?') : (fan ? 'This sets the fan to speed 3. Did it start or change speed?' : 'This turns the AC on, Cool 24°. Did it beep or turn on?');
+  const err = { fail: "Couldn't send the test. Try again", savefail: "Couldn't save the change. Try again.", needsir: 'Needs a phone with IR' }[ph];
+  return scr(`${Bar({ title: '' })}${Head('Test the remote')}<div class="col gap2"><p class="t-cap" style="font-weight:700">${fan ? 'Atomberg' : 'Panasonic'} · try ${n} of ${tot}</p><div class="pbar"><i style="width:${n / tot * 100}%"></i></div></div><div class="irphone${sending ? ' fire' : ''}" aria-hidden="true">${I('ir')}<i></i><i></i><i></i></div><div class="col gap2 center" style="text-align:center"><h2 class="t-head">${fan ? 'Point at the fan, press Test' : 'Point at the AC, press Test'}</h2><p class="t-body ink2">${q}</p>${err ? Err(err) : ''}</div><div class="grow"></div>${asking ? `${Btn('Yes, it worked', { act: ph === 'ask' ? 'irconfirm' : 'go', arg: ph === 'ask' ? null : 'addName', p: ph === 'ask' ? null : {} })}${Btn('No, try next', { v: 'secondary', act: 'irnext' })}` : `${Btn('Test', { loading: sending, icon: sending ? null : 'play', act: 'irtest' })}`}${Btn('Skip', { v: 'ghost', act: 'go', arg: 'addNoCodes', p: { kind: p.kind } })}`, { attrs: `data-screen="irtest" data-ph="${ph}" data-n="${n}" data-kind="${p.kind || 'ac'}"` }); };
 </script>
 <script>
 /* =====================================================================================
@@ -869,7 +971,7 @@ const topScr = dev => dev._stack[dev._stack.length - 1];
 const layer = dev => $('.layer', dev);
 const phoneHTML = (inner, overlay = '') => `<div class="device"><div class="statusbar" aria-hidden="true"><span>9:41</span><span>${I('wifi')}<svg class="i fill" viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4" y="9" width="12" height="6" rx="1.5" fill="currentColor" stroke="none"/><rect x="21" y="10" width="2" height="4" rx="1" fill="currentColor" stroke="none"/></svg></span></div><div class="stack">${inner}</div><div class="layer">${overlay}</div><div class="home-ind"></div></div>`;
 
-function buildDevice(def) { const w = document.createElement('div'); w.innerHTML = phoneHTML(def.screen(), def.overlay ? def.overlay() : ''); const dev = w.firstElementChild; dev._stack = [$('.stack', dev).firstElementChild]; dev._def = def; return dev; }
+function buildDevice(def) { const w = document.createElement('div'); w.innerHTML = phoneHTML(def.screen(), def.overlay ? def.overlay() : ''); const dev = w.firstElementChild; dev._stack = [$('.stack', dev).firstElementChild]; dev._def = def; if (def.dark) dev.classList.add('dk'); return dev; }
 
 function toast(dev, msg, kind = 'info', action) { $$('.toast', layer(dev)).forEach(t => t.remove()); const t = mk(Toast(msg, kind, action)); layer(dev).append(t); clearTimeout(t._h); t._h = setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 180); }, action ? 5000 : 2600); }
 function closeMenu(dev) { const m = $('.menu', dev); if (!m || m.classList.contains('out')) return; m.classList.add('out'); setTimeout(() => m.remove(), 170); $$('[data-act="menu"]', dev).forEach(b => b.setAttribute('aria-expanded', 'false')); }
@@ -947,10 +1049,13 @@ const ACT = {
   savedev: dev => { toast(dev, 'Saved', 'ok'); TO(dev, 900, () => popRoot(dev)); },
   matterconnect: dev => push(dev, 'addConnecting', { auto: dev._outcome || 'success' }),
   matterswap: (dev, el, arg) => { const sc = topScr(dev); soft(sc, S.addMatter({ mode: arg })); sc.classList.add('fade'); clearT(dev); },
-  matterretry: dev => { dev._outcome = 'success'; const sc = topScr(dev); soft(sc, S.addConnecting({ auto: 'success' })); sc.dataset.auto = 'success'; autoConnect(dev, sc, 'success'); },
-  irtest: dev => { const sc = topScr(dev); soft(sc, S.addIrTest({ phase: 'sending', n: +(sc.dataset.n || 1) })); TO(dev, 1600, () => soft(topScr(dev), S.addIrTest({ phase: 'ask' }))); },
-  irnext: dev => soft(topScr(dev), S.addIrTest({ phase: 'test', n: 2 })),
-  themeseg: (dev, el, arg) => { setTheme(['system', 'light', 'dark'][arg]); const seg = $('.seg', el.closest('.screen')); seg.style.setProperty('--i', arg); $$('button', seg).forEach((b, i) => b.setAttribute('aria-pressed', i == arg)); },
+  matterretry: dev => { dev._outcome = 'success'; pop(dev); setTimeout(() => { const sc = topScr(dev); if (sc && sc.dataset.screen === 'matter' && sc.dataset.mode === 'scan') { const c = $('.cam', sc); if (c) c.classList.remove('locked'); autoScan(dev, sc); } }, 420); },
+  irtest: dev => { const sc = topScr(dev), ph = sc.dataset.ph, n = +(sc.dataset.n || 1), kind = sc.dataset.kind, second = ph === 'confirm'; soft(sc, S.addIrTest({ phase: second ? 'sending2' : 'sending', n, kind })); TO(dev, 1600, () => soft(topScr(dev), S.addIrTest({ phase: second ? 'ask2' : 'ask', n, kind }))); },
+  irconfirm: dev => { const sc = topScr(dev); soft(sc, S.addIrTest({ phase: 'confirm', n: +(sc.dataset.n || 1), kind: sc.dataset.kind })); },
+  irnext: dev => { const sc = topScr(dev); soft(sc, S.addIrTest({ phase: 'test', n: Math.min(6, +(sc.dataset.n || 1) + 1), kind: sc.dataset.kind })); },
+  cantpower: dev => toast(dev, "This TV can't be turned on from the phone. Use its remote."),
+  acc: (dev, el, arg) => { const sc = topScr(dev), next = sc.dataset.open === arg ? '' : arg; soft(sc, S.settings({ open: next, theme: +(sc.dataset.ti || 0) })); },
+  themeseg: (dev, el, arg) => { el.closest('.screen').dataset.ti = arg; setTheme(['system', 'light', 'dark'][arg]); const seg = $('.seg', el.closest('.screen')); seg.style.setProperty('--i', arg); $$('button', seg).forEach((b, i) => b.setAttribute('aria-pressed', i == arg)); },
 };
 document.addEventListener('click', e => { const dev = e.target.closest('.device'); if (!dev) return; if ($('.menu', dev) && !e.target.closest('.menu') && !e.target.closest('[data-act="menu"]')) closeMenu(dev);
   const el = e.target.closest('[data-act]'); if (!el || !dev.contains(el) || el.disabled || el.classList.contains('is-disabled')) return;
@@ -974,7 +1079,8 @@ document.addEventListener('pointerdown', e => { const pad = e.target.closest('.t
    8. FIGURES
    ===================================================================================== */
 const FIGS = {};
-const fig = (sec, def) => (FIGS[sec] ||= []).push(def);
+const FIDX = {}, FUSED = new Set();
+const fig = (sec, def) => { let id = ('f-' + sec + '-' + def.title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, ''), k = 2; while (FUSED.has(id)) id = id.replace(/-\d+$/, '') + '-' + (k++); FUSED.add(id); def.fid = id; FIDX[sec + '|' + def.title] = id; return (FIGS[sec] ||= []).push(def); };
 const SIM = (label, fn) => ({ label, fn });
 const OV = s => () => s;
 
@@ -1053,7 +1159,7 @@ fig('addtv', { title: 'Pair: Android TV code', cap: 'Six boxes for the code on t
 fig('addtv', { title: 'Code did not match', cap: 'Boxes outline in red; Show a new code asks the TV for another.', screen: () => S.addTvCode({ code: '4F7K2A', err: true }) });
 fig('addtv', { title: 'Already added', cap: 'The duplicate case: go to the existing remote.', screen: () => S.addTvDup() });
 fig('addtv', { title: 'Name and room', cap: 'The shared last step. The name is pre-filled. A new room is created right here.', screen: () => S.addName({ name: 'LG OLED C4' }) });
-fig('addtv', { title: 'Name and room, save failed', cap: 'Nothing is lost; the toast carries the retry.', screen: () => S.addName({ name: 'LG OLED C4' }), overlay: OV(Toast("Couldn't save the device. Try again.", 'error', 'Try again')) });
+fig('addtv', { title: 'Name and room, save failed', cap: 'Nothing is lost: the line sits above Done and the person taps Done again.', screen: () => S.addName({ name: 'LG OLED C4', saveFailed: true }) });
 
 /* add ac / fan */
 fig('addac', { title: 'Brand (AC)', cap: 'Only brands we can control are tappable. Panasonic carries a Matter badge. The rest is one quiet row.', screen: () => S.addBrand({ kind: 'ac' }) });
@@ -1079,7 +1185,7 @@ fig('matter', { title: 'Code did not work', cap: 'Inline error under the field.'
 fig('matter', { title: 'Connecting, step 2', cap: 'Done steps get a green check that pops (260 ms spring); the active step has the spinner; the rest wait.', screen: () => S.addConnecting({ st: ['done', 'act', 'pending'] }) });
 fig('matter', { title: 'Connected', cap: 'All three steps are done. The app moves on to Name it after a beat.', screen: () => S.addConnecting({ st: ['done', 'done', 'done'] }) });
 fig('matter', { title: 'Failed at step 1', cap: 'It says which step failed and what to do.', screen: () => S.addConnecting({ st: ['fail', 'pending', 'pending'], err: 'notFound' }) });
-fig('matter', { title: 'Failed at step 2', cap: 'Try again restarts the steps; Not now backs out.', screen: () => S.addConnecting({ st: ['done', 'fail', 'pending'], err: 'networkFailed' }) });
+fig('matter', { title: 'Failed at step 2', cap: 'Try again goes back to the code screen (the camera runs again); Not now backs out.', screen: () => S.addConnecting({ st: ['done', 'fail', 'pending'], err: 'networkFailed' }) });
 fig('matter', { title: 'Failed at step 3', cap: 'The AC was added but is not answering.', screen: () => S.addConnecting({ st: ['done', 'done', 'fail'], err: 'noResponse' }) });
 
 /* sheets + settings */
@@ -1092,13 +1198,115 @@ fig('sheet', { title: 'Settings', cap: 'Short on purpose. The theme segment is l
 /* comp: toast gallery phone */
 fig('comp', { title: 'Toasts', cap: 'Info is ink on the surface, ok has a green tick, error is a deep red. Each arrives from 14 px below (260 ms) and leaves in 160 ms.', screen: () => scr(`${Bar({ title: 'Toasts' })}<div class="col gap3" style="margin-top:8px">${Btn('Info', { v: 'secondary', act: 'toast', arg: 'Moved up' })}${Btn('Success', { v: 'secondary', act: 'toast', arg: 'Saved', p: { kind: 'ok' } })}${Btn('Error', { v: 'secondary', act: 'toast', arg: "Can't reach the TV right now", p: { kind: 'error' } })}</div>`) });
 
+
+/* =====================================================================================
+   8b. FRAMES ADDED TO COMPLETE THE SET (each one is listed in the Screen index)
+   ===================================================================================== */
+const fign = (sec, def) => fig(sec, { ...def, nw: true });
+const permCam = () => sysPrompt('“One Remote” Would Like to Access the Camera', 'Scan the Matter code on your AC', ['Don’t Allow', 'OK']);
+const permMic = () => sysPrompt('“One Remote” Would Like to Access the Microphone', 'One Remote uses the microphone while you hold the mic button, to talk to your TV.', ['Don’t Allow', 'OK']);
+const permSpeech = () => sysPrompt('“One Remote” Would Like to Access Speech Recognition', 'One Remote turns your speech into text on this phone, to type it on your TV.', ['Don’t Allow', 'OK']);
+
+/* start + home */
+fign('start', { title: 'Home, 12 devices', cap: 'Three rooms, long names and room titles wrap instead of clipping, a card with nothing known yet shows an empty second line, and the list scrolls under the fixed header.', screen: manyHome });
+fign('start', { title: 'Home, 12 devices, scrolled', cap: 'The same list scrolled to the end: the last room, cards with "On", a volume only and an app only.', screen: manyHome, setup: dev => { const s = $('.scroll', dev); if (s) s.scrollTop = 99999; } });
+fign('start', { title: 'Remote, device removed', cap: 'Opening a remote for a device that is gone (deleted from another screen, or a stale link) shows one quiet sentence under the back bar. The wording differs for TV / generic, AC and fan.', screen: () => S.gone(), sim: [SIM('Device', d => swap(d, S.gone())), SIM('AC', d => swap(d, S.gone({ text: 'This AC is not in the app any more.' }))), SIM('Fan', d => swap(d, S.gone({ text: 'This fan is not in the app any more.' })))] });
+
+/* tv */
+fign('tv', { title: 'TV, looking again', cap: 'Find TV again was tapped: the button spins and "Looking…" shows under it. The status line says "Looking…".', screen: () => S.tv({ state: 'finding' }) });
+fign('tv', { title: 'TV, found it', cap: 'The address changed and the app found the TV: "Found the TV at 192.168.1.23". The pad comes back after a beat.', screen: () => S.tv({ state: 'found' }) });
+fign('tv', { title: 'TV, not found', cap: 'Nothing answered on this Wi-Fi. The buttons stay so the person can try again or check the Wi-Fi.', screen: () => S.tv({ state: 'notfound' }) });
+fign('tv', { title: 'TV, sent over IR', cap: 'A phone with an IR blaster and an IR backup on the TV: the status line says "Sent over IR" in the warm colour, the remote is otherwise the same.', screen: () => S.tv({ state: 'ir' }) });
+fign('tv', { title: 'TV, off and cannot be woken', cap: 'No IR on this phone and no Wi-Fi wake for this TV: the Turn on button is gone and the panel says to use the TV\'s own remote.', screen: () => S.tv({ state: 'cantturnon' }) });
+fign('tv', { title: 'TV, ⋮ menu when off', cap: 'Pad styles and Input need a live TV, so the menu only offers Device settings while the TV is off, connecting or unreachable.', screen: () => S.tv({ state: 'off', menu: true }), overlay: OV(menuHTML('touchpad', false)) });
+fign('tv', { title: 'TV, inputs not listed yet', cap: 'The TV has not reported its inputs: one quiet line and Done.', screen: () => S.tv(), overlay: () => sheetInputs(true) });
+fign('tv', { title: 'TV, toast: pair again', cap: 'A key was refused because the TV no longer trusts the phone. The toast points at the ⋯ menu and the action opens the pairing flow.', screen: () => S.tv({ state: 'notpaired' }), overlay: OV(Toast('Pair the TV again from ⋯', 'error', 'Pair again')) });
+
+/* voice (own section) */
+fign('voice', { title: 'Voice, idle', cap: 'The Airtel box takes native voice, so the 64 px mic is there and quiet. Nothing is listening until a finger is on it.', screen: () => S.tv({ id: 'tv3' }) });
+fign('voice', { title: 'Voice, microphone prompt', cap: 'First press only. The label already says "Listening…" while the system asks. The text is the app\'s microphone permission string.', screen: () => S.tv({ id: 'tv3', listening: true }), overlay: OV(permMic()) });
+fign('voice', { title: 'Voice, speech recognition prompt', cap: 'LG and Samsung have no native voice, so a hold dictates on the phone and types the words into the TV\'s search box. iPhone asks once more, with the app\'s speech string.', screen: () => S.tv({ id: 'tv1', listening: true }), overlay: OV(permSpeech()) });
+fign('voice', { title: 'Voice, listening (dictation)', cap: 'Same listening look as native voice: ring pulses, pad dims. On release the spoken text is sent to the TV\'s open search field.', screen: () => S.tv({ id: 'tv1', listening: true }) });
+fign('voice', { title: 'Voice, sent (proposed)', cap: 'The app shows nothing after you let go. This is a proposal: a short confirmation under the keys that fades after 1.6 s, so the person knows the words left the phone. Copy not in the app yet.', newcopy: true, screen: () => S.tv({ id: 'tv3', problem: `<span class="ok-ink" style="display:inline-flex;gap:6px;align-items:center;font-weight:700">${I('check')}Sent to the TV</span>` }) });
+fign('voice', { title: 'Voice, no search box on the TV', cap: 'Dictation worked but the TV has no text field open.', screen: () => S.tv({ id: 'tv1', problem: 'Open a search box on the TV first' }) });
+fign('voice', { title: 'Voice, TV unreachable', cap: 'The voice session could not start, or dropped while talking. The line sits under the keys; no dialog.', screen: () => S.tv({ id: 'tv3', problem: "Can't reach the TV right now" }) });
+fign('voice', { title: 'Voice, TV did not answer', cap: 'The TV took too long to start the session.', screen: () => S.tv({ id: 'tv3', problem: "The TV didn't answer" }) });
+fign('voice', { title: 'Voice, no microphone button', cap: 'A TV with no native voice, on a phone with no on-device speech recognition: the mic is not drawn at all and Back and Home centre.', screen: () => S.tv({ id: 'tv2', nomic: true }) });
+
+/* ac + fan */
+fign('ac', { title: 'AC, no answer', cap: 'The send went out but the AC did not confirm in time.', screen: () => S.ac({ temp: 25 }), overlay: OV(Toast("The AC didn't answer. Try again", 'error', 'Try again')) });
+fign('ac', { title: 'AC, partly sent', cap: 'An IR sequence stopped half-way (the phone moved or the app was interrupted).', screen: () => S.ac({ temp: 25, link: 'ir', id: 'ac2', on: true }), overlay: OV(Toast('Only part of that went out. Try again', 'error', 'Try again')) });
+fign('ac', { title: 'AC, needs IR (toast)', cap: 'Tapping a control on an IR-only AC from a phone without IR says why.', screen: () => S.ac({ id: 'ac2', link: 'ir', on: false, needsIr: true }), overlay: OV(Toast('Needs a phone with IR', 'error')) });
+fign('fan', { title: 'Fan, no such button', cap: 'The fan\'s remote has no Boost or Sleep key, so the chip says so.', screen: () => S.fan(), overlay: OV(Toast("This fan doesn't have that button", 'error')) });
+fign('fan', { title: 'Fan, no answer', cap: 'Same toast as the AC with the fan\'s noun.', screen: () => S.fan({ speed: 4 }), overlay: OV(Toast("The fan didn't answer. Try again", 'error', 'Try again')) });
+fign('fan', { title: 'Fan, needs IR (toast)', cap: 'Tapping a speed on a phone without IR.', screen: () => S.fan({ needsIr: true, on: false }), overlay: OV(Toast('Needs a phone with IR', 'error')) });
+
+/* add tv */
+fign('addtv', { title: 'iPhone: local network denied', cap: 'If the person tapped Don\'t Allow on the prompt, the search can never find a TV. The app has no copy for this yet: this frame proposes a red banner and a button that opens the app\'s page in Settings.', newcopy: true,
+  screen: () => S.addTvFind({ still: true }).replace('<div class="radar', `${Banner('Local Network is off for One Remote. Turn it on in Settings › Privacy &amp; Security › Local Network.', 'err', 'lock')}${Btn('Open Settings', { v: 'secondary', act: 'toast', arg: 'Opens this app in Settings' })}<div class="radar`) });
+fign('addtv', { title: 'Address, checking', cap: 'Find the TV was tapped: the button spins while the app asks that address. The field is kept.', screen: () => S.addTvManual({ val: '192.168.1.57', loading: true, brand: 'lg' }) });
+fign('addtv', { title: 'Pair: unreachable (LG, Samsung)', cap: 'The shorter wording, for brands that do not need the Android TV Remote Service.', screen: () => S.addTvPair({ phase: 'unreach', n: 30, brand: 'lg' }) });
+fign('addtv', { title: 'Pair: Android TV code complete', cap: 'Six characters typed: Pair is enabled.', screen: () => S.addTvCode({ code: '4F7K2A' }) });
+fign('addtv', { title: 'Pair again: success', cap: 'Re-pairing from a lost trust says "Paired again", then returns to the remote with a toast.', screen: () => S.addTvPair({ phase: 'ok', n: 0, again: true }) });
+fign('addtv', { title: 'Name and room, empty name', cap: 'Done stays disabled until the name has a character.', screen: () => S.addName({ empty: true }) });
+
+/* add ac / fan */
+fign('addac', { title: 'IR test: confirm press', cap: 'After the first Yes the app sends a second, different press (AC 25°, fan light) to be sure the right remote was found.', screen: () => S.addIrTest({ phase: 'confirm', n: 1 }) });
+fign('addac', { title: 'IR test (fan)', cap: 'The fan version: Atomberg codes, speed 3 first, then the light.', screen: () => S.addIrTest({ phase: 'test', kind: 'fan', n: 2 }) });
+fign('addac', { title: 'IR test: phone cannot send IR', cap: 'If the IR blaster goes away mid-test.', screen: () => S.addIrTest({ phase: 'needsir' }) });
+fign('addac', { title: 'IR test: save failed', cap: 'The remote was found but the device could not be saved; the test stays so Yes can be tapped again.', screen: () => S.addIrTest({ phase: 'savefail' }) });
+fign('addac', { title: 'IR backup: loading', cap: '"Add IR backup" from Device settings reads the device first.', screen: () => S.irbLoading() });
+fign('addac', { title: 'IR backup: device gone', cap: 'The device was removed while the backup flow opened.', screen: () => S.gone({ title: 'Which brand?' }) });
+
+/* matter */
+fign('matter', { title: 'Camera permission prompt', cap: 'First time on this screen the app asks for the camera at once. The text is the app\'s camera permission string.', screen: () => S.addMatter({ mode: 'asking' }), overlay: OV(permCam()) });
+fign('matter', { title: 'Connecting, step 1', cap: 'Just after the code was read: "Found the AC" has the spinner, the other two wait.', screen: () => S.addConnecting({ st: ['act', 'pending', 'pending'] }) });
+fign('matter', { title: 'Connecting, step 3', cap: 'The phone is on the AC\'s network; the app waits for the AC to answer.', screen: () => S.addConnecting({ st: ['done', 'done', 'act'] }) });
+fign('matter', { title: 'Failed: AC refused the code', cap: 'The code was read but the AC did not accept it (expired or already used).', screen: () => S.addConnecting({ st: ['fail', 'pending', 'pending'], err: 'badCode' }) });
+fign('matter', { title: 'Failed: Matter not available', cap: 'This phone has no Matter support (very old Android).', screen: () => S.addConnecting({ st: ['fail', 'pending', 'pending'], err: 'unavailable' }) });
+fign('matter', { title: 'Failed: could not reach the AC', cap: 'The AC went quiet while the phone was talking to it.', screen: () => S.addConnecting({ st: ['fail', 'pending', 'pending'], err: 'unreachable' }) });
+fign('matter', { title: 'Failed: AC refused the request', cap: 'The AC answered but said no to the join request.', screen: () => S.addConnecting({ st: ['done', 'fail', 'pending'], err: 'rejected' }) });
+fign('matter', { title: 'Cancelled', cap: 'The person backed out of the system dialog that asks to add the AC.', screen: () => S.addConnecting({ st: ['done', 'fail', 'pending'], err: 'cancelled' }) });
+
+/* sheets + settings */
+fign('sheet', { title: 'Device settings, loading', cap: 'While the saved devices are read the screen is the title and nothing else (no skeleton in the app today).', screen: () => S.devLoading() });
+const sheetBottom = id => dev => { dev._sid = id; const sc = $('.sheet .scroll', dev); if (sc) sc.scrollTop = 99999; };
+const linkSheet = (k, title, cap) => fign('sheet', { title, cap: cap + ' The sheet is scrolled to the part that changes.', screen: () => S.tv(), overlay: () => sheetSettings({ id: 'tv1', tvlink: k }), setup: sheetBottom('tv1') });
+linkSheet('busy', 'TV link, looking again', 'Find TV again was tapped: both buttons are disabled until it ends. "Looking…" under them is a small addition (the string exists, the app does not show it here).');
+linkSheet('found', 'TV link, found', 'The address changed and the new one was saved.');
+linkSheet('notfound', 'TV link, not found', 'No TV answered.');
+linkSheet('allow', 'TV link, press Allow', 'Pair again on LG and Samsung: the note asks for Allow on the TV, buttons disabled until it ends.');
+linkSheet('code', 'TV link, type the code', 'Pair again on an Android TV / Google TV: the box asks for the code the TV shows.');
+linkSheet('wrong', 'TV link, wrong code', 'The code did not match; the box stays and the line says why.');
+linkSheet('paired', 'TV link, paired again', 'The note says "Paired again" and the buttons are free again.');
+fign('sheet', { title: 'Device settings (AC), add IR backup', cap: 'An AC added over Matter on a phone that has IR: one button adds an IR backup (it walks the IR test).', screen: () => S.ac(), overlay: () => sheetSettings({ id: 'ac1', matterOnly: true, irb: true }), setup: sheetBottom('ac1') });
+fign('sheet', { title: 'Device settings (TV), IR backup failed', cap: 'A TV just gets the LG code set; if saving it fails, one line says so.', screen: () => S.tv(), overlay: () => sheetSettings({ id: 'tv1', irb: true, irbFail: true }), setup: sheetBottom('tv1') });
+fign('sheet', { title: 'Device settings, save failed', cap: 'Saving a name, room or order failed. Nothing is lost.', screen: () => S.tv(), overlay: () => sheetSettings({ id: 'tv1', failed: true }), setup: sheetBottom('tv1') });
+fign('sheet', { title: 'Settings, Rooms open', cap: 'Each room: name field, Save (enabled when changed), up, down (disabled at the ends) and Delete. Tap Rooms, Privacy or About to open or close them. Try it.', screen: () => S.settings({ open: 'rooms' }) });
+fign('sheet', { title: 'Settings, room not empty', cap: 'Delete on a room that still has devices explains why not.', screen: () => S.settings({ open: 'rooms', roomMsg: 'Move or remove its devices first' }) });
+fign('sheet', { title: 'Settings, rooms save failed', cap: 'A rename or reorder failed to save.', screen: () => S.settings({ open: 'rooms', roomMsg: "That didn't save. Try again." }) });
+fign('sheet', { title: 'Settings, no rooms', cap: 'Rooms are created when a device is named, so a fresh install has none.', screen: () => S.settings({ open: 'rooms', rooms: [] }) });
+fign('sheet', { title: 'Settings, Privacy open', cap: 'The privacy promise opens in place.', screen: () => S.settings({ open: 'privacy' }) });
+fign('sheet', { title: 'Settings, About open', cap: 'Licences and the LGPL source offer.', screen: () => S.settings({ open: 'about' }) });
+
+/* dark */
+const dk = (title, cap, screen, extra = {}) => fign('dark', { title, cap, screen, dark: true, ...extra });
+dk('Dark: Home', 'Cards lift with the 1 px line, not the shadow.', () => S.home());
+dk('Dark: TV remote', 'The ink mic inverts to a light disc; the pad keeps its edge.', () => S.tv());
+dk('Dark: Air conditioner', 'Arc colours stay; the setpoint stays 76 px.', () => S.ac());
+dk('Dark: Fan', 'Lit bars use the lighter accent.', () => S.fan());
+dk('Dark: Matter scan', 'The viewfinder is dark in both themes.', () => S.addMatter({ locked: true }));
+dk('Dark: Device settings', 'The sheet gets a 1 px line instead of a shadow.', () => S.tv(), { overlay: () => sheetSettings({ id: 'tv1' }), setup: dev => { dev._sid = 'tv1'; } });
+dk('Dark: Pairing failed', 'Red text uses danger-ink dark (#ff8b8f).', () => S.addTvPair({ phase: 'denied', n: 30 }));
+dk('Dark: Settings', 'Rooms open.', () => S.settings({ open: 'rooms' }));
+
 /* =====================================================================================
    9. MOUNT, REPLAY, OBSERVE
    ===================================================================================== */
 function start(dev) { dev._active = true; const def = dev._def; if (def.setup) def.setup(dev); initScreen(dev, topScr(dev)); }
 function renderFig(host, def) {
-  const f = document.createElement('figure'); f.className = 'fig';
-  f.innerHTML = `<div class="fh"><h3>${def.title}</h3>${def.replay || def.auto ? `<button class="rp" aria-label="Replay ${esc(def.title)}">${I('refresh')}Replay</button>` : ''}</div><div class="slot"></div><figcaption>${def.cap}</figcaption>${def.sim ? `<div class="sim"><span>Simulate:</span>${def.sim.map((s, i) => `<button data-sim="${i}">${s.label}</button>`).join('')}</div>` : ''}`;
+  const f = document.createElement('figure'); f.className = 'fig'; f.id = def.fid;
+  f.innerHTML = `<div class="fh"><h3>${def.title}</h3>${def.replay || def.auto ? `<button class="rp" aria-label="Replay ${esc(def.title)}">${I('refresh')}Replay</button>` : ''}</div><div class="slot"></div><figcaption>${def.cap}</figcaption>${def.nw || def.newcopy ? `<div class="ftags">${def.nw ? '<span class="ftag new">New</span>' : ''}${def.newcopy ? '<span class="ftag copy">copy not in app yet</span>' : ''}</div>` : ''}${def.sim ? `<div class="sim"><span>Simulate:</span>${def.sim.map((s, i) => `<button data-sim="${i}">${s.label}</button>`).join('')}</div>` : ''}`;
   host.append(f); const slot = $('.slot', f);
   const mount = (go) => { if (slot.firstChild) { clearT(slot.firstChild); } slot.replaceChildren(); const dev = buildDevice(def); slot.append(dev); f._dev = dev; if (go) start(dev); else if (!def.auto) start(dev); return dev; };
   mount(false); f._mount = mount;
@@ -1110,6 +1318,216 @@ const ALL = [];
 Object.entries(FIGS).forEach(([sec, defs]) => { const host = $(`[data-figs="${sec}"]`); defs.forEach(d => ALL.push(renderFig(host, d))); });
 const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting && !e.target._started) { e.target._started = true; const dev = e.target._dev; if (dev._def.auto) { e.target._mount(true); } } }), { threshold: .35 });
 ALL.forEach(f => { if (f._dev._def.auto) io.observe(f); });
+
+/* =====================================================================================
+   9b. SCREEN INDEX: every screen x state, with its source and the frame that draws it.
+       "was" says whether the first mock already drew it (yes) or this pass added it (no / partial).
+   ===================================================================================== */
+const INDEX = [
+  ['Start and Home (src/screens/home)', [
+    ['Splash', 'App launch, mark draws in', 'app.json expo-splash-screen · common.appName', 'start|Start: splash, skeleton, Home', 'yes'],
+    ['Home', 'Loading: skeleton cards', 'useHomeData.loaded · common.loading', 'start|Home, loading', 'yes'],
+    ['Home', 'Loaded: rooms and cards', 'HomeScreen.tsx · home.title, deviceCountMany', 'start|Home', 'yes'],
+    ['Home', 'Empty / first launch', 'home.welcomeTitle, welcomeBody, addFirst', 'start|Home, empty / welcome', 'yes'],
+    ['Home', 'Saved data unreadable', 'home.corruptTitle, corruptBody', 'start|Home, saved data unreadable', 'yes'],
+    ['Home', 'Phone without an IR blaster', 'home.noIrBanner, needsIr', 'start|Home, phone without IR', 'yes'],
+    ['Home', '12 devices, long names, long room names', 'HomeScreen.tsx scroll · DeviceCard.tsx', 'start|Home, 12 devices', 'no'],
+    ['Home', 'Scrolled to the end', 'HomeScreen.tsx scroll', 'start|Home, 12 devices, scrolled', 'no'],
+    ['Device card', 'Summary: On / app only / volume only / unknown', 'summary.ts cardSummary · home.summaryOn, summaryVolume', 'start|Home, 12 devices', 'partial'],
+    ['Device card', 'Pressed, and a toast over Home', 'DeviceCard.tsx · home.longPressHint', 'start|Home, pressed card + toast', 'yes'],
+    ['Device card', 'Needs a phone with IR', 'home.needsIr', 'start|Home, phone without IR', 'yes'],
+    ['Remote (any kind)', 'Device no longer exists', 'home.notFound · ac.notFound · fan.notFound · DeviceSheet.tsx:42', 'start|Remote, device removed', 'no'],
+    ['Offline', 'Phone not on Wi-Fi (TV remote)', 'tvMode.ts onWifi=false → unreachable', "tv|TV, can't reach it", 'yes'],
+    ['Offline', 'Phone not on Wi-Fi (TV search)', 'addTv.sameWifi', 'addtv|Nothing found yet', 'yes'],
+  ]],
+  ['TV remote: connection states (tvMode.ts, TvScreen.tsx)', [
+    ['TV remote', 'Ready / idle (touchpad)', 'tvMode ready · tv.statusConnected', 'tv|TV, ready (touchpad)', 'yes'],
+    ['TV remote', 'Ready, D-pad', 'tv.dpad', 'tv|TV, D-pad', 'yes'],
+    ['TV remote', 'Finger on the pad', 'TouchPad.tsx', 'tv|TV, finger on the pad', 'yes'],
+    ['TV remote', 'Connecting (first 5 s; also what reconnecting shows)', 'tvMode connecting · CONNECTING_MS · tv.statusConnecting', 'tv|TV, connecting', 'yes'],
+    ['TV remote', 'Off', 'tvMode off · tv.offTitle, offBody, turnOn, offHint', 'tv|TV, off', 'yes'],
+    ['TV remote', 'Turning on (waking, 20 s)', 'tvMode waking · WAKE_MS · tv.waking', 'tv|TV, turning on', 'yes'],
+    ['TV remote', 'Wake failed: LG / Android TV / Samsung hints', 'tvMode wakeFailed · tv.wakeFailed, wakeFailedAndroidTv, wakeFailedSamsung', 'tv|TV, wake failed', 'yes'],
+    ['TV remote', 'Off and cannot be woken from the phone', 'tv.cantTurnOn', 'tv|TV, off and cannot be woken', 'no'],
+    ['TV remote', "Can't reach it (also: phone off Wi-Fi)", 'tvMode unreachable · tv.unreachableTitle, unreachableBody, wifiSettings', "tv|TV, can't reach it", 'yes'],
+    ['TV remote', 'Looking again', 'tv.findAgain, finding', 'tv|TV, looking again', 'no'],
+    ['TV remote', 'Found it at a new address', 'tv.foundAt', 'tv|TV, found it', 'no'],
+    ['TV remote', 'Not found', 'tv.notFound', 'tv|TV, not found', 'no'],
+    ['TV remote', 'Pair again (trust lost)', 'DeviceError notPaired · tv.errNotPaired', 'tv|TV, pair again', 'yes'],
+    ['TV remote', 'Sent over IR', 'tv.statusIr', 'tv|TV, sent over IR', 'no'],
+    ['TV remote', 'Keyboard', 'KeyboardSheet.tsx · tv.keyboardField, keyboardDone', 'tv|TV, keyboard', 'yes'],
+    ['TV remote', '⋮ menu (live)', 'TvMenu.tsx · tv.touchpad, dpad, input', 'tv|TV, ⋮ menu', 'yes'],
+    ['TV remote', '⋮ menu when not live (Device settings only)', 'TvMenu.tsx', 'tv|TV, ⋮ menu when off', 'no'],
+    ['TV remote', 'Inputs sheet', 'InputSheet.tsx · tv.inputsTitle, inputEmpty', 'tv|TV, inputs sheet', 'yes'],
+    ['TV remote', 'Inputs not listed yet', 'tv.inputsNone', 'tv|TV, inputs not listed yet', 'no'],
+    ['TV remote', 'Toast: cannot reach / no answer', 'tv.errNotSent, errTimeout', 'tv|TV, errors as toasts', 'yes'],
+    ['TV remote', 'Toast: pair again', 'tv.errNotPaired', 'tv|TV, toast: pair again', 'no'],
+  ]],
+  ['TV remote: brands', [
+    ['LG webOS', 'Remote, ready', 'src/webos · brandLg', 'tv|TV, ready (touchpad)', 'yes'],
+    ['Android TV / Google TV (Airtel Xstream box)', 'Remote, ready, native voice', 'src/androidtv · brandAndroidTv', 'tv|Android TV / Google TV', 'yes'],
+    ['Samsung Tizen', 'Remote, ready', 'src/samsung · brandSamsung', 'tv|Samsung', 'yes'],
+    ['Per-brand', 'Wake-failed hint differs', 'wakeHint.ts', 'tv|TV, wake failed', 'yes'],
+    ['Per-brand', 'Pairing: Allow (LG, Samsung) or code (Android TV)', 'addTv.pairAllow · codeTitle', 'addtv|Pair: press Allow', 'yes'],
+  ]],
+  ['Voice (src/voice, MicButton.tsx)', [
+    ['Voice', 'Idle (mic shown, nothing listening)', 'MicButton.tsx · tv.voice', 'voice|Voice, idle', 'no'],
+    ['Voice', 'Listening (hold)', 'tv.listening', 'tv|TV, holding the mic', 'yes'],
+    ['Voice', 'Listening, dictation path (LG, Samsung)', 'dictation.ts · MicButton.tsx dictate()', 'voice|Voice, listening (dictation)', 'no'],
+    ['Voice', 'Microphone permission prompt', 'app.json microphonePermission · mic.ts requestPermission', 'voice|Voice, microphone prompt', 'no'],
+    ['Voice', 'Speech recognition permission prompt', 'app.json speechRecognitionPermission', 'voice|Voice, speech recognition prompt', 'no'],
+    ['Voice', 'Microphone blocked', 'tv.micDenied', 'tv|TV, microphone blocked', 'yes'],
+    ['Voice', 'Sending / TV heard', 'No state in the app: nothing is shown after release. Proposed', 'voice|Voice, sent (proposed)', 'no'],
+    ['Voice', 'No search box open on the TV', 'tv.voiceNoField', 'voice|Voice, no search box on the TV', 'no'],
+    ['Voice', 'Session could not start or dropped', 'tv.errNotSent (MicButton.tsx:147)', 'voice|Voice, TV unreachable', 'no'],
+    ['Voice', 'TV did not answer', 'tv.errTimeout', 'voice|Voice, TV did not answer', 'no'],
+    ['Voice', 'No microphone button (no voice, no dictation)', 'MicButton.tsx:202 returns null', 'voice|Voice, no microphone button', 'no'],
+  ]],
+  ['Air conditioner (lane/panasonic: AcScreen.tsx)', [
+    ['AC', 'Matter, on', 'ac.status.connected', 'ac|AC, Matter', 'yes'],
+    ['AC', 'Setpoint and mode changes', 'ac.lower, raise, modeName.*', 'ac|AC, setpoint change (autoplay)', 'yes'],
+    ['AC', 'Off', 'ac.setpoint · home.summaryOff', 'ac|AC, off', 'yes'],
+    ['AC', 'Over IR', 'ac.status.irOnly', 'ac|AC, over IR', 'yes'],
+    ['AC', 'Matter not reachable, fell back to IR', 'ac.status.fellBack', 'ac|AC, fell back to IR', 'yes'],
+    ['AC', 'Needs a phone with IR', 'ac.status.needsIr', 'ac|AC, needs a phone with IR', 'yes'],
+    ['AC', 'Loading', 'useDeviceView (no view yet)', 'ac|AC, loading', 'yes'],
+    ['AC', 'Send failed', 'ac.error.notSent', 'ac|AC, send failed', 'yes'],
+    ['AC', 'No answer', 'ac.error.timeout', 'ac|AC, no answer', 'no'],
+    ['AC', 'Partly sent', 'ac.error.partial', 'ac|AC, partly sent', 'no'],
+    ['AC', 'Needs IR toast', 'ac.error.needsIr', 'ac|AC, needs IR (toast)', 'no'],
+    ['AC', 'AC removed', 'ac.notFound', 'start|Remote, device removed', 'no'],
+  ]],
+  ['Fan (lane/panasonic: FanScreen.tsx)', [
+    ['Fan', 'On, speed bars, chips, timer', 'fan.speed, boost, sleep, light, timer.*', 'fan|Fan', 'yes'],
+    ['Fan', 'Off', 'home.summaryOff', 'fan|Fan, off', 'yes'],
+    ['Fan', 'Needs a phone with IR', 'fan.status.needsIr', 'fan|Fan, needs a phone with IR', 'yes'],
+    ['Fan', 'Loading', 'useDeviceView', 'fan|Fan, loading', 'yes'],
+    ['Fan', 'No such button', 'fan.error.unsupported', 'fan|Fan, no such button', 'no'],
+    ['Fan', 'No answer', 'fan.error.timeout', 'fan|Fan, no answer', 'no'],
+    ['Fan', 'Needs IR toast', 'fan.error.needsIr', 'fan|Fan, needs IR (toast)', 'no'],
+    ['Fan', 'Fan removed', 'fan.notFound', 'start|Remote, device removed', 'no'],
+  ]],
+  ['Add a device: kind and TV (src/screens/add)', [
+    ['Kind picker', 'TV / AC / Fan', 'KindPicker.tsx · add.kindTv, kindAc, kindFan', 'addtv|Add device', 'yes'],
+    ['Kind picker', 'Phone without IR', 'add.noIr', 'addtv|Add device, phone without IR', 'yes'],
+    ['TV brand', 'LG / Android TV / Samsung', 'TvBrandStep.tsx · addTv.brandLg…', 'addtv|Brand', 'yes'],
+    ['Find TV', 'Searching (discovering)', 'FindTvStep.tsx · addTv.findTitle, findBody', 'addtv|Searching', 'yes'],
+    ['Find TV', 'Found one or more', 'FoundRow', 'addtv|Found two TVs', 'yes'],
+    ['Find TV', 'Nothing found yet', 'addTv.sameWifi, stillLooking', 'addtv|Nothing found yet', 'yes'],
+    ['Find TV', 'iPhone local network prompt', 'app.json NSLocalNetworkUsageDescription', "addtv|iPhone: local network prompt", 'yes'],
+    ['Find TV', 'iPhone local network denied', 'No copy in the app. Proposed', 'addtv|iPhone: local network denied', 'no'],
+    ['Manual IP', 'Empty, focused', 'ManualIpStep.tsx · addTv.manualTitle, ipFind', "addtv|TV's IP address", 'yes'],
+    ['Manual IP', 'Checking (button loading)', 'ManualIpStep busy', 'addtv|Address, checking', 'no'],
+    ['Manual IP', 'Not an IP address', 'addTv.badIp', 'addtv|Address, not an IP', 'yes'],
+    ['Manual IP', 'Not on the home network', 'addTv.notLocal', 'addtv|Address, not on this network', 'yes'],
+    ['Manual IP', 'No TV answered', 'addTv.noAnswer', 'addtv|Address, no TV answered', 'yes'],
+    ['Pair TV', 'Press Allow, countdown, retry link', 'PairTvStep.tsx · addTv.pairAllow, waiting, promptMissing', 'addtv|Pair: press Allow', 'yes'],
+    ['Pair TV', 'Paired', 'addTv.pairTitle', 'addtv|Pair: success', 'yes'],
+    ['Pair TV', 'TV said no', 'addTv.denied', 'addtv|Pair: TV said no', 'yes'],
+    ['Pair TV', 'No answer in time', 'addTv.timedOut', 'addtv|Pair: no answer', 'yes'],
+    ['Pair TV', 'Unreachable: Android TV wording', 'addTv.unreachableAndroidTv', 'addtv|Pair: unreachable (Android TV)', 'yes'],
+    ['Pair TV', 'Unreachable: LG / Samsung wording', 'addTv.unreachable', 'addtv|Pair: unreachable (LG, Samsung)', 'no'],
+    ['Pair TV', 'Pair again: success', 'addTv.paired', 'addtv|Pair again: success', 'partial'],
+    ['Pair code', 'Typing the code', 'PairCodeStep.tsx · addTv.codeTitle, codePair', 'addtv|Pair: Android TV code', 'yes'],
+    ['Pair code', 'Code complete', 'addTv.codePair', 'addtv|Pair: Android TV code complete', 'no'],
+    ['Pair code', 'Wrong code', 'addTv.codeWrong, codeNew', 'addtv|Code did not match', 'yes'],
+    ['Duplicate', 'TV already added', 'addTv.duplicate, openIt', 'addtv|Already added', 'yes'],
+    ['Name and room', 'Default, new room, saving', 'NameRoomStep.tsx · add.nameTitle, newRoom', 'addtv|Name and room', 'yes'],
+    ['Name and room', 'Empty name (Done disabled)', 'NameRoomStep.tsx:98 disabled={!canSave}', 'addtv|Name and room, empty name', 'no'],
+    ['Name and room', 'Save failed (inline)', 'add.saveFailed', 'addtv|Name and room, save failed', 'yes'],
+  ]],
+  ['Add an AC or fan, IR (lane/panasonic: add/appliance)', [
+    ['Brand', 'AC list (Matter badge)', 'BrandStep.tsx · addAppliance.brandTitle, brandMatter', 'addac|Brand (AC)', 'yes'],
+    ['Brand', 'Fan list', 'addAppliance.otherBrandsRow, brandMissing', 'addac|Brand (fan)', 'yes'],
+    ['IR test', 'Ready (first press)', 'IrTestStep.tsx · addAppliance.testTitle, press.acOnCool24', 'addac|IR test: ready', 'yes'],
+    ['IR test', 'Sending', 'IrTestStep busy', 'addac|IR test: sending', 'yes'],
+    ['IR test', 'Did it work? (Yes / No)', 'addAppliance.yes, no', 'addac|IR test: did it work?', 'yes'],
+    ['IR test', 'Confirm press (second press)', 'addAppliance.press.acUp25, fanLight', 'addac|IR test: confirm press', 'partial'],
+    ['IR test', 'Fan variant', 'addAppliance.pointFan, press.fanSpeed3', 'addac|IR test (fan)', 'partial'],
+    ['IR test', 'Could not send', 'addAppliance.testFailed', 'addac|IR test: could not send', 'yes'],
+    ['IR test', 'Phone cannot send IR', 'addAppliance.testNeedsIr', 'addac|IR test: phone cannot send IR', 'no'],
+    ['IR test', 'Save failed', 'addAppliance.saveFailed', 'addac|IR test: save failed', 'no'],
+    ['IR test', 'Live walk-through', 'irTest.ts reducer', 'addac|IR test (live)', 'yes'],
+    ['No codes', 'After the last remote', 'NoCodesStep.tsx · addAppliance.noCodesTitle, noCodesAc', 'addac|No codes', 'yes'],
+    ['No IR', 'Phone has no IR blaster', 'NoIrStep.tsx · addAppliance.noIrTitle, scanMatter, addAnyway', 'addac|No IR on this phone', 'yes'],
+    ['Name and room', 'New room', 'add.createRoom', 'addac|Name and room, new room', 'yes'],
+    ['IR backup', 'Loading', 'addAppliance.loading', 'addac|IR backup: loading', 'no'],
+    ['IR backup', 'Device gone', 'home.notFound', 'addac|IR backup: device gone', 'no'],
+  ]],
+  ['Add an AC over Matter (lane/panasonic: MatterStep.tsx)', [
+    ['Matter code', 'Camera permission prompt', 'app.json cameraPermission · useCameraPermissions', 'matter|Camera permission prompt', 'no'],
+    ['Matter code', 'Scanning', 'matter.scanLabel, intro', 'matter|Scanning', 'yes'],
+    ['Matter code', 'Code found', 'onScan', 'matter|Code found', 'yes'],
+    ['Matter code', 'Camera denied (paste or type)', 'matter.cameraDenied', 'matter|Camera not allowed', 'yes'],
+    ['Matter code', 'Not a Matter code', 'matter.notMatter', 'matter|Not a Matter code', 'yes'],
+    ['Matter code', 'Paste', 'matter.paste', 'matter|Scanning', 'yes'],
+    ['Matter code', 'Typed code', 'matter.codeLabel, codeHint, connect', 'matter|Enter code instead', 'yes'],
+    ['Matter code', 'Code did not work', 'matter.badCode', 'matter|Code did not work', 'yes'],
+    ['Matter code', 'Whole flow with outcomes', 'AddApplianceFlow.tsx', 'matter|Add with Matter, whole flow', 'yes'],
+    ['Commissioning', 'Step 1: found the AC', 'matter.step.found', 'matter|Connecting, step 1', 'no'],
+    ['Commissioning', 'Step 2: adding this phone', 'matter.step.network', 'matter|Connecting, step 2', 'yes'],
+    ['Commissioning', 'Step 3: the AC answers', 'matter.step.responds', 'matter|Connecting, step 3', 'no'],
+    ['Commissioning', 'Connected', 'matter.connectingTitle', 'matter|Connected', 'yes'],
+    ['Commissioning', 'Failed: AC not found', 'matter.error.notFound', 'matter|Failed at step 1', 'yes'],
+    ['Commissioning', 'Failed: could not be added', 'matter.error.networkFailed', 'matter|Failed at step 2', 'yes'],
+    ['Commissioning', 'Failed: AC not answering', 'matter.error.noResponse', 'matter|Failed at step 3', 'yes'],
+    ['Commissioning', 'Failed: AC refused the code', 'matter.error.badCode', 'matter|Failed: AC refused the code', 'no'],
+    ['Commissioning', 'Failed: Matter not available', 'matter.error.unavailable', 'matter|Failed: Matter not available', 'no'],
+    ['Commissioning', 'Failed: could not reach the AC', 'matter.error.unreachable', 'matter|Failed: could not reach the AC', 'no'],
+    ['Commissioning', 'Failed: AC refused the request', 'matter.error.rejected', 'matter|Failed: AC refused the request', 'no'],
+    ['Commissioning', 'Cancelled', 'matter.error.cancelled', 'matter|Cancelled', 'no'],
+    ['After Matter', 'IR backup offer (IR test with Skip), then Name', 'flow.ts afterMatter', 'addac|IR test: ready', 'yes'],
+  ]],
+  ['Device settings and Settings (src/screens/device, settings)', [
+    ['Device settings', 'TV', 'DeviceSheet.tsx · device.title, name, room, order, connected', 'sheet|Device settings (TV)', 'yes'],
+    ['Device settings', 'AC (Matter main, IR backup)', 'device.linkMatter, linkIr, main, backup', 'sheet|Device settings (AC)', 'yes'],
+    ['Device settings', 'Pair again row', 'addTv.pairAgain', 'sheet|Device settings, pair again', 'yes'],
+    ['Device settings', 'Loading', 'DeviceSheet.tsx:38', 'sheet|Device settings, loading', 'no'],
+    ['Device settings', 'Remove: confirm dialog', 'device.removeAsk, confirmRemove', 'sheet|Remove device', 'yes'],
+    ['Device settings', 'Save failed', 'device.failed', 'sheet|Device settings, save failed', 'no'],
+    ['Device settings', 'Add IR backup (AC)', 'irBackup.add, IrBackupAction.tsx', 'sheet|Device settings (AC), add IR backup', 'no'],
+    ['Device settings', 'IR backup failed (TV)', 'irBackup.failed', 'sheet|Device settings (TV), IR backup failed', 'no'],
+    ['TV link actions', 'Looking again', 'TvLinkActions.tsx · addTv.findAgain, finding', 'sheet|TV link, looking again', 'no'],
+    ['TV link actions', 'Found', 'addTv.foundAt', 'sheet|TV link, found', 'no'],
+    ['TV link actions', 'Not found', 'addTv.notFound', 'sheet|TV link, not found', 'no'],
+    ['TV link actions', 'Press Allow', 'addTv.pairAllow', 'sheet|TV link, press Allow', 'no'],
+    ['TV link actions', 'Type the code', 'addTv.codeTitle, codePair', 'sheet|TV link, type the code', 'no'],
+    ['TV link actions', 'Wrong code', 'addTv.codeWrong', 'sheet|TV link, wrong code', 'no'],
+    ['TV link actions', 'Paired again', 'addTv.paired', 'sheet|TV link, paired again', 'no'],
+    ['Settings', 'Main: theme, volume keys, vibrate', 'SettingsScreen.tsx · settings.theme…', 'sheet|Settings', 'yes'],
+    ['Settings', 'Rooms open', 'RoomsEditor.tsx · settings.rooms, saveRoom, roomUp', 'sheet|Settings, Rooms open', 'no'],
+    ['Settings', 'Room not empty', 'settings.roomNotEmpty', 'sheet|Settings, room not empty', 'no'],
+    ['Settings', 'Rooms save failed', 'settings.failed', 'sheet|Settings, rooms save failed', 'no'],
+    ['Settings', 'No rooms', 'settings.noRooms', 'sheet|Settings, no rooms', 'no'],
+    ['Settings', 'Privacy open', 'settings.privacyBody', 'sheet|Settings, Privacy open', 'no'],
+    ['Settings', 'About and licences open', 'settings.licenseApp…licenseSourceOffer', 'sheet|Settings, About open', 'no'],
+  ]],
+  ['Cross-cutting', [
+    ['Theme', 'Light', 'settings.themeLight · ThemeProvider.tsx', '#s-tokens', 'yes'],
+    ['Theme', 'Dark (Home, TV, AC, Fan, Matter, sheet, pairing, Settings)', 'settings.themeDark', 'dark|Dark: Home', 'no'],
+    ['Toasts', 'Info, ok, error, with action', 'Toast', 'comp|Toasts', 'yes'],
+    ['Dialogs', 'Confirm remove device', 'device.removeAsk', 'sheet|Remove device', 'yes'],
+    ['Dialogs', 'Unpair', 'No separate unpair in the app: Remove device forgets the secrets (driver.forget)', 'sheet|Remove device', 'yes'],
+    ['System prompts', 'Local network (iPhone)', 'app.json NSLocalNetworkUsageDescription', 'addtv|iPhone: local network prompt', 'yes'],
+    ['System prompts', 'Microphone, speech recognition, camera', 'app.json permission strings', 'voice|Voice, microphone prompt', 'no'],
+    ['Transitions', 'Screen push and back, sheet, menu, toast, skeleton to content', 'Motion tokens', '#s-motion', 'yes'],
+    ['Components', 'Buttons, chips, switches, inputs, banners, cards, skeleton, spinner', 'src/ui', '#s-comp', 'yes'],
+  ]],
+];
+(function renderIndex() {
+  const NEWCOPY = new Set(); Object.entries(FIGS).forEach(([sec, defs]) => defs.forEach(d => { if (d.newcopy) NEWCOPY.add(d.fid); }));
+  const screens = new Set(); let states = 0, added = 0, miss = 0;
+  const body = INDEX.map(([grp, items]) => `<tr class="grp"><td colspan="4">${grp}</td></tr>` + items.map(([sc, st, src, ref, was]) => {
+    const id = ref[0] === '#' ? ref.slice(1) : FIDX[ref]; if (!id) { miss++; console.error('Screen index: no frame for', ref); }
+    screens.add(sc); states++; const isNew = was !== 'yes'; if (isNew) added++; const cp = NEWCOPY.has(id);
+    return `<tr data-new="${isNew ? 1 : 0}" data-copy="${cp ? 1 : 0}"${id ? '' : ' class="miss"'}><td>${sc}</td><td>${st}</td><td class="src">${src}</td><td>${id ? `<a href="#${id}">${ref[0] === '#' ? 'Section' : 'Frame'}</a>` : 'MISSING'}${isNew ? ' <span class="ftag new">New</span>' : ''}${cp ? ' <span class="ftag copy">copy not in app yet</span>' : ''}</td></tr>`;
+  }).join('')).join('');
+  const frames = ALL.length, newFrames = ALL.filter(f => f._dev._def.nw).length;
+  $('#index-table').innerHTML = `<div class="idx-sum"><span><b>${screens.size}</b> screens</span><span><b>${states}</b> screen × state rows</span><span><b>${added}</b> rows added in this pass</span><span><b>${frames}</b> phone frames, <b>${newFrames}</b> new</span></div><div class="idx-filter" role="group" aria-label="Filter"><button aria-pressed="true" data-f="all">All</button><button aria-pressed="false" data-f="new">New in this pass</button><button aria-pressed="false" data-f="copy">Copy not in app yet</button></div><div class="idx-wrap"><table class="idx"><thead><tr><th>Screen</th><th>State</th><th class="src">Source (file or i18n key)</th><th>Frame</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  $$('.idx-filter button').forEach(b => b.onclick = () => { $$('.idx-filter button').forEach(x => x.setAttribute('aria-pressed', x === b)); const f = b.dataset.f; $$('table.idx tbody tr').forEach(tr => { if (tr.classList.contains('grp')) { tr.hidden = false; return; } tr.hidden = f === 'new' ? tr.dataset.new !== '1' : f === 'copy' ? tr.dataset.copy !== '1' : false; }); });
+  window.__index = { screens: screens.size, states, added, miss, frames, newFrames };
+})();
+
 $('#replay-all').onclick = () => ALL.forEach(f => { if (f._dev._def.replay || f._dev._def.auto) f._mount(true); });
 
 /* =====================================================================================
