@@ -7,7 +7,7 @@ import { createFakeDriver } from '@/device/testing/fakeDriver';
 import type { FakeDriver } from '@/device/testing/fakeDriver';
 import { t } from '@/i18n';
 import { TvScreen } from '@/screens/tv/TvScreen';
-import { createServices } from '@/services';
+import { createServices, ServicesProvider } from '@/services';
 import type { Services } from '@/services';
 import { createMemoryStore } from '@/store/memoryStore';
 import { createMemoryPreferenceStore } from '@/store/preferences';
@@ -17,6 +17,8 @@ import { createFakeDictation } from '@/voice/testing/fakeDictation';
 import type { FakeDictation } from '@/voice/testing/fakeDictation';
 import { createFakeMic } from '@/voice/testing/fakeMic';
 import type { FakeMic } from '@/voice/testing/fakeMic';
+import { ThemeProvider } from '@/theme';
+import { ToastProvider } from '@/ui';
 import { renderWith, room } from '../helpers';
 
 /** Runs the cleanup of every focus effect, as leaving the screen does. */
@@ -456,5 +458,61 @@ describe('MicButton: the slot', () => {
     const r = await rig({ voice: true });
     await showing(r);
     expect(mic()).toBeTruthy();
+  });
+});
+
+describe('MicButton: look', () => {
+  const pulses = (): number => screen.queryAllByTestId('mic-pulse').length;
+  const tree = (r: Rig, reducedMotion: boolean): ReturnType<typeof ThemeProvider> => (
+    <ThemeProvider scheme="light" reducedMotion={reducedMotion}>
+      <ServicesProvider services={r.s}>
+        <ToastProvider>
+          <TvScreen deviceId="tv1" />
+        </ToastProvider>
+      </ServicesProvider>
+    </ThemeProvider>
+  );
+
+  it('pulses two rings while held and shows the bubble', async () => {
+    const r = await rig({ voice: true });
+    await showing(r);
+    expect(pulses()).toBe(0);
+    await hold();
+    expect(pulses()).toBe(2);
+    expect(screen.getByText(t('tv.listening'))).toBeTruthy();
+    await letGo();
+    expect(pulses()).toBe(0);
+  });
+
+  it('stops the rings at once when reduced motion is switched on mid-hold, and keeps the bubble', async () => {
+    const r = await rig({ voice: true });
+    await showing(r);
+    await hold();
+    expect(pulses()).toBe(2);
+    await act(async () => {
+      screen.rerender(tree(r, true));
+    });
+    await settle();
+    expect(screen.queryAllByTestId('mic-pulse')).toEqual([]);
+    expect(screen.getByText(t('tv.listening'))).toBeTruthy();
+    expect(mic()).toBeTruthy();
+  });
+
+  it('shows no rings under reduced motion from the start', async () => {
+    const r = await rig({ voice: true });
+    await renderWith(r.s, <TvScreen deviceId="tv1" />, { reducedMotion: true });
+    await settle();
+    await hold();
+    expect(pulses()).toBe(0);
+    expect(screen.getByText(t('tv.listening'))).toBeTruthy();
+  });
+
+  it('draws the mic accent while held (dark theme too)', async () => {
+    const r = await rig({ voice: true });
+    await renderWith(r.s, <TvScreen deviceId="tv1" />, { scheme: 'dark' });
+    await settle();
+    await hold();
+    expect(screen.getByLabelText(t('tv.voice'))).toBeTruthy();
+    expect(screen.getByText(t('tv.listening'))).toBeTruthy();
   });
 });
