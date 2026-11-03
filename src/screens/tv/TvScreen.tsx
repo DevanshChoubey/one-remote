@@ -1,16 +1,27 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Network from 'expo-network';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import { AppState, Linking, Platform } from 'react-native';
+import { AppState, BackHandler, Linking, Platform } from 'react-native';
 import type { Command, TvKey } from '@/core';
 import { DeviceError, tvLinkOf } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
 import type { DeviceView } from '@/services';
-import { Box, Column, Row, Screen, Txt } from '@/ui';
+import {
+  Banner,
+  Box,
+  Button,
+  Column,
+  Icon,
+  IconButton,
+  Row,
+  Screen,
+  Spinner,
+  Txt,
+  useToast,
+} from '@/ui';
 import { useKnownDevice } from '../device/useKnownDevice';
-import { BarButton } from './BarButton';
 import { DPad } from './DPad';
 import { KeyButton } from './KeyButton';
 import { MicButton } from './MicButton';
@@ -19,6 +30,7 @@ import { KeyboardSheet } from './KeyboardSheet';
 import { pressFeedback } from './pressFeedback';
 import { TouchPad } from './TouchPad';
 import { TvBar } from './TvBar';
+import type { TvStatus } from './TvBar';
 import { TvMenu } from './TvMenu';
 import type { Pad } from './TvMenu';
 import { TvOffPanel } from './TvOffPanel';
@@ -27,6 +39,8 @@ import { UnreachablePanel } from './UnreachablePanel';
 import { wakeHintKey } from './wakeHint';
 import { usePreferences } from './usePreferences';
 import { useVolumeKeys } from './useVolumeKeys';
+
+const SENT_MS = 1600;
 
 function nowMs(): number {
   return Date.now();
@@ -52,31 +66,10 @@ function useAppActive(): boolean {
   return active;
 }
 
-/** The power symbol drawn from boxes: Android's Roboto has no ⏻, which showed as an empty box. */
-function PowerGlyph(): ReactElement {
-  return (
-    <Box w={16} h={18}>
-      <Box
-        float={{ top: 2, right: 0 }}
-        w={16}
-        h={16}
-        bg="danger"
-        radius="pill"
-        align="center"
-        justify="center"
-      >
-        <Box w={12} h={12} bg="surface2" radius="pill" />
-      </Box>
-      <Box float={{ top: 0, right: 5 }} w={6} h={9} bg="surface2" />
-      <Box float={{ top: 0, right: 7 }} w={2} h={9} bg="danger" radius="pill" />
-    </Box>
-  );
-}
-
 export function TvScreen(props: { deviceId: string }): ReactElement {
   const { deviceId } = props;
   const services = useServices();
-  const { hub, prefs, tv } = services;
+  const { hub, prefs, tv, voice: engines } = services;
   const router = useRouter();
   const device = useKnownDevice(deviceId);
   const preferences = usePreferences();
@@ -99,9 +92,25 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   const [inputsOpen, setInputsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [finding, setFinding] = useState(false);
-  const [findNote, setFindNote] = useState<string | null>(null);
+  const [findNote, setFindNote] = useState<{ text: string; ok: boolean } | null>(null);
   const [pickedPad, setPickedPad] = useState<Pad | null>(null);
+  const [trustLost, setTrustLost] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [dictation, setDictation] = useState(false);
+  const toast = useToast();
+  const [repairing, setRepairing] = useState(false);
+  const sentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const watching = focused && active;
+
+  // Back from the pairing flow the lost trust counts as mended (a failed key brings it back).
+  const [wasFocused, setWasFocused] = useState(focused);
+  if (wasFocused !== focused) {
+    setWasFocused(focused);
+    if (focused && repairing) {
+      setRepairing(false);
+      setTrustLost(false);
+    }
+  }
 
   // Live state: only while this screen is in front and the app is in the foreground.
   useEffect(() => {
@@ -151,13 +160,22 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     hub.send(deviceId, cmd).then(
       () => {
         setProblem(null);
+        setTrustLost(false);
       },
       (e: unknown) => {
-        setProblem(errorLine(e));
+        if (e instanceof DeviceError && e.code === 'notPaired') {
+          setTrustLost(true);
+          return;
+        }
+        toast.show(errorLine(e), {
+          kind: 'error',
+          action: { label: t('common.retry'), onPress: () => send(cmd) },
+        });
       },
     );
   };
   const key = (k: TvKey): void => {
+    if (mode === 'connecting' && k !== 'power') return;
     pressFeedback(haptics);
     send({ kind: 'tv.key', key: k });
   };
@@ -192,29 +210,136 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     tv.findAgain(device).then(
       (host) => {
         setFinding(false);
-        setFindNote(host === null ? t('tv.notFound') : t('tv.foundAt', { host }));
+        setFindNote(
+          host === null
+            ? { text: t('tv.notFound'), ok: false }
+            : { text: t('tv.foundAt', { host }), ok: true },
+        );
       },
       (e: unknown) => {
         console.error('Could not look for the TV', e);
         setFinding(false);
-        setFindNote(t('tv.notFound'));
+        setFindNote({ text: t('tv.notFound'), ok: false });
       },
     );
   };
 
-  const live = mode === 'ready' || mode === 'connecting';
+  // Pad styles, Input and Keyboard need a settled link; Power also works while connecting.
+  const live = mode === 'ready';
+  const linkUp = mode === 'ready' || mode === 'connecting';
+  const voiceOn = caps?.voice === true;
+  const hasMic = voiceOn || (caps?.text !== false && dictation);
 
-  const status =
-    mode === 'connecting'
-      ? t('tv.statusConnecting')
-      : mode === 'ready'
-        ? view?.status.fellBack && view.status.via === 'ir'
-          ? t('tv.statusIr')
-          : t('tv.statusConnected')
-        : null;
+  // Can this phone dictate? (The mic key hides itself when neither voice nor dictation works.)
+  useEffect(() => {
+    if (!watching) return;
+    let current = true;
+    engines.dictation.available().then(
+      (ok) => current && setDictation(ok),
+      () => current && setDictation(false),
+    );
+    return () => {
+      current = false;
+    };
+  }, [watching, engines.dictation]);
+
+  // "Sent to the TV" stays 1.6 s under the keys.
+  const voiceSent = (): void => {
+    if (sentTimer.current !== null) clearTimeout(sentTimer.current);
+    setSent(true);
+    sentTimer.current = setTimeout(() => {
+      sentTimer.current = null;
+      setSent(false);
+    }, SENT_MS);
+  };
+  useEffect(
+    () => () => {
+      if (sentTimer.current !== null) clearTimeout(sentTimer.current);
+    },
+    [],
+  );
+
+  // A sheet over a TV that is no longer live goes away (the typed text is still sent on close).
+  const [wasLive, setWasLive] = useState(live);
+  if (wasLive !== live) {
+    setWasLive(live);
+    if (!live) {
+      setKeyboard(false);
+      setInputsOpen(false);
+    }
+  }
+
+  // Android back closes the ⋮ menu first, not the screen under it.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setMenuOpen(false);
+      return true;
+    });
+    return () => sub.remove();
+  }, [menuOpen]);
+
+  const blockedByWifi = mode === 'unreachable' && !onWifi;
+  const status: TvStatus | null =
+    mode === 'off' || mode === 'wakeFailed'
+      ? { text: t('tv.statusOff'), tone: 'warn' }
+      : mode === 'waking'
+        ? { text: t('tv.waking'), tone: 'warn', live: true }
+        : mode === 'unreachable' && (blockedByWifi || !trustLost)
+          ? finding
+            ? { text: t('tv.finding'), tone: 'warn', live: true }
+            : { text: t('tv.unreachableTitle'), tone: 'err' }
+          : trustLost
+            ? { text: t('tv.statusPairAgain'), tone: 'err' }
+            : mode === 'connecting'
+              ? { text: t('tv.statusConnecting'), tone: 'warn', live: true }
+              : view?.status.fellBack && view.status.via === 'ir'
+                ? { text: t('tv.statusIr'), tone: 'warn' }
+                : { text: t('tv.statusConnected'), tone: 'ok' };
+
+  const pairAgain = (): void => {
+    setRepairing(true);
+    router.push(`/device-sheet/${deviceId}`);
+  };
+  const keyRow = (
+    <Row px={1} align="center" justify={hasMic ? 'between' : 'center'}>
+      <KeyButton label={t('tv.goBack')} icon="back" size={64} onPress={() => key('back')} />
+      {hasMic ? null : <Box w={56} />}
+      <KeyButton label={t('tv.home')} icon="home" size={84} onPress={() => key('home')} />
+      <MicButton
+        deviceId={deviceId}
+        voice={voiceOn}
+        text={caps?.text !== false}
+        watching={watching}
+        send={(cmd) => hub.send(deviceId, cmd).then(() => undefined)}
+        onProblem={setProblem}
+        errorLine={errorLine}
+        onPress={() => pressFeedback(haptics)}
+        onSent={voiceSent}
+      />
+    </Row>
+  );
+
+  const captions = (
+    <>
+      {problem ? (
+        <Txt live color="ink2">
+          {problem}
+        </Txt>
+      ) : null}
+      {sent && !problem ? (
+        <Row gap={2} align="center" justify="center">
+          <Icon name="check" size={18} color="okInk" />
+          <Txt live variant="bodyBold" color="okInk">
+            {t('tv.voiceSent')}
+          </Txt>
+        </Row>
+      ) : null}
+    </>
+  );
 
   const body = ((): ReactElement => {
-    if (mode === 'unreachable') {
+    if (mode === 'unreachable' && (blockedByWifi || !trustLost)) {
       return (
         <UnreachablePanel
           onWifiSettings={wifiSettings}
@@ -234,43 +359,48 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
         />
       );
     }
-    if (inputsOpen) {
+    if (trustLost) {
       return (
-        <InputSheet
-          inputs={view?.state?.kind === 'tv' ? view.state.state.inputs : undefined}
-          onPick={(inputId) => {
-            pressFeedback(haptics);
-            send({ kind: 'tv.input', inputId });
-          }}
-          onDone={() => setInputsOpen(false)}
-        />
+        <Column flex={1} gap={4}>
+          <Box
+            flex={1}
+            bg="surface2"
+            border="line"
+            radius="lg"
+            opacity={0.45}
+            align="center"
+            justify="center"
+          >
+            <Txt color="ink2">{t('tv.touchpadHint')}</Txt>
+          </Box>
+          <Banner tone="error" icon="lock" text={t('tv.errNotPaired')} testID="tv-not-paired" />
+          <Button label={t('addTv.pairAgain')} onPress={pairAgain} />
+        </Column>
       );
     }
-    if (keyboard) {
+    if (mode === 'connecting') {
       return (
-        <KeyboardSheet
-          onText={(text) => send({ kind: 'tv.text', text })}
-          onDone={() => setKeyboard(false)}
-        />
+        <Column flex={1} gap={4}>
+          <Box flex={1} radius="lg" bg="surface" border="line" align="center" justify="center">
+            <Box
+              float={{ top: 0, right: 0, bottom: 0, left: 0 }}
+              radius="lg"
+              bg="line"
+              opacity={0.7}
+            />
+            <Row gap={3} align="center" bg="surface" radius="pill" shadow="pop" px={4} py={3}>
+              <Spinner size="sm" />
+              <Txt variant="bodyBold">{t('tv.statusConnecting')}</Txt>
+            </Row>
+          </Box>
+          <Box opacity={0.45}>{keyRow}</Box>
+        </Column>
       );
     }
     return (
       <Column flex={1} gap={4}>
         {pad === 'touchpad' ? <TouchPad onKey={key} /> : <DPad onKey={key} />}
-        <Row px={1} align="center" justify="between">
-          <KeyButton label={t('tv.goBack')} icon="back" size={64} onPress={() => key('back')} />
-          <KeyButton label={t('tv.home')} icon="home" size={84} onPress={() => key('home')} />
-          <MicButton
-            deviceId={deviceId}
-            voice={caps?.voice === true}
-            text={caps?.text !== false}
-            watching={watching}
-            send={(cmd) => hub.send(deviceId, cmd).then(() => undefined)}
-            onProblem={setProblem}
-            errorLine={errorLine}
-            onPress={() => pressFeedback(haptics)}
-          />
-        </Row>
+        {keyRow}
       </Column>
     );
   })();
@@ -283,14 +413,15 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
           status={status}
           onBack={() => router.back()}
         >
-          <BarButton
-            icon={<PowerGlyph />}
+          <IconButton
+            icon="power"
+            tone="power"
             label={t('tv.power')}
-            onPress={() => (live ? key('power') : turnOn())}
+            onPress={() => (linkUp ? key('power') : turnOn())}
           />
           {live && caps?.text !== false ? (
-            <BarButton
-              glyph="⌨"
+            <IconButton
+              icon="keyboard"
               label={t('tv.keyboard')}
               onPress={() => {
                 setMenuOpen(false);
@@ -298,39 +429,54 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
               }}
             />
           ) : null}
-          <BarButton
-            glyph="⋮"
+          <IconButton
+            icon="more"
             label={t('tv.more')}
             expanded={menuOpen}
             onPress={() => setMenuOpen((o) => !o)}
           />
         </TvBar>
         {body}
-        {problem ? (
-          <Txt live color="ink2">
-            {problem}
-          </Txt>
-        ) : null}
-        {menuOpen ? (
-          <TvMenu
-            live={live}
-            pad={pad}
-            onPad={(next) => {
-              setMenuOpen(false);
-              choosePad(next);
-            }}
-            onInput={() => {
-              setMenuOpen(false);
-              if (caps?.inputList === false) key('input');
-              else setInputsOpen(true);
-            }}
-            onSettings={() => {
-              setMenuOpen(false);
-              router.push(`/device-sheet/${deviceId}`);
-            }}
-          />
-        ) : null}
+        {captions}
       </Column>
+      <TvMenu
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        live={live}
+        pad={pad}
+        onPad={(next) => {
+          setMenuOpen(false);
+          choosePad(next);
+        }}
+        onInput={() => {
+          setMenuOpen(false);
+          if (caps?.inputList === false) key('input');
+          else setInputsOpen(true);
+        }}
+        onSettings={() => {
+          setMenuOpen(false);
+          router.push(`/device-sheet/${deviceId}`);
+        }}
+      />
+      {inputsOpen ? (
+        <InputSheet
+          inputs={view?.state?.kind === 'tv' ? view.state.state.inputs : undefined}
+          {...(view?.state?.kind === 'tv' && view.state.state.currentInputId !== undefined
+            ? { currentInputId: view.state.state.currentInputId }
+            : {})}
+          onPick={(inputId) => {
+            pressFeedback(haptics);
+            send({ kind: 'tv.input', inputId });
+          }}
+          onDone={() => setInputsOpen(false)}
+        />
+      ) : null}
+      {keyboard ? (
+        <KeyboardSheet
+          onText={(text) => send({ kind: 'tv.text', text })}
+          onDone={() => setKeyboard(false)}
+        />
+      ) : null}
     </Screen>
   );
 }
