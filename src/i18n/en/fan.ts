@@ -13,9 +13,10 @@ export default {
   'timer.8': '8 h',
   notFound: 'This fan is not in the app any more.',
   'status.connected': "Connected · how it's connected",
-  'status.irOnly': 'Sent over IR · point the phone at the fan',
-  'status.fellBack': '{link} not reachable · sent over IR · point at the fan',
-  'status.needsIr': 'Needs a phone with IR',
+  // Every line ends with the underlined link to the device settings (mock S.ac / S.fan).
+  'status.irOnly': "Sent over IR · point the phone at the fan · how it's connected",
+  'status.fellBack': "{link} not reachable · sent over IR · point at the fan · how it's connected",
+  'status.needsIr': "Needs a phone with IR · how it's connected",
   'error.notSent': "Couldn't send. Try again",
   'error.timeout': "The fan didn't answer. Try again",
   'error.partial': 'Only part of that went out. Try again',

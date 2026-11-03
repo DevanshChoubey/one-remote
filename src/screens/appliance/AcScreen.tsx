@@ -7,19 +7,26 @@ import { t } from '@/i18n';
 import { useServices } from '@/services';
 import type { DeviceView } from '@/services';
 import {
-  Box,
   Chip,
   Button,
-  Column,
   EmptyState,
   IconButton,
   Row,
   Screen,
   SegmentedControl,
   Skeleton,
+  Txt,
   useToast,
 } from '@/ui';
-import { Dial, LinkLine, Stepper } from '@/ui/appliance';
+import {
+  Dial,
+  DialSkeleton,
+  LinkLine,
+  RemoteBody,
+  RemoteGrow,
+  Stepper,
+  StepperRow,
+} from '@/ui/appliance';
 import type { IconName } from '@/ui';
 import { useHomeData } from '../shared/useHomeData';
 import { acView, nextAc } from './acModel';
@@ -43,7 +50,9 @@ const MODE_TONE = { cool: 'cool', dry: 'cool', fan: 'ink2', auto: 'accent' } as 
 export function AcScreen(props: { deviceId: string }): ReactElement {
   const router = useRouter();
   const found = useDeviceView(props.deviceId);
-  if (found.state === 'loading') return <AcSkeleton onBack={() => router.back()} />;
+  if (found.state === 'loading') {
+    return <AcSkeleton name={found.name} onBack={() => router.back()} />;
+  }
   if (found.state === 'failed') {
     return (
       <Screen title={t('common.appName')} onBack={() => router.back()}>
@@ -58,31 +67,39 @@ export function AcScreen(props: { deviceId: string }): ReactElement {
     );
   }
   if (found.state === 'gone') {
+    // Mock `S.gone`: one quiet sentence under the back bar.
     return (
       <Screen title={t('common.appName')} onBack={() => router.back()}>
-        <EmptyState art="alert" tone="ink2" title={t('ac.notFound')} fill />
+        <Txt color="ink2" live>
+          {t('ac.notFound')}
+        </Txt>
       </Screen>
     );
   }
   return <AcRemote view={found.view} />;
 }
 
-/** The dial's shape while the first state is read. */
-function AcSkeleton(props: { onBack: () => void }): ReactElement {
+/** Mock `skelAc`: the bar (name, a sub-line bar), the dial, the mode pill, chips and the line. */
+function AcSkeleton(props: { name?: string; onBack: () => void }): ReactElement {
   return (
-    <Screen onBack={props.onBack} scroll>
-      <Column gap={5} align="center">
-        <Box testID="dial-skeleton">
-          <Skeleton width={290} height={290} radius="pill" />
-        </Box>
+    <Screen
+      title={props.name}
+      onBack={props.onBack}
+      subtitle={<Skeleton width={120} height={12} />}
+    >
+      <RemoteBody>
+        <DialSkeleton />
+        <RemoteGrow />
         <Skeleton width="100%" height={56} radius="pill" />
-        <Row gap={2}>
+        <Row gap={2} justify="center">
           <Skeleton width={110} height={48} radius="pill" />
           <Skeleton width={96} height={48} radius="pill" />
           <Skeleton width={96} height={48} radius="pill" />
         </Row>
-        <Skeleton width="60%" height={20} />
-      </Column>
+        <Row justify="center">
+          <Skeleton width="60%" height={20} />
+        </Row>
+      </RemoteBody>
     </Screen>
   );
 }
@@ -112,18 +129,24 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
       }),
     (e) => {
       const key = sendErrorKey(e, 'ac');
+      // Every failure the user can retry carries the action (mock: not sent, timeout, partial).
       toast.show(t(key), {
         kind: 'error',
-        ...(key === 'ac.error.notSent'
-          ? { action: { label: t('common.retry'), onPress: () => retry.current() } }
-          : {}),
+        ...(key === 'ac.error.needsIr'
+          ? {}
+          : { action: { label: t('common.retry'), onPress: () => retry.current() } }),
       });
     },
   );
   const power = state.power;
-  const live = view.usable && power;
+  // Needs IR: the controls are drawn as usual but inert (mock "visible but inert"); a tap says why.
+  const locked = !view.usable;
 
   const press = (change: Partial<AcState>): void => {
+    if (locked) {
+      toast.show(t('ac.error.needsIr'), { kind: 'error' });
+      return;
+    }
     lastChange.current = change;
     pressFeedback(prefs);
     pressWith((base) => nextAc(base, change, caps));
@@ -136,10 +159,11 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
 
   const modes = ALL_MODES.filter((m) => caps.acModes?.includes(m) ?? true);
   const fans = ALL_FANS.filter((f) => caps.acFan?.includes(f) ?? true);
+  // Only the steppers are disabled: while off, and at the ends of the range (mock S.ac).
   const canDown =
-    live && nextAc(state, { setpoint: state.setpoint - 1 }, caps).setpoint !== state.setpoint;
+    power && nextAc(state, { setpoint: state.setpoint - 1 }, caps).setpoint !== state.setpoint;
   const canUp =
-    live && nextAc(state, { setpoint: state.setpoint + 1 }, caps).setpoint !== state.setpoint;
+    power && nextAc(state, { setpoint: state.setpoint + 1 }, caps).setpoint !== state.setpoint;
 
   const lower = (): void => {
     if (canDown) press({ setpoint: state.setpoint - 1 });
@@ -163,7 +187,6 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
     <Screen
       title={view.device.name}
       onBack={() => router.back()}
-      scroll
       subtitle={subtitle || undefined}
       actions={
         <IconButton
@@ -172,39 +195,38 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
           label={t('ac.power')}
           checked={power}
           onPress={() => press({ power: !power })}
-          disabled={!view.usable}
           testID="ac-power"
         />
       }
     >
-      <Column gap={5}>
-        <Column align="center">
-          <Dial
-            value={state.setpoint}
-            min={clampSetpoint(-1000, caps)}
-            max={clampSetpoint(1000, caps)}
-            on={power}
-            tone={MODE_TONE[state.mode]}
-            caption={power ? modeName : t('ac.offHint')}
-            accessibilityLabel={
-              power ? t('ac.setpoint', { temp: state.setpoint, mode: modeName }) : t('ac.off')
-            }
-            onIncrement={raise}
-            onDecrement={lower}
-          >
-            <Row float={{ left: 0, right: 0, bottom: -6 }} justify="between" px={3}>
-              <Stepper icon="minus" label={t('ac.lower')} onPress={lower} disabled={!canDown} />
-              <Stepper icon="plus" label={t('ac.raise')} onPress={raise} disabled={!canUp} />
-            </Row>
-          </Dial>
-        </Column>
+      <RemoteBody>
+        <RemoteGrow />
+        <Dial
+          value={state.setpoint}
+          min={clampSetpoint(-1000, caps)}
+          max={clampSetpoint(1000, caps)}
+          on={power}
+          tone={MODE_TONE[state.mode]}
+          caption={power ? modeName : t('ac.offHint')}
+          accessibilityLabel={
+            power ? t('ac.setpoint', { temp: state.setpoint, mode: modeName }) : t('ac.off')
+          }
+          onIncrement={raise}
+          onDecrement={lower}
+        >
+          {/* Mock `.stepper`: 14 px in from the dial's sides, 6 px below it. */}
+          <StepperRow>
+            <Stepper icon="minus" label={t('ac.lower')} onPress={lower} disabled={!canDown} />
+            <Stepper icon="plus" label={t('ac.raise')} onPress={raise} disabled={!canUp} />
+          </StepperRow>
+        </Dial>
+        <RemoteGrow />
 
         <SegmentedControl
           label={t('ac.modeTitle')}
           options={modes.map((m) => ({ value: m, label: t(`ac.mode.${m}`), icon: MODE_ICON[m] }))}
           value={state.mode}
           onChange={(m) => press({ mode: m })}
-          disabled={!live}
         />
 
         <Row gap={2} wrap justify="center">
@@ -213,7 +235,6 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
               icon="wind"
               label={state.fan === 'auto' ? t('ac.fanAuto') : t('ac.fanChip', { speed: state.fan })}
               state="neutral"
-              disabled={!live}
               onPress={() => press({ fan: fans[(fans.indexOf(state.fan) + 1) % fans.length] })}
               accessibilityHint={t('ac.fanHint')}
             />
@@ -223,7 +244,6 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
               icon="swing"
               label={t('ac.swing')}
               state={state.swing ? 'selected' : 'neutral'}
-              disabled={!live}
               onToggle={() => press({ swing: !state.swing })}
             />
           ) : null}
@@ -232,7 +252,6 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
               icon="moon"
               label={t('ac.sleep')}
               state={state.sleep ? 'selected' : 'neutral'}
-              disabled={!live}
               onToggle={() => press({ sleep: !state.sleep })}
             />
           ) : null}
@@ -243,7 +262,7 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
           text={t(status.key, status.params)}
           onPress={() => router.push(`/device-sheet/${deviceId}`)}
         />
-      </Column>
+      </RemoteBody>
     </Screen>
   );
 }

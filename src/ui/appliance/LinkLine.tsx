@@ -1,7 +1,9 @@
 import type { ReactElement } from 'react';
+import Animated from 'react-native-reanimated';
+import { useTheme } from '@/theme';
 import { Icon } from '../Icon';
 import { StatusDot } from '../StatusDot';
-import { Box, Column, Row, Touchable, Txt } from '../primitives';
+import { Row, Touchable, Txt } from '../primitives';
 
 export type StatusKind = 'connected' | 'irOnly' | 'fellBack' | 'needsIr';
 
@@ -12,42 +14,50 @@ export interface LinkLineProps {
   onPress?: () => void;
 }
 
-/** The line under an AC or fan remote: how the last press went out. */
+/** Mock `.linkline` (and `.linkline.fell`) padding. */
+const PAD = { x: 8, y: 0 };
+const FELL_PAD = { x: 14, y: 8 };
+
+/**
+ * The line under an AC or fan remote: how the last press went out. Mock `.linkline.btnlike`: full
+ * width, 14 px, centred; the part after the last "· " ("how it's connected") is underlined.
+ */
 export function LinkLine(props: LinkLineProps): ReactElement {
+  const theme = useTheme();
   const fell = props.kind === 'fellBack';
   const connected = props.kind === 'connected';
-  // "Connected · how it's connected": the part after the dot is the (underlined) link.
-  const dot = props.text.indexOf('· ');
-  const link = connected && props.onPress !== undefined && dot >= 0;
+  const dot = props.text.lastIndexOf('· ');
+  const link = props.onPress !== undefined && dot >= 0;
   const color = fell ? 'ink' : 'ink2';
+  const pad = fell ? FELL_PAD : PAD;
   const body = (
-    <Row
-      gap={2}
-      align="center"
-      justify="center"
-      minH={48}
-      px={fell ? 3 : 2}
-      py={fell ? 2 : 0}
-      bg={fell ? 'warmSoft' : undefined}
-      radius="tile"
+    <Animated.View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: theme.space(2),
+        minHeight: theme.touch.min,
+        paddingHorizontal: pad.x,
+        paddingVertical: pad.y,
+        borderRadius: theme.radius.tile,
+        backgroundColor: fell ? theme.color.warmSoft : undefined,
+      }}
+      testID="link-line"
     >
       {connected ? <StatusDot tone="ok" /> : <Icon name="ir" size={18} color={color} />}
-      {link ? (
-        <Row align="center">
-          <Txt color={color}>{props.text.slice(0, dot + 2)}</Txt>
-          <Column>
-            <Txt color={color}>{props.text.slice(dot + 2)}</Txt>
-            <Box h={1} bg={color} />
-          </Column>
-        </Row>
-      ) : (
-        <Box flex={1}>
-          <Txt color={color} live={fell}>
-            {props.text}
-          </Txt>
-        </Box>
-      )}
-    </Row>
+      {/* Shrinks to wrap, but never pushes the icon away from the centred text. */}
+      <Animated.View style={{ flexShrink: 1 }}>
+        <Txt size="banner" color={color} align="center" live={fell}>
+          {link ? props.text.slice(0, dot + 2) : props.text}
+          {link ? (
+            <Txt size="banner" color={color} underline>
+              {props.text.slice(dot + 2)}
+            </Txt>
+          ) : null}
+        </Txt>
+      </Animated.View>
+    </Animated.View>
   );
   if (!props.onPress) return <Row justify="center">{body}</Row>;
   return (
@@ -55,7 +65,7 @@ export function LinkLine(props: LinkLineProps): ReactElement {
       onPress={props.onPress}
       accessibilityLabel={props.text}
       radius="tile"
-      alignSelf="center"
+      alignSelf="stretch"
     >
       {body}
     </Touchable>

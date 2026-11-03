@@ -153,6 +153,23 @@ describe('Chip', () => {
   });
 });
 
+describe('Chip, as the mock', () => {
+  it('keeps its normal look when disabled and is only dimmed to .42', async () => {
+    await render(wrap(<Chip label="Cool" state="neutral" onToggle={jest.fn()} disabled />));
+    const button = screen.getByLabelText('Cool');
+    expect(flat(button.props.style).opacity).toBe(0.42);
+    const box = screen.getByText('Cool').parent?.parent;
+    if (!box) throw new Error('chip fill expected');
+    expect(anim(box).backgroundColor).toBe(lightTokens.color.surface);
+    expect(anim(screen.getByText('Cool') as unknown as El).color).toBe(lightTokens.color.ink);
+  });
+
+  it('puts 6 px between the icon and the label', async () => {
+    await render(wrap(<Chip label="Swing" icon="swing" state="neutral" onToggle={jest.fn()} />));
+    expect(flat(screen.getByTestId('chip-icon').props.style).marginRight).toBe(6);
+  });
+});
+
 describe('Toggle', () => {
   it('has a custom track and thumb and keeps the switch role', async () => {
     const onChange = jest.fn();
@@ -199,6 +216,18 @@ describe('SegmentedControl', () => {
     expect(screen.getByLabelText('Auto').props.accessibilityState.selected).toBe(true);
     await fireEvent.press(screen.getByLabelText('Cool'));
     expect(onChange).toHaveBeenCalledWith('b');
+  });
+
+  it('draws its ring over the edge, so it is 56 px tall like the mock (no border)', async () => {
+    await render(
+      wrap(<SegmentedControl label="Mode" options={SEGMENTS} value="a" onChange={jest.fn()} />),
+    );
+    const group = flat(screen.getByLabelText('Mode').props.style);
+    expect(group.borderWidth).toBeUndefined();
+    expect(group.padding).toBe(4);
+    const ring = flat(screen.getByTestId('segment-ring').props.style);
+    expect(ring.borderWidth).toBe(1);
+    expect(ring.position).toBe('absolute');
   });
 
   it('recolours the thumb at once when the theme changes to dark', async () => {

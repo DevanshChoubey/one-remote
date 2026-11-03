@@ -5,7 +5,8 @@ import { useKnownDevice } from '../device/useKnownDevice';
 import { useHomeData } from '../shared/useHomeData';
 
 export type DeviceViewState =
-  | { state: 'loading' }
+  /** `name`: the stored name, once the store has been read, for the skeleton's bar. */
+  | { state: 'loading'; name?: string }
   | { state: 'gone' }
   | { state: 'failed'; retry: () => void }
   | { state: 'ready'; view: DeviceView };
@@ -33,8 +34,9 @@ export function useDeviceView(deviceId: string): DeviceViewState {
     // The store may have it before the hub does.
     // A failed read says nothing about the device: show the error, never "gone".
     if (home.failed) return { state: 'failed', retry: home.reload };
-    const stored = home.devices.some((d) => d.id === deviceId);
-    return !home.loaded || stored ? { state: 'loading' } : { state: 'gone' };
+    const stored = home.devices.find((d) => d.id === deviceId);
+    if (stored) return { state: 'loading', name: stored.name };
+    return home.loaded ? { state: 'gone' } : { state: 'loading' };
   }
   try {
     return { state: 'ready', view: hub.view(deviceId) };

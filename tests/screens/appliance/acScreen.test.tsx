@@ -92,12 +92,31 @@ describe('AcScreen design', () => {
     expect(screen.queryByText(t('ac.notFound'))).toBeNull();
   });
 
-  it('says the AC is gone once the store has loaded without it', async () => {
+  it('puts the stored name in the skeleton bar once the store is read', async () => {
+    const { driver } = silentDriver('ir', { capabilities: FULL });
+    const s = makeServices([driver]);
+    // The store has the AC; the hub does not know it yet.
+    s.store.devices = () => Promise.resolve([acDevice()]);
+    s.store.rooms = () => Promise.resolve([]);
+    await renderWith(s, <AcScreen deviceId="d1" />);
+    expect(await screen.findByText('Bedroom AC')).toBeTruthy();
+    expect(screen.getByTestId('dial-skeleton')).toBeTruthy();
+  });
+
+  it('says the AC is gone once the store has loaded without it, as one quiet line', async () => {
     const { driver } = silentDriver('ir', { capabilities: FULL });
     const s = await servicesWith([driver], []);
     await renderWith(s, <AcScreen deviceId="d1" />);
-    expect(await screen.findByText(t('ac.notFound'))).toBeTruthy();
+    const line = await screen.findByText(t('ac.notFound'));
+    // Body text, not an empty state's heading.
+    expect(line.props.accessibilityRole).toBeUndefined();
     expect(screen.queryByTestId('dial-skeleton')).toBeNull();
+  });
+
+  it('lays the remote out as the mock: the dial between two growing gaps', async () => {
+    await setup(FULL, on);
+    expect(await screen.findByTestId('remote-body')).toBeTruthy();
+    expect(screen.getAllByTestId('remote-grow')).toHaveLength(2);
   });
 
   it('puts a failed send in a toast with a retry that sends again', async () => {
@@ -152,6 +171,17 @@ describe('Dial', () => {
     // The element is built inside a provider by the caller below.
     <Dial value={24} min={16} max={30} on tone={tone} caption="Cool" accessibilityLabel={scheme} />
   );
+
+  it('fades the new mode colour in over the old one', async () => {
+    const view = await render(<ThemeProvider scheme="light">{dial('light')}</ThemeProvider>);
+    await view.rerender(<ThemeProvider scheme="light">{dial('light', 'accent')}</ThemeProvider>);
+    expect(screen.getByTestId('dial-arc').props.stroke.payload).toBe(
+      processColor(lightTokens.color.accent),
+    );
+    expect(screen.getByTestId('dial-arc-from').props.stroke.payload).toBe(
+      processColor(lightTokens.color.cool),
+    );
+  });
 
   it('recolours the arc when the theme changes while it is open', async () => {
     const view = await render(<ThemeProvider scheme="light">{dial('light')}</ThemeProvider>);
@@ -237,12 +267,14 @@ describe('AcScreen', () => {
     expect(screen.getByText('Bedroom')).toBeTruthy();
   });
 
-  it('disables everything but power while the AC is off', async () => {
+  it('disables only the steppers while the AC is off (mock)', async () => {
     await setup(FULL);
     const minus = await screen.findByLabelText(t('ac.lower'));
     expect(minus.props.accessibilityState.disabled).toBe(true);
     expect(screen.getByLabelText(t('ac.raise')).props.accessibilityState.disabled).toBe(true);
-    expect(screen.getByLabelText(t('ac.mode.dry')).props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByLabelText(t('ac.mode.dry')).props.accessibilityState.disabled).toBe(false);
+    expect(screen.getByLabelText(t('ac.swing')).props.accessibilityState.disabled).toBe(false);
+    expect((await fanChip()).props.accessibilityState.disabled).toBe(false);
     expect(screen.getByLabelText(t('ac.power')).props.accessibilityState.disabled).toBe(false);
   });
 
@@ -306,12 +338,39 @@ describe('AcScreen', () => {
     expect(await screen.findByLabelText(at(24))).toBeTruthy();
   });
 
-  it('shows that a phone with IR is needed when the link is unusable', async () => {
-    const { driver } = silentDriver('ir', { capabilities: FULL, available: false });
+  it('on a phone without IR, draws the controls as usual but inert, and says why on a tap', async () => {
+    const { driver, fake } = silentDriver('ir', { capabilities: FULL, available: false });
     const s = await servicesWith([driver], [acDevice()]);
     await renderWith(s, <AcScreen deviceId="d1" />);
-    expect(await screen.findByText('Needs a phone with IR')).toBeTruthy();
-    expect(screen.getByLabelText(t('ac.power')).props.accessibilityState.disabled).toBe(true);
+    expect(await screen.findByText("Needs a phone with IR · how it's connected")).toBeTruthy();
+    const power = screen.getByLabelText(t('ac.power'));
+    expect(power.props.accessibilityState.disabled).toBe(false);
+    expect(screen.getByLabelText(t('ac.mode.dry')).props.accessibilityState.disabled).toBe(false);
+    await fireEvent.press(screen.getByLabelText(t('ac.mode.dry')));
+    expect(await screen.findByText(t('ac.error.needsIr'))).toBeTruthy();
+    await fireEvent.press(power);
+    expect(fake.sent).toEqual([]);
+    expect(screen.getByLabelText(t('ac.power')).props.accessibilityState.checked).toBe(false);
+    expect(screen.getByLabelText(t('ac.mode.cool')).props.accessibilityState.selected).toBe(true);
+  });
+
+  it.each([
+    ['timeout', "The AC didn't answer. Try again"],
+    ['partiallySent', 'Only part of that went out. Try again'],
+  ] as const)('offers a retry on %s', async (code, text) => {
+    const { fake } = await setup(FULL, on);
+    fake.failNext(code);
+    await fireEvent.press(await screen.findByLabelText(t('ac.raise')));
+    expect(await screen.findByText(text)).toBeTruthy();
+    expect(screen.getByLabelText(t('common.retry'))).toBeTruthy();
+  });
+
+  it('offers no retry when the phone has no IR', async () => {
+    const { fake } = await setup(FULL, on);
+    fake.failNext('noIrEmitter');
+    await fireEvent.press(await screen.findByLabelText(t('ac.raise')));
+    expect(await screen.findByText(t('ac.error.needsIr'))).toBeTruthy();
+    expect(screen.queryByLabelText(t('common.retry'))).toBeNull();
   });
 
   it('opens the device sheet from the connected line', async () => {

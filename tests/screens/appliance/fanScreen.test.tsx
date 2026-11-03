@@ -104,10 +104,31 @@ describe('FanScreen', () => {
     expect(screen.queryByText(t('fan.timerTitle'))).toBeNull();
   });
 
-  it('disables the extras while the fan is off', async () => {
-    await setup({ sleep: true });
+  it('keeps the extras enabled while the fan is off; one turns it on with it', async () => {
+    const sent = await setup({ sleep: true });
     const boost = await screen.findByLabelText(t('fan.boost'));
-    expect(boost.props.accessibilityState.disabled).toBe(true);
+    expect(boost.props.accessibilityState.disabled).toBe(false);
+    expect(boost.props.accessibilityState.selected).toBe(false);
+    await fireEvent.press(boost);
+    await waitFor(() => expect(sent().at(-1)).toEqual({ ...on, speed: 1, boost: true }));
+  });
+
+  it('lights no extra while the fan is off', async () => {
+    await setup({ sleep: true }, { ...on, power: false, sleep: true, timerHours: 2 });
+    const sleep = await screen.findByLabelText(t('fan.sleep'));
+    expect(sleep.props.accessibilityState.selected).toBe(false);
+    expect(screen.getByLabelText(t('fan.timer.0')).props.accessibilityState.selected).toBe(true);
+  });
+
+  it('offers a retry on a timeout or a partial send, not on a missing button', async () => {
+    const { driver, fake } = silentDriver('ir', { capabilities: {} });
+    const s = await servicesWith([driver], [fanDevice()]);
+    await s.hub.send('d1', { kind: 'fan.set', state: on });
+    await renderWith(s, <FanScreen deviceId="d1" />);
+    fake.failNext('timeout');
+    await fireEvent.press(await screen.findByLabelText(t('fan.speed', { n: 4 })));
+    expect(await screen.findByText(t('fan.error.timeout'))).toBeTruthy();
+    expect(screen.getByLabelText(t('common.retry'))).toBeTruthy();
   });
 
   it('says what went wrong and drops the guess', async () => {
@@ -123,11 +144,19 @@ describe('FanScreen', () => {
     );
   });
 
-  it('on a phone without IR, says so and disables the bars', async () => {
-    await setup({}, undefined, false);
-    expect(await screen.findByText('Needs a phone with IR')).toBeTruthy();
+  it('on a phone without IR, draws the controls as usual but inert, and says why on a tap', async () => {
+    const sent = await setup({}, undefined, false);
+    expect(await screen.findByText("Needs a phone with IR · how it's connected")).toBeTruthy();
     const bar = screen.getByLabelText(t('fan.speed', { n: 3 }));
-    expect(bar.props.accessibilityState.disabled).toBe(true);
+    expect(bar.props.accessibilityState.disabled).toBe(false);
+    expect(screen.getByLabelText(t('fan.power')).props.accessibilityState.disabled).toBe(false);
+    await fireEvent.press(bar);
+    expect(await screen.findByText(t('fan.error.needsIr'))).toBeTruthy();
+    expect(sent()).toEqual([]);
+    // Nothing was guessed: the bars stay empty.
+    expect(screen.getByLabelText(t('fan.speed', { n: 3 })).props.accessibilityState.selected).toBe(
+      false,
+    );
   });
 });
 
