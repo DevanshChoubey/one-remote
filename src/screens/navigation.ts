@@ -15,8 +15,13 @@ export function stackOptions(theme: Tokens, motion: Motion): NativeStackNavigati
   };
 }
 
-/** The device-settings sheet animates itself, so the route adds no transition of its own. */
+/**
+ * The device-settings sheet animates itself, so the route adds no transition of its own. Its scene
+ * is see-through (the stack's default `contentStyle` paints the theme background), so the screen
+ * behind shows faintly under the sheet's 45% scrim instead of vanishing.
+ */
 export const SHEET_ROUTE_OPTIONS = {
   presentation: 'transparentModal',
   animation: 'none',
+  contentStyle: { backgroundColor: 'transparent' },
 } as const;
