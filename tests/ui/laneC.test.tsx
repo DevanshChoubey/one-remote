@@ -182,12 +182,28 @@ describe('lane C: Badge, Skeleton, Banner, Screen, OptionCard', () => {
     expect(flat(screen.getByText('3 devices').parent?.props.style).marginTop).toBe(6);
   });
 
-  it('OptionCard selected reports selected, with an accent border', async () => {
+  it('OptionCard selected reports selected, with a 2 px accent ring', async () => {
     await render(wrap(<OptionCard title="Sony" icon="tv" onPress={jest.fn()} selected />));
     const card = screen.getByLabelText('Sony');
     expect(card.props.accessibilityState.selected).toBe(true);
-    expect(anim(card.children[0] as unknown as El).borderColor).toBe(lightTokens.color.accent);
+    expect(screen.getByTestId('option-ring')).toHaveStyle({
+      borderWidth: 2,
+      borderColor: lightTokens.color.accent,
+    });
     await render(wrap(<OptionCard title="LG" icon="tv" onPress={jest.fn()} selected={false} />));
     expect(screen.getByLabelText('LG').props.accessibilityState.selected).toBe(false);
+    expect(screen.queryByTestId('option-ring')).toBeNull();
+    // The empty radio is a 2 px ink2 ring (mock `.pick .rad`).
+    expect(screen.getByTestId('option-radio')).toHaveStyle({
+      borderWidth: 2,
+      borderColor: lightTokens.color.ink2,
+    });
+  });
+
+  it('OptionCard size regular is the plain card row: 76 high, 44 tile, 16 px name', async () => {
+    await render(wrap(<OptionCard title="LG" icon="tv" onPress={jest.fn()} size="regular" />));
+    expect(screen.getByText('LG')).toHaveStyle({ fontSize: lightTokens.size.body });
+    await render(wrap(<OptionCard title="TV" icon="tv" onPress={jest.fn()} />));
+    expect(screen.getByText('TV')).toHaveStyle({ fontSize: lightTokens.size.cardName });
   });
 });
