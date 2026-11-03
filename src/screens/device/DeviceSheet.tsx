@@ -7,8 +7,13 @@ import { t } from '@/i18n';
 import { useServices } from '@/services';
 import { Box, Button, Chip, Column, Field, Group, ListItem, Row, Sheet, Txt, useToast } from '@/ui';
 import { useHomeData } from '../shared/useHomeData';
-import { DEVICE_ACTIONS, LINK_ACTIONS } from './linkActions';
-import type { DeviceActionRenderer, LinkActionRenderer } from './linkActions';
+import { DEVICE_ACTIONS, LINK_ACTIONS, LINK_ROWS } from './linkActions';
+import type {
+  DeviceActionRenderer,
+  LinkActionRenderer,
+  LinkRequest,
+  LinkRowRenderer,
+} from './linkActions';
 
 const LINK_LABEL: Record<Link['kind'], string> = {
   webos: 'device.linkWifi',
@@ -28,10 +33,15 @@ export interface DeviceSheetProps {
   linkActions?: readonly LinkActionRenderer[];
   /** Actions for the device as a whole; defaults to `DEVICE_ACTIONS`. */
   deviceActions?: readonly DeviceActionRenderer[];
+  /** Chevron rows inside the "How it's connected" group; defaults to `LINK_ROWS`. */
+  linkRows?: readonly LinkRowRenderer[];
+  /** Opened from the TV's "Pair again" (trust lost): the group offers Pair again as a row. */
+  repair?: boolean;
 }
 
 export function DeviceSheet(props: DeviceSheetProps): ReactElement {
-  const { store, removeDevice } = useServices();
+  const services = useServices();
+  const { store, removeDevice } = services;
   const router = useRouter();
   const data = useHomeData();
   const device = data.devices.find((d) => d.id === props.deviceId);
@@ -81,6 +91,9 @@ export function DeviceSheet(props: DeviceSheetProps): ReactElement {
         siblings={data.devices.filter((d) => d.roomId === device.roomId)}
         actions={props.linkActions ?? LINK_ACTIONS}
         deviceActions={props.deviceActions ?? DEVICE_ACTIONS}
+        rows={props.linkRows ?? LINK_ROWS}
+        repair={props.repair === true}
+        services={services}
         store={store}
         removeDevice={removeDevice}
         onRemoved={() => router.dismissAll()}
@@ -115,6 +128,9 @@ interface BodyProps {
   siblings: Device[];
   actions: readonly LinkActionRenderer[];
   deviceActions: readonly DeviceActionRenderer[];
+  rows: readonly LinkRowRenderer[];
+  repair: boolean;
+  services: ReturnType<typeof useServices>;
   store: ReturnType<typeof useServices>['store'];
   removeDevice: ReturnType<typeof useServices>['removeDevice'];
   onRemoved: () => void;
@@ -126,10 +142,16 @@ function Body({
   siblings,
   actions,
   deviceActions,
+  rows,
+  repair,
+  services,
   store,
   removeDevice,
   onRemoved,
 }: BodyProps): ReactElement {
+  // A press on a row in the link group, handed to that link's own block below the group.
+  const [request, setRequest] = useState<LinkRequest | null>(null);
+  const ask = (key: string): void => setRequest((r) => ({ key, n: (r?.n ?? 0) + 1 }));
   const [name, setName] = useState(device.name);
   const [confirming, setConfirming] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -249,7 +271,7 @@ function Body({
       </Column>
 
       <Group label={t('device.connected')}>
-        {device.links.map((link, i) => (
+        {device.links.flatMap((link, i) => [
           <ListItem
             key={`${link.kind}-${i}`}
             title={t(LINK_LABEL[link.kind])}
@@ -259,15 +281,20 @@ function Body({
                 ? { label: t('device.main'), tone: 'ok' }
                 : { label: t('device.backup'), tone: 'neutral' }
             }
-          />
-        ))}
+          />,
+          // Mock: "Pair again" and "Redo IR backup" are chevron rows right under their link.
+          ...rows.map((render, n) => {
+            const node = render({ device, link, repair, services, onRequest: ask });
+            return node ? <Box key={`${link.kind}-${i}-row-${n}`}>{node}</Box> : null;
+          }),
+        ])}
       </Group>
 
       {/* Mock: a link's own block (the TV address, Find TV again, Pair again) is a section of its
           own after the group, not a card nested inside it. */}
       {device.links.flatMap((link, i) =>
         actions.map((render, n) => {
-          const node = render({ device, link });
+          const node = render({ device, link, repair, request });
           return node ? <Box key={`${link.kind}-${i}-${n}`}>{node}</Box> : null;
         }),
       )}

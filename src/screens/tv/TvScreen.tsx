@@ -195,7 +195,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
 
   const pairAgain = (): void => {
     setRepairing(true);
-    router.push(`/device-sheet/${deviceId}`);
+    router.push(`/device-sheet/${deviceId}?repair=1`);
   };
   const send = (cmd: Command): void => {
     hub.send(deviceId, cmd).then(

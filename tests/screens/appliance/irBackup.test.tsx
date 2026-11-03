@@ -6,7 +6,9 @@ import { createIrSetup } from '@/ir/setup';
 import { createFakeEmitter } from '@/ir/testing/fakeEmitter';
 import { AddApplianceFlow } from '@/screens/add/appliance/AddApplianceFlow';
 import { IrBackupAction } from '@/screens/appliance/IrBackupAction';
+import { DeviceSheet } from '@/screens/device';
 import { createServices } from '@/services';
+import { lightTokens } from '@/theme';
 import type { Services } from '@/services';
 import { createMemoryStore } from '@/store/memoryStore';
 import { createMemoryPreferenceStore } from '@/store/preferences';
@@ -76,11 +78,39 @@ describe('IrBackupAction', () => {
     expect(mockPush).toHaveBeenCalledWith('/add/ir-backup?id=d1');
   });
 
-  it('offers "Redo IR backup" when there is an ir link', async () => {
+  it('leaves an AC with an ir link to the "Redo IR backup" row in the group', async () => {
     const s = await setup(true, ac([{ kind: 'ir', remoteId: 'panasonic-ac/dke' }]));
     await renderWith(s, <IrBackupAction deviceId="d1" />);
-    expect(await screen.findByLabelText(t('irBackup.redo'))).toBeTruthy();
+    await act(flush);
+    expect(screen.queryByLabelText(t('irBackup.redo'))).toBeNull();
     expect(screen.queryByLabelText(t('irBackup.add'))).toBeNull();
+  });
+
+  it('draws "Redo IR backup" as a chevron row under the IR link and opens the backup route', async () => {
+    const s = await setup(true, ac([matter, { kind: 'ir', remoteId: 'panasonic-ac/dke' }]));
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
+    const row = await screen.findByLabelText(t('irBackup.redo'));
+    expect(screen.getAllByLabelText(t('irBackup.redo'))).toHaveLength(1);
+    await fireEvent.press(row);
+    expect(mockPush).toHaveBeenCalledWith('/add/ir-backup?id=d1');
+  });
+
+  it('has no "Redo IR backup" row on a phone without IR', async () => {
+    const s = await setup(false, ac([matter, { kind: 'ir', remoteId: 'panasonic-ac/dke' }]));
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
+    expect(await screen.findByText(t('device.linkIr'))).toBeTruthy();
+    expect(screen.queryByLabelText(t('irBackup.redo'))).toBeNull();
+  });
+
+  it('says a failed TV backup save in one plain ink2 status sentence', async () => {
+    const s = await setup(true, device('d1', 'r1', 0, { kind: 'tv', links: [webos] }));
+    jest.spyOn(s.store, 'upsertDevice').mockRejectedValueOnce(new Error('disk'));
+    await renderWith(s, <IrBackupAction deviceId="d1" />);
+    await fireEvent.press(await screen.findByLabelText(t('irBackup.add')));
+    const line = await screen.findByText(t('irBackup.failed'));
+    expect(line).toHaveStyle({ fontSize: 16 });
+    expect(line.props.accessibilityLiveRegion).toBe('polite');
+    expect(line).toHaveStyle({ color: lightTokens.color.ink2 });
   });
 
   it('adds the LG code set to a TV without IR, with no test', async () => {

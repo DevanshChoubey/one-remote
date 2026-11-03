@@ -740,7 +740,7 @@ describe('TvScreen shell', () => {
     expect(within(toast).getByText(t('tv.errNotPaired'))).toBeTruthy();
     mockPush.mockClear();
     await fireEvent.press(within(toast).getByText(t('addTv.pairAgain')));
-    expect(mockPush).toHaveBeenCalledWith('/device-sheet/tv1');
+    expect(mockPush).toHaveBeenCalledWith('/device-sheet/tv1?repair=1');
   });
 
   it('opens the pairing flow from the pair-again button too', async () => {
@@ -754,7 +754,7 @@ describe('TvScreen shell', () => {
     await fireEvent.press(
       within(screen.getByTestId('tv-screen')).getByLabelText(t('addTv.pairAgain')),
     );
-    expect(mockPush).toHaveBeenCalledWith('/device-sheet/tv1');
+    expect(mockPush).toHaveBeenCalledWith('/device-sheet/tv1?repair=1');
   });
 
   it('marks the input the TV shows now, and disables the empty ones', async () => {

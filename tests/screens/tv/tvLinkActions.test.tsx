@@ -61,7 +61,9 @@ describe('TvLinkActions', () => {
     const r = await rig();
     await renderWith(r.s, <TvLinkActions deviceId="tv1" />);
     expect(await screen.findByText('192.168.1.23')).toBeTruthy();
-    expect(screen.getAllByText(t('addTv.address'))).toHaveLength(1);
+    // Mock `tvLinkBlock`: the "TV address" section label, then the row of the same name.
+    expect(screen.getAllByText(t('addTv.address'))).toHaveLength(2);
+    expect(screen.getByText('192.168.1.23')).toHaveStyle({ fontSize: 13 });
   });
 
   it('saves the new address from Find TV again', async () => {
@@ -139,6 +141,8 @@ describe('TvLinkActions', () => {
     await renderWith(r.s, <TvLinkActions deviceId="tv1" />);
     await fireEvent.press(await screen.findByLabelText(t('addTv.pairAgain')));
     await fireEvent.changeText(await screen.findByLabelText(t('addTv.codeTitle')), 'a1b2c3');
+    // Mock `tvLinkBlock`: the code label is a plain caption, not the bold field label.
+    expect(screen.getByText(t('addTv.codeTitle'))).toHaveStyle({ fontSize: 13, fontWeight: '400' });
     await fireEvent.press(screen.getByLabelText(t('addTv.codePair')));
     await waitFor(() => expect(asked).toEqual(['A1B2C3']));
     expect(screen.queryByText(t('addTv.unreachable'))).toBeNull();
@@ -199,5 +203,19 @@ describe('TvLinkActions', () => {
     await renderWith(r.s, <DeviceSheet deviceId="tv1" />);
     expect(await screen.findByLabelText(t('addTv.pairAgain'))).toBeTruthy();
     expect(screen.getAllByLabelText(t('addTv.findAgain'))).toHaveLength(1);
+  });
+
+  it('opened to pair again, offers Pair again as one row in the link group and pairs from it', async () => {
+    const r = await rig();
+    r.setup.pair.mockResolvedValueOnce({
+      link: { kind: 'webos', host: '192.168.1.23', mac: 'AA', secure: true, clientKeyRef: 'key-1' },
+      suggestedName: 'x',
+    });
+    await renderWith(r.s, <DeviceSheet deviceId="tv1" repair />);
+    const row = await screen.findByLabelText(t('addTv.pairAgain'));
+    expect(screen.getAllByLabelText(t('addTv.pairAgain'))).toHaveLength(1);
+    expect(screen.getByLabelText(t('addTv.findAgain'))).toBeTruthy();
+    await fireEvent.press(row);
+    expect(await screen.findByText(t('addTv.paired'))).toBeTruthy();
   });
 });
