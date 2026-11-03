@@ -1,12 +1,25 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Platform } from 'react-native';
 import { t } from '@/i18n';
+import { darkTokens } from '@/theme';
 import { SettingsScreen } from '@/screens/settings/SettingsScreen';
 import { device, makeServices, renderWith, room } from './helpers';
 
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: jest.fn() }) }));
 
 describe('SettingsScreen', () => {
+  it('shows the privacy text in a banner, on the dark background', async () => {
+    await renderWith(makeServices(), <SettingsScreen />, { scheme: 'dark', reducedMotion: true });
+    const row = await screen.findByLabelText(t('settings.privacy'));
+    expect(row.props.accessibilityState.expanded).toBe(false);
+    await fireEvent.press(row);
+    expect(screen.getByLabelText(t('settings.privacy')).props.accessibilityState.expanded).toBe(
+      true,
+    );
+    expect(screen.getByText(t('settings.privacyBody'))).toBeTruthy();
+    expect(JSON.stringify(screen.toJSON())).toContain(darkTokens.color.bg);
+  });
+
   it('persists the theme', async () => {
     const s = makeServices();
     await renderWith(s, <SettingsScreen />);
