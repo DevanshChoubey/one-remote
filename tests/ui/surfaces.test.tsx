@@ -246,13 +246,14 @@ describe('surfaces', () => {
     });
 
     it('an indexed OptionCard is delayed by its index', async () => {
+      // The card's Touchable sits in a layout-conformance wrapper inside the Rise.
       await render(
         wrap(<OptionCard title="TV" icon="tv" onPress={jest.fn()} index={4} testID="o" />),
       );
       await advance(100);
-      expect(screen.getByTestId('o').parent).toHaveAnimatedStyle({ opacity: 0 });
+      expect(screen.getByTestId('o').parent?.parent).toHaveAnimatedStyle({ opacity: 0 });
       await advance(600);
-      expect(screen.getByTestId('o').parent).toHaveAnimatedStyle({ opacity: 1 });
+      expect(screen.getByTestId('o').parent?.parent).toHaveAnimatedStyle({ opacity: 1 });
     });
 
     it('a live StatusDot dims below full opacity', async () => {
