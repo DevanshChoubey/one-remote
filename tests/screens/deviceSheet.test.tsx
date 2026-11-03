@@ -252,3 +252,29 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
+
+describe('DeviceSheet closing', () => {
+  it('pops the route only after the exit has played', async () => {
+    const s = await seeded();
+    await renderWith(s, <DeviceSheet deviceId="d1" />, { reducedMotion: true });
+    await screen.findByDisplayValue('Panasonic AC');
+    await fireEvent(screen.getByTestId('device-sheet'), 'requestClose');
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+  });
+
+  it('waits for the exit animation under full motion', async () => {
+    const s = await seeded();
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
+    await screen.findByDisplayValue('Panasonic AC');
+    await fireEvent(screen.getByTestId('device-sheet'), 'requestClose');
+    expect(mockBack).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1), { timeout: 3000 });
+  });
+
+  it('does not pop the route while it is still open', async () => {
+    const s = await seeded();
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
+    await screen.findByDisplayValue('Panasonic AC');
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+});

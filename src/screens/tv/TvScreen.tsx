@@ -93,6 +93,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   const [menuOpen, setMenuOpen] = useState(false);
   const [finding, setFinding] = useState(false);
   const [findNote, setFindNote] = useState<{ text: string; ok: boolean } | null>(null);
+  const [listening, setListening] = useState(false);
   const [pickedPad, setPickedPad] = useState<Pad | null>(null);
   const [trustLost, setTrustLost] = useState(false);
   const [sent, setSent] = useState(false);
@@ -316,6 +317,7 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
         errorLine={errorLine}
         onPress={() => pressFeedback(haptics)}
         onSent={voiceSent}
+        onListening={setListening}
       />
     </Row>
   );
@@ -399,7 +401,9 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     }
     return (
       <Column flex={1} gap={4}>
-        {pad === 'touchpad' ? <TouchPad onKey={key} /> : <DPad onKey={key} />}
+        <Box flex={1} opacity={listening ? 0.55 : 1} testID="tv-pad-area">
+          {pad === 'touchpad' ? <TouchPad onKey={key} /> : <DPad onKey={key} />}
+        </Box>
         {keyRow}
       </Column>
     );

@@ -24,6 +24,7 @@ export default {
   modeFan: 'Fan',
   modeAuto: 'Auto',
   placeholderBody: 'The remote for {name} is coming soon.',
+  loadFailed: "Your devices couldn't be loaded.",
   notFound: 'This device is no longer here.',
   corruptTitle: "Your saved devices can't be read",
   corruptBody:
