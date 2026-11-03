@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler/jestSetup';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { StyleSheet, AppState, BackHandler, Linking, Platform } from 'react-native';
 import type { Capabilities, Device, TvSetup } from '@/core';
 import type { FakeDriver } from '@/device/testing/fakeDriver';
@@ -252,7 +252,7 @@ describe('TvScreen', () => {
       jest.advanceTimersByTime(400);
     });
     expect(screen.getByText(t('tv.inputsTitle'))).toBeTruthy();
-    expect(screen.getByLabelText(t('tv.inputEmpty', { label: 'PlayStation' }))).toBeTruthy();
+    expect(screen.getByText(t('tv.inputEmpty', { label: 'PlayStation' }))).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('HDMI 1'));
     expect(r.sent()).toEqual([{ kind: 'tv.input', inputId: 'HDMI_1' }]);
     expect(screen.getByText(t('tv.touchpadHint'))).toBeTruthy();
@@ -423,6 +423,46 @@ describe('TvScreen', () => {
     });
     expect(screen.getByText(t('tv.cantTurnOn'))).toBeTruthy();
     expect(screen.queryByLabelText(t('tv.turnOn'))).toBeNull();
+  });
+
+  it('says why with a toast when power is tapped on a TV the phone cannot wake', async () => {
+    const r = await rig({ tv: { inputList: true, text: true, powerOn: false, voice: false } });
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await act(async () => {
+      r.webos.emit('tv1', { kind: 'tv', state: { power: false } });
+    });
+    await fireEvent.press(screen.getByLabelText(t('tv.power')));
+    expect(within(screen.getByTestId('toast')).getByText(t('tv.cantTurnOn'))).toBeTruthy();
+    expect(r.sent()).toEqual([]);
+  });
+
+  it('centres the off panel text and stretches Turn on to the panel width', async () => {
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await act(async () => {
+      r.webos.emit('tv1', { kind: 'tv', state: { power: false } });
+    });
+    for (const key of ['tv.offTitle', 'tv.offBody', 'tv.offHint']) {
+      expect(StyleSheet.flatten(screen.getByText(t(key)).props.style)).toMatchObject({
+        textAlign: 'center',
+      });
+    }
+    expect(StyleSheet.flatten(screen.getByLabelText(t('tv.turnOn')).props.style)).toMatchObject({
+      alignSelf: 'stretch',
+    });
+  });
+
+  it('says Wi-Fi connected once Find TV again has found the TV', async () => {
+    mockNetType = 'CELLULAR';
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    expect(screen.queryByText(t('tv.statusConnected'))).toBeNull();
+    r.findAgain.mockResolvedValueOnce('192.168.1.40');
+    await fireEvent.press(screen.getByLabelText(t('tv.findAgain')));
+    expect(await screen.findByText(t('tv.foundAt', { host: '192.168.1.40' }))).toBeTruthy();
+    expect(screen.getByText(t('tv.statusConnected'))).toBeTruthy();
+    // Only the panel's heading still says it; the status line has moved on.
+    expect(screen.getAllByText(t('tv.unreachableTitle'))).toHaveLength(1);
   });
 
   it('shows the pad again once the TV reports on', async () => {
@@ -691,10 +731,29 @@ describe('TvScreen shell', () => {
     r.webos.failNext('notPaired');
     await fireEvent.press(screen.getByLabelText(t('tv.home')));
     await advance(0);
-    expect(screen.getByText(t('tv.errNotPaired'))).toBeTruthy();
-    expect(screen.queryByTestId('toast')).toBeNull();
+    expect(screen.getByTestId('tv-not-paired')).toBeTruthy();
+    // The real pad stays, faded, behind the banner.
+    expect(screen.getByTestId('tv-pad-dimmed')).toBeTruthy();
+    expect(screen.getByText(t('tv.touchpadHint'))).toBeTruthy();
+    // The mock's toast points at ⋯ and offers Pair again.
+    const toast = screen.getByTestId('toast');
+    expect(within(toast).getByText(t('tv.errNotPaired'))).toBeTruthy();
     mockPush.mockClear();
-    await fireEvent.press(screen.getByLabelText(t('addTv.pairAgain')));
+    await fireEvent.press(within(toast).getByText(t('addTv.pairAgain')));
+    expect(mockPush).toHaveBeenCalledWith('/device-sheet/tv1');
+  });
+
+  it('opens the pairing flow from the pair-again button too', async () => {
+    const r = await rig();
+    await renderWith(r.s, <TvScreen deviceId="tv1" />);
+    await on(r);
+    r.webos.failNext('notPaired');
+    await fireEvent.press(screen.getByLabelText(t('tv.home')));
+    await advance(0);
+    mockPush.mockClear();
+    await fireEvent.press(
+      within(screen.getByTestId('tv-screen')).getByLabelText(t('addTv.pairAgain')),
+    );
     expect(mockPush).toHaveBeenCalledWith('/device-sheet/tv1');
   });
 
@@ -722,9 +781,11 @@ describe('TvScreen shell', () => {
     });
     expect(screen.getByTestId('tv-inputs')).toBeTruthy();
     expect(screen.getAllByText(t('tv.inputNow'))).toHaveLength(1);
-    expect(
-      screen.getByLabelText(t('tv.inputEmpty', { label: 'PlayStation' })).props.accessibilityState,
-    ).toMatchObject({ disabled: true });
+    // The empty input says so in the row, faded, and is not a button.
+    const empty = screen.getByTestId('tv-input-empty-HDMI_2');
+    expect(empty.props.style).toMatchObject({ opacity: 0.7 });
+    expect(within(empty).getByText(t('tv.inputEmpty', { label: 'PlayStation' }))).toBeTruthy();
+    expect(screen.queryByLabelText(t('tv.inputEmpty', { label: 'PlayStation' }))).toBeNull();
   });
 
   it('dims the pads to 0.55 while the mic is held, and restores them on release', async () => {
@@ -851,8 +912,10 @@ describe('TvScreen status captions', () => {
     await renderWith(r.s, <TvScreen deviceId="tv1" />);
     expect(screen.getAllByText(t('tv.unreachableTitle')).length).toBe(2);
     await fireEvent.press(screen.getByLabelText(t('tv.findAgain')));
-    expect(screen.getByText(t('tv.finding'))).toBeTruthy();
+    // The status line and the caption under the buttons.
+    expect(screen.getAllByText(t('tv.finding'))).toHaveLength(2);
     await act(async () => done(null));
+    expect(screen.queryByText(t('tv.finding'))).toBeNull();
   });
 
   it('says Pair again, not connected, when the TV stops trusting the phone', async () => {

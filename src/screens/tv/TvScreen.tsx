@@ -9,6 +9,7 @@ import { t } from '@/i18n';
 import { useServices } from '@/services';
 import type { DeviceView } from '@/services';
 import {
+  AnimatedBox,
   Banner,
   Box,
   Button,
@@ -17,6 +18,7 @@ import {
   IconButton,
   Row,
   Screen,
+  Skeleton,
   Spinner,
   Txt,
   useToast,
@@ -191,6 +193,10 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   // Volume is the phone's keys only (no buttons on screen); they steer the TV in these modes.
   useVolumeKeys(deviceId, watching && (mode === 'ready' || mode === 'connecting'));
 
+  const pairAgain = (): void => {
+    setRepairing(true);
+    router.push(`/device-sheet/${deviceId}`);
+  };
   const send = (cmd: Command): void => {
     hub.send(deviceId, cmd).then(
       () => {
@@ -200,6 +206,10 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
       (e: unknown) => {
         if (e instanceof DeviceError && e.code === 'notPaired') {
           setTrustLost(true);
+          toast.show(t('tv.errNotPaired'), {
+            kind: 'error',
+            action: { label: t('addTv.pairAgain'), onPress: pairAgain },
+          });
           return;
         }
         toast.show(errorLine(e), {
@@ -215,7 +225,10 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     send({ kind: 'tv.key', key: k });
   };
   const turnOn = (): void => {
-    if (!canTurnOn) return;
+    if (!canTurnOn) {
+      toast.show(t('tv.cantTurnOn'));
+      return;
+    }
     pressFeedback(haptics);
     setWakeSentAt(nowMs());
     send({ kind: 'tv.powerOn' });
@@ -314,6 +327,13 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     return () => sub.remove();
   }, [menuOpen]);
 
+  // A find's answer belongs to that spell of "can't reach it".
+  const [wasMode, setWasMode] = useState(mode);
+  if (wasMode !== mode) {
+    setWasMode(mode);
+    if (mode !== 'unreachable') setFindNote(null);
+  }
+
   const blockedByWifi = mode === 'unreachable' && !onWifi;
   const status: TvStatus | null =
     mode === 'off' || mode === 'wakeFailed'
@@ -323,7 +343,9 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
         : mode === 'unreachable' && (blockedByWifi || !trustLost)
           ? finding
             ? { text: t('tv.finding'), tone: 'warn', live: true }
-            : { text: t('tv.unreachableTitle'), tone: 'err' }
+            : findNote?.ok === true
+              ? { text: t('tv.statusConnected'), tone: 'ok' }
+              : { text: t('tv.unreachableTitle'), tone: 'err' }
           : trustLost
             ? { text: t('tv.statusPairAgain'), tone: 'err' }
             : mode === 'connecting'
@@ -332,10 +354,6 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
                 ? { text: t('tv.statusIr'), tone: 'warn' }
                 : { text: t('tv.statusConnected'), tone: 'ok' };
 
-  const pairAgain = (): void => {
-    setRepairing(true);
-    router.push(`/device-sheet/${deviceId}`);
-  };
   // The vertical padding keeps the keys' shadows inside the row, which is one faded layer while
   // connecting.
   const keyRow = (
@@ -361,14 +379,15 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
   const captions = (
     <>
       {problem ? (
-        <Txt live color="ink2">
+        <Txt live variant="caption" color="ink2" align="center">
           {problem}
         </Txt>
       ) : null}
       {sent && !problem ? (
+        // The mock's check is its 24 px icon inside the 13 px caption.
         <Row gap={2} align="center" justify="center">
-          <Icon name="check" size={18} color="okInk" />
-          <Txt live variant="bodyBold" color="okInk">
+          <Icon name="check" size={24} color="okInk" />
+          <Txt live variant="captionBold" color="okInk">
             {t('tv.voiceSent')}
           </Txt>
         </Row>
@@ -397,20 +416,14 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
         />
       );
     }
+    const padView = pad === 'touchpad' ? <TouchPad onKey={key} /> : <DPad onKey={key} />;
     if (trustLost) {
+      // The real pad, faded and not taking touches, over the banner and the way to pair again.
       return (
         <Column flex={1} gap={4}>
-          <Box
-            flex={1}
-            bg="surface2"
-            border="line"
-            radius="lg"
-            opacity={0.45}
-            align="center"
-            justify="center"
-          >
-            <Txt color="ink2">{t('tv.touchpadHint')}</Txt>
-          </Box>
+          <AnimatedBox flex={1} opacity={0.45} pointerEvents="none" testID="tv-pad-dimmed">
+            {padView}
+          </AnimatedBox>
           <Banner tone="error" icon="lock" text={t('tv.errNotPaired')} testID="tv-not-paired" />
           <Button label={t('addTv.pairAgain')} onPress={pairAgain} />
         </Column>
@@ -418,29 +431,34 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
     }
     if (mode === 'connecting') {
       return (
-        <Column flex={1} gap={4}>
-          <Box flex={1} radius="lg" bg="surface" border="line" align="center" justify="center">
-            <Box
-              float={{ top: 0, right: 0, bottom: 0, left: 0 }}
-              radius="lg"
-              bg="line"
-              opacity={0.7}
-            />
-            <Row gap={3} align="center" bg="surface" radius="pill" shadow="pop" px={4} py={3}>
-              <Spinner size="sm" />
-              <Txt variant="bodyBold">{t('tv.statusConnecting')}</Txt>
-            </Row>
+        // 8 px here and the key row's own 8 px make the mock's 16 px gap.
+        <Column flex={1} gap={2}>
+          <Box flex={1} radius="lg" bg="surface" border="line" shadow="card" overflow="hidden">
+            <Box float={{ top: 0, right: 0, bottom: 0, left: 0 }} opacity={0.8}>
+              <Skeleton width="100%" height="100%" radius="lg" />
+            </Box>
+            {/* Declared after the wash, so the badge is drawn over it. */}
+            <Box float={{ top: 0, right: 0, bottom: 0, left: 0 }} align="center" justify="center">
+              <Row gap={3} align="center" bg="surface" radius="pill" shadow="pop" px={4} py={3}>
+                <Spinner size="sm" />
+                <Txt variant="bodyBold">{t('tv.statusConnecting')}</Txt>
+              </Row>
+            </Box>
           </Box>
-          <Box opacity={0.45}>{keyRow}</Box>
+          <AnimatedBox opacity={0.45} pointerEvents="none" testID="tv-keys-dimmed">
+            {keyRow}
+          </AnimatedBox>
         </Column>
       );
     }
     return (
-      <Column flex={1} gap={4}>
+      // 8 px here and the key row's own 8 px make the mock's 16 px gaps.
+      <Column flex={1} gap={2}>
         <Box flex={1} opacity={listening ? 0.55 : 1} testID="tv-pad-area">
-          {pad === 'touchpad' ? <TouchPad onKey={key} /> : <DPad onKey={key} />}
+          {padView}
         </Box>
         {keyRow}
+        {captions}
       </Column>
     );
   })();
@@ -477,7 +495,6 @@ export function TvScreen(props: { deviceId: string }): ReactElement {
           />
         </TvBar>
         {body}
-        {captions}
       </Column>
       <TvMenu
         open={menuOpen}
