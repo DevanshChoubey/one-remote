@@ -103,6 +103,7 @@ export function AddTvFlow(): ReactElement {
         <Screen onBack={() => setStep({ name: 'find' })}>
           <EmptyState
             art="tv"
+            fill
             title={t('addTv.duplicate', { name: step.existing.name })}
             action={
               <Button

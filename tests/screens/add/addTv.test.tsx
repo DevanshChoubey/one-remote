@@ -143,14 +143,30 @@ describe('Add TV flow', () => {
     expect(screen.getByText(t('addTv.manualTitle'))).toBeTruthy();
   });
 
-  it('shows the brand word and the same Wi-Fi line on the find step', async () => {
+  it('keeps the IP hint above the field, also while an error shows', async () => {
+    const r = await rig();
+    await renderWith(r.s, <AddTvFlow />);
+    await fireEvent.press(screen.getByLabelText(t('addTv.typeAddress')));
+    expect(screen.getByText(t('addTv.manualHint'))).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText(t('addTv.ipLabel')), '192.168.1');
+    await fireEvent.press(screen.getByLabelText(t('addTv.ipFind')));
+    expect(await screen.findByText(t('addTv.badIp'))).toBeTruthy();
+    expect(screen.getByText(t('addTv.manualHint'))).toBeTruthy();
+  });
+
+  it('shows the same Wi-Fi line, then a found row with name and address only', async () => {
     const r = await rig();
     await renderWith(r.s, <AddTvFlow />);
     await toFind();
     expect(screen.getByText(t('addTv.findBody'))).toBeTruthy();
     await r.found(atv);
-    expect(screen.getByText(t('addTv.brandAndroidTv'))).toBeTruthy();
+    // The mock's found row is tile, name, address and chevron: no brand badge.
+    expect(screen.queryByText(t('addTv.brandAndroidTv'))).toBeNull();
     expect(screen.getByText('192.168.1.20')).toBeTruthy();
+    // The body line gives way to the list; the status line and the IP link stay at the bottom.
+    expect(screen.queryByText(t('addTv.findBody'))).toBeNull();
+    expect(screen.getByText(t('addTv.stillLooking'))).toBeTruthy();
+    expect(screen.getByLabelText(t('addTv.cantFind'))).toBeTruthy();
   });
 
   describe('code pairing', () => {
@@ -181,7 +197,13 @@ describe('Add TV flow', () => {
       await fireEvent.changeText(field, 'zzzzzz');
       await fireEvent.press(screen.getByLabelText(t('addTv.codePair')));
       expect(await screen.findByText(t('addTv.codeWrong'))).toBeTruthy();
-      expect(screen.getByLabelText(t('addTv.codeTitle')).props.value).toBe('');
+      // The refused code stays, in red, with Pair enabled so a fixed code can go again (mock).
+      expect(screen.getByLabelText(t('addTv.codeTitle')).props.value).toBe('zzzzzz');
+      await waitFor(() =>
+        expect(screen.getByLabelText(t('addTv.codePair')).props.accessibilityState.disabled).toBe(
+          false,
+        ),
+      );
       await fireEvent.changeText(screen.getByLabelText(t('addTv.codeTitle')), 'a1b2c3');
       await fireEvent.press(screen.getByLabelText(t('addTv.codePair')));
       expect(await screen.findByDisplayValue('LG OLED C4')).toBeTruthy();
@@ -288,11 +310,14 @@ describe('Add TV flow', () => {
       await toFind();
       await r.found(lg);
       await fireEvent.press(screen.getByLabelText('LG OLED C4, 192.168.1.23'));
-      expect(screen.getByText(t('addTv.waiting', { seconds: 60 }))).toBeTruthy();
+      // The ring counts down what is left; the line counts the seconds waited (mock).
+      expect(screen.getByText(t('addTv.waiting', { seconds: 0 }))).toBeTruthy();
+      expect(screen.getByText('60')).toBeTruthy();
       await act(async () => {
         jest.advanceTimersByTime(3000);
       });
-      expect(screen.getByText(t('addTv.waiting', { seconds: 57 }))).toBeTruthy();
+      expect(screen.getByText(t('addTv.waiting', { seconds: 3 }))).toBeTruthy();
+      expect(screen.getByText('57')).toBeTruthy();
     } finally {
       jest.useRealTimers();
     }
@@ -440,6 +465,10 @@ describe('Add TV flow', () => {
     await fireEvent.press(screen.getByLabelText('Sony, 192.168.1.20'));
     expect(await screen.findByText(t('addTv.unreachableAndroidTv'))).toBeTruthy();
     expect(screen.queryByText(t('addTv.unreachable'))).toBeNull();
+    // A code pairing's result is the same ring as Allow pairing, filled red (mock).
+    expect(screen.getByTestId('pair-ring')).toBeTruthy();
+    // Try again is the full-width key button under the error line.
+    expect(screen.getByLabelText(t('addTv.tryAgain'))).toBeTruthy();
   });
 
   it('keeps the LG unreachable line for an LG pairing', async () => {
@@ -628,11 +657,16 @@ describe('Add TV, as in the mock', () => {
       expect(screen.getByText('1')).toBeTruthy();
       await fireEvent.changeText(screen.getByLabelText(t('addTv.codeTitle')), 'a1b2');
       expect(onChange).toHaveBeenCalledWith('a1b2');
+      // One 14 px cell each: the current one has a 2 px accent ring, the others a 1 px line.
       expect(screen.getByTestId('otp-cell-3')).toHaveStyle({
-        backgroundColor: lightTokens.color.accent,
+        borderColor: lightTokens.color.accent,
+        borderWidth: 2,
+        borderRadius: lightTokens.radius.tile,
+        backgroundColor: lightTokens.color.surface,
       });
       expect(screen.getByTestId('otp-cell-0')).toHaveStyle({
-        backgroundColor: lightTokens.color.line,
+        borderColor: lightTokens.color.line,
+        borderWidth: 1,
       });
     });
 
@@ -649,7 +683,8 @@ describe('Add TV, as in the mock', () => {
         />,
       );
       expect(screen.getByTestId('otp-cell-0')).toHaveStyle({
-        backgroundColor: lightTokens.color.danger,
+        borderColor: lightTokens.color.danger,
+        borderWidth: 2,
       });
     });
 
@@ -668,7 +703,8 @@ describe('Add TV, as in the mock', () => {
       await fireEvent.press(screen.getByLabelText(t('addTv.codePair')));
       expect(await screen.findByText(t('addTv.codeWrong'))).toBeTruthy();
       expect(screen.getByTestId('otp-cell-0')).toHaveStyle({
-        backgroundColor: lightTokens.color.danger,
+        borderColor: lightTokens.color.danger,
+        borderWidth: 2,
       });
     });
   });
@@ -717,7 +753,6 @@ describe('Add TV, Samsung and the success hold', () => {
     expect(screen.getByLabelText(t('addTv.brandSamsung'))).toBeTruthy();
     await toFind();
     await r.found(samsung);
-    expect(screen.getByText(t('addTv.brandSamsung'))).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('Samsung Crystal, 192.168.1.41'));
     expect(await screen.findByText(t('addTv.pairedFirst'))).toBeTruthy();
     expect(screen.getByTestId('pair-ring')).toBeTruthy();

@@ -11,6 +11,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { useMotion, useTheme } from '@/theme';
 import { Icon } from '../Icon';
 import { Box, Txt } from '../primitives';
+import { DrawnCheck } from '../ResultDisc';
 
 export interface PairRingProps {
   secondsLeft: number;
@@ -25,7 +26,7 @@ const R = 58;
 const STROKE = 8;
 const CIRCUMFERENCE = 364.4;
 
-/** The pairing countdown: an arc that drains once a second, then a check or an alert. */
+/** The pairing countdown: an arc that drains once a second, then a drawn check or an alert. */
 export function PairRing(props: PairRingProps): ReactElement {
   const theme = useTheme();
   const motion = useMotion();
@@ -82,9 +83,9 @@ export function PairRing(props: PairRingProps): ReactElement {
           {String(props.secondsLeft)}
         </Txt>
       ) : props.phase === 'ok' ? (
-        <Icon name="check" size={56} color="ok" strokeWidth={2.4} />
+        <DrawnCheck size={56} />
       ) : (
-        <Icon name="alert" size={48} color="danger" />
+        <Icon name="alert" size={48} color="dangerInk" />
       )}
     </Box>
   );

@@ -25,7 +25,8 @@ const DRAW_MS = 420;
 const DRAW_DELAY_MS = 140;
 const POP_FROM = 0.7;
 
-function Check(props: { size: number }): ReactElement {
+/** The mock's `.check`: ok-ink, stroke 3.2, drawn over 420 ms after 140 ms (reduced: shown at once). */
+export function DrawnCheck(props: { size: number }): ReactElement {
   const theme = useTheme();
   const motion = useMotion();
   const drawn = useSharedValue(motion.reduced ? 1 : 0);
@@ -99,7 +100,7 @@ export function ResultDisc(props: ResultDiscProps): ReactElement {
       animatedStyle={animatedStyle}
     >
       {ok ? (
-        <Check size={52} />
+        <DrawnCheck size={52} />
       ) : (
         <Icon name="alert" size={44} color="dangerInk" testID="result-alert" />
       )}

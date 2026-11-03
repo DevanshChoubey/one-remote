@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
 import type { ReactElement } from 'react';
-import {
+import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { useMotion } from '@/theme';
+import { useMotion, useTheme } from '@/theme';
 import { AnimatedBox, Box, Input, Row, Txt } from '../primitives';
 
 export interface OtpCellsProps {
@@ -27,6 +27,7 @@ const CELL_H = 60;
 /** A code shown as separate cells, typed into one hidden input. */
 export function OtpCells(props: OtpCellsProps): ReactElement {
   const motion = useMotion();
+  const theme = useTheme();
   const shift = useSharedValue(0);
   useEffect(() => {
     if (!props.invalid || motion.reduced) return;
@@ -49,20 +50,25 @@ export function OtpCells(props: OtpCellsProps): ReactElement {
           const ring = props.invalid ? 'danger' : i === current ? 'accent' : 'line';
           const inset = props.invalid || i === current ? 2 : 1;
           return (
-            // The ring is the outer box's colour; the face sits inside it, inset by the ring width.
-            <Box key={i} testID={`otp-cell-${i}`} w={CELL_W} h={CELL_H} radius="tile" bg={ring}>
-              <Box
-                float={{ top: inset, left: inset, right: inset, bottom: inset }}
-                radius="sm"
-                bg="surface"
-                align="center"
-                justify="center"
-              >
-                <Txt variant="title" size="otp" tabular>
-                  {chars[i] ?? ''}
-                </Txt>
-              </Box>
-            </Box>
+            // One 14 px cell whose ring (1 px line, 2 px accent or danger) is drawn inside its edge.
+            <Animated.View
+              key={i}
+              testID={`otp-cell-${i}`}
+              style={{
+                width: CELL_W,
+                height: CELL_H,
+                borderRadius: theme.radius.tile,
+                borderWidth: inset,
+                borderColor: theme.color[ring],
+                backgroundColor: theme.color.surface,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Txt variant="title" size="otp" tabular>
+                {chars[i] ?? ''}
+              </Txt>
+            </Animated.View>
           );
         })}
       </Row>
