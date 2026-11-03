@@ -1,4 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { useState } from 'react';
+import type { ReactElement } from 'react';
 import { Linking, Platform } from 'react-native';
 import type { FoundTv, Link, PairedTv } from '@/core';
 import { DeviceError, PairError } from '@/core';
@@ -60,6 +62,11 @@ const androidtvBrand = {
   labelKey: 'addTv.brandAndroidTv',
   pairing: 'code' as const,
 };
+const samsungBrand = {
+  kind: 'samsung' as const,
+  labelKey: 'addTv.brandSamsung',
+  pairing: 'allow' as const,
+};
 const webosBrand = { kind: 'webos' as const, labelKey: 'addTv.brandLg', pairing: 'allow' as const };
 const atv: FoundTv = { kind: 'androidtv', host: '192.168.1.20', name: 'Sony', secure: true };
 
@@ -81,7 +88,7 @@ async function rig(opts: { ir?: boolean } = {}): Promise<Rig> {
     prefs: createMemoryPreferenceStore(),
     drivers,
     tv: setup,
-    tvBrands: [webosBrand, androidtvBrand],
+    tvBrands: [webosBrand, androidtvBrand, samsungBrand],
   });
   await s.store.upsertRoom(room('r1', 'Living room', 0));
   return { s, setup, stopped: fake.stopped, found: (tv) => act(async () => fake.found(tv)) };
@@ -650,5 +657,141 @@ describe('Add TV, as in the mock', () => {
         backgroundColor: lightTokens.color.danger,
       });
     });
+  });
+});
+
+describe('Add TV, Samsung and the success hold', () => {
+  const samsung: FoundTv = {
+    kind: 'samsung',
+    host: '192.168.1.41',
+    name: 'Samsung Crystal',
+    secure: true,
+  };
+  const samsungPaired: PairedTv = {
+    link: {
+      kind: 'samsung',
+      host: samsung.host,
+      tokenRef: 'samsung-token',
+      pinSha256: 'pin-s',
+    },
+    suggestedName: 'Samsung Crystal',
+  };
+  const fake = (): void => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+  };
+  /** Mounts the step and hands back a way to leave it (unmount it) like Back does. */
+  function Gate(props: {
+    children: ReactElement;
+    leave: { current: () => void };
+  }): ReactElement | null {
+    const [open, setOpen] = useState(true);
+    props.leave.current = () => setOpen(false);
+    return open ? props.children : null;
+  }
+  const flush = (): Promise<void> =>
+    act(async () => {
+      for (let i = 0; i < 20; i++) await Promise.resolve();
+    });
+
+  it('lists the three brands, finds a Samsung and pairs it with the Allow ring', async () => {
+    fake();
+    const r = await rig();
+    r.setup.pair.mockResolvedValueOnce(samsungPaired);
+    await renderWith(r.s, <AddTvFlow />);
+    expect(screen.getByLabelText(t('addTv.brandLg'))).toBeTruthy();
+    expect(screen.getByLabelText(t('addTv.brandAndroidTv'))).toBeTruthy();
+    expect(screen.getByLabelText(t('addTv.brandSamsung'))).toBeTruthy();
+    await toFind();
+    await r.found(samsung);
+    expect(screen.getByText(t('addTv.brandSamsung'))).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Samsung Crystal, 192.168.1.41'));
+    expect(await screen.findByText(t('addTv.pairedFirst'))).toBeTruthy();
+    expect(screen.getByTestId('pair-ring')).toBeTruthy();
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(await screen.findByDisplayValue('Samsung Crystal')).toBeTruthy();
+  });
+
+  it('delivers the result once, after the hold', async () => {
+    fake();
+    const r = await rig();
+    const onPaired = jest.fn();
+    await renderWith(r.s, <PairTvStep tv={lg} onPaired={onPaired} onBack={jest.fn()} />);
+    await flush();
+    expect(onPaired).not.toHaveBeenCalled();
+    await act(async () => {
+      jest.advanceTimersByTime(599);
+    });
+    expect(onPaired).not.toHaveBeenCalled();
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+    });
+    expect(onPaired).toHaveBeenCalledTimes(1);
+    expect(onPaired).toHaveBeenCalledWith(paired());
+  });
+
+  it('deletes the key when the step is left during the hold', async () => {
+    fake();
+    const r = await rig();
+    await r.s.secrets.set('key-new', 'secret');
+    await r.s.secrets.set('key-new:usn', 'u1');
+    const onPaired = jest.fn();
+    const leave = { current: () => undefined };
+    await renderWith(
+      r.s,
+      <Gate leave={leave}>
+        <PairTvStep tv={lg} onPaired={onPaired} onBack={jest.fn()} />
+      </Gate>,
+    );
+    await flush();
+    await act(async () => leave.current());
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+    });
+    await flush();
+    expect(onPaired).not.toHaveBeenCalled();
+    expect(await r.s.secrets.get('key-new')).toBeNull();
+    expect(await r.s.secrets.get('key-new:usn')).toBeNull();
+  });
+
+  it('deletes a Samsung token when the step is left during the hold', async () => {
+    fake();
+    const r = await rig();
+    r.setup.pair.mockResolvedValueOnce(samsungPaired);
+    await r.s.secrets.set('samsung-token', 'tok');
+    const leave = { current: () => undefined };
+    await renderWith(
+      r.s,
+      <Gate leave={leave}>
+        <PairTvStep tv={samsung} onPaired={jest.fn()} onBack={jest.fn()} />
+      </Gate>,
+    );
+    await flush();
+    await act(async () => leave.current());
+    await flush();
+    expect(await r.s.secrets.get('samsung-token')).toBeNull();
+  });
+
+  it('keeps Pair disabled until the code is full', async () => {
+    const r = await rig();
+    r.setup.pair.mockImplementationOnce(async (_tv, prompts) => {
+      await prompts.askCode(false);
+      return paired();
+    });
+    await renderWith(r.s, <AddTvFlow />);
+    await toFind();
+    await r.found(atv);
+    await fireEvent.press(screen.getByLabelText('Sony, 192.168.1.20'));
+    await screen.findByLabelText(t('addTv.codeTitle'));
+    await waitFor(() => expect(screen.getByLabelText(t('addTv.codePair'))).toBeEnabled()).catch(
+      () => undefined,
+    );
+    const pair = (): ReturnType<typeof screen.getByLabelText> =>
+      screen.getByLabelText(t('addTv.codePair'));
+    await fireEvent.changeText(screen.getByLabelText(t('addTv.codeTitle')), 'a1b');
+    expect(pair().props.accessibilityState.disabled).toBe(true);
+    await fireEvent.changeText(screen.getByLabelText(t('addTv.codeTitle')), 'a1b2c3');
+    expect(pair().props.accessibilityState.disabled).toBe(false);
   });
 });

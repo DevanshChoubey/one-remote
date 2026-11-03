@@ -53,7 +53,13 @@ export function PairTvStep(props: PairTvStepProps): ReactElement {
   const pending = useRef<((code: string | null) => void) | null>(null);
   const dropKey = useCallback(
     (paired: PairedTv): void => {
-      // Only the webOS key layout is known here.
+      if (paired.link.kind === 'samsung') {
+        secrets
+          .delete(paired.link.tokenRef)
+          .catch((e: unknown) => console.error('Could not drop an unused token', e));
+        return;
+      }
+      // The other key layout known here is webOS.
       if (paired.link.kind !== 'webos') return;
       const ref = paired.link.clientKeyRef;
       secrets

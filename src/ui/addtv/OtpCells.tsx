@@ -16,6 +16,9 @@ export interface OtpCellsProps {
   onChange: (v: string) => void;
   /** Names the one hidden input that takes the typing. */
   accessibilityLabel: string;
+  onSubmitEditing?: () => void;
+  /** Bump on every refused code to shake again while the cells stay invalid. */
+  shakeKey?: number;
 }
 
 const CELL_W = 48;
@@ -34,7 +37,7 @@ export function OtpCells(props: OtpCellsProps): ReactElement {
       withTiming(-3, { duration: step }),
       withTiming(0, { duration: step }),
     );
-  }, [props.invalid, motion.reduced, motion.duration.base, shift]);
+  }, [props.invalid, props.shakeKey, motion.reduced, motion.duration.base, shift]);
   const shake = useAnimatedStyle(() => ({ transform: [{ translateX: shift.value }] }));
 
   const chars = props.value.toUpperCase().split('');
@@ -71,6 +74,7 @@ export function OtpCells(props: OtpCellsProps): ReactElement {
           autoCapitalize="characters"
           maxLength={props.length}
           invalid={props.invalid}
+          onSubmitEditing={props.onSubmitEditing}
           testID="otp-input"
         />
       </Box>

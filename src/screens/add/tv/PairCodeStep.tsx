@@ -20,14 +20,20 @@ export interface PairCodeStepProps {
 export function PairCodeStep(props: PairCodeStepProps): ReactElement {
   const [code, setCode] = useState('');
   const submit = (): void => {
-    if (props.ready && code.length > 0) props.onSubmit(code.toUpperCase());
+    if (props.ready && code.length >= props.codeLength) props.onSubmit(code.toUpperCase());
   };
   return (
     <Screen
       title={t('addTv.pairTitle')}
       onBack={props.onBack}
       scroll
-      footer={<Button label={t('addTv.codePair')} onPress={submit} disabled={!props.ready} />}
+      footer={
+        <Button
+          label={t('addTv.codePair')}
+          onPress={submit}
+          disabled={!props.ready || code.length < props.codeLength}
+        />
+      }
     >
       <Column gap={4}>
         <Txt variant="heading">{t('addTv.codeTitle')}</Txt>
@@ -36,6 +42,7 @@ export function PairCodeStep(props: PairCodeStepProps): ReactElement {
           length={props.codeLength}
           invalid={props.wrong}
           onChange={setCode}
+          onSubmitEditing={submit}
           accessibilityLabel={t('addTv.codeTitle')}
         />
         {props.wrong ? <ErrorLine text={t('addTv.codeWrong')} /> : null}
