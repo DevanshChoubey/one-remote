@@ -96,6 +96,17 @@ describe('IconButton', () => {
   });
 });
 
+describe('IconButton checked', () => {
+  it('becomes a switch that reports checked, and stays a button without it', async () => {
+    await render(wrap(<IconButton icon="power" label="Power" onPress={jest.fn()} checked />));
+    const sw = screen.getByLabelText('Power');
+    expect(sw.props.accessibilityRole).toBe('switch');
+    expect(sw.props.accessibilityState.checked).toBe(true);
+    await render(wrap(<IconButton icon="more" label="More2" onPress={jest.fn()} />));
+    expect(screen.getByLabelText('More2').props.accessibilityRole).toBe('button');
+  });
+});
+
 describe('Chip', () => {
   it('is at least 48 px tall and toggles', async () => {
     const onToggle = jest.fn();
