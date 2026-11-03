@@ -95,7 +95,12 @@ export function NameRoomStep(props: NameRoomStepProps): ReactElement {
       title={t('add.nameTitle')}
       onBack={props.onBack}
       scroll
-      footer={<Button label={t('common.done')} onPress={save} disabled={!canSave} />}
+      footer={
+        <Column gap={3}>
+          {error ? <ErrorLine text={t('add.saveFailed')} /> : null}
+          <Button label={t('common.done')} onPress={save} disabled={!canSave} />
+        </Column>
+      }
     >
       <Column gap={4}>
         <Txt color="ink2">{t('add.nameStep')}</Txt>
@@ -140,7 +145,6 @@ export function NameRoomStep(props: NameRoomStepProps): ReactElement {
             </Row>
           </Rise>
         ) : null}
-        {error ? <ErrorLine text={t('add.saveFailed')} /> : null}
       </Column>
     </Screen>
   );

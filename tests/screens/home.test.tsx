@@ -7,7 +7,7 @@ import { HomeScreen } from '@/screens/home/HomeScreen';
 import { createServices, ServicesProvider } from '@/services';
 import type { Services } from '@/services';
 import { StoreError } from '@/store/types';
-import { darkTokens, ThemeProvider } from '@/theme';
+import { darkTokens, lightTokens, ThemeProvider } from '@/theme';
 import { ToastProvider } from '@/ui';
 import { DeviceHub } from '@/device/hub';
 import { createFakeDriver } from '@/device/testing/fakeDriver';
@@ -413,14 +413,50 @@ describe('HomeScreen to the mock', () => {
     expect(StyleSheet.flatten(card.props.style).backgroundColor).toBe(darkTokens.color.surface);
   });
 
-  it('renders cards under reduced motion without a translate', async () => {
+  it('renders cards under reduced motion with no translate, unlike a motion render', async () => {
     const s = setup();
     await seed(s, [dev('l1', 'tv', 'liv', 0, [matter])]);
     await renderHome(s, { reducedMotion: true });
     const card = await screen.findByTestId('device-card-l1');
-    expect(StyleSheet.flatten(card.props.style).transform ?? []).not.toContainEqual(
-      expect.objectContaining({ translateY: expect.anything() }),
-    );
+    const translates = (n: typeof card): unknown[] =>
+      [StyleSheet.flatten(n.props.style).transform ?? []]
+        .flat()
+        .filter((x) => x !== null && typeof x === 'object' && 'translateY' in (x as object));
+    expect(translates(card)).toEqual([]);
+  });
+
+  it('disables the switch of a needs-IR card', async () => {
+    const s = setup({ irAvailable: false });
+    await seed(s, [dev('i1', 'ac', 'liv', 0, [ir])]);
+    await renderHome(s);
+    const toggle = await screen.findByLabelText(t('home.power', { name: 'Name i1' }));
+    expect(toggle.props.accessibilityState.disabled).toBe(true);
+  });
+
+  it('colours the tile accent when the device is on, ink when off', async () => {
+    const s = setup();
+    await seed(s, [dev('a1', 'ac', 'liv', 0, [matter]), dev('a2', 'ac', 'liv', 1, [matter])]);
+    await renderHome(s);
+    await screen.findByText('Name a1');
+    await act(async () => {
+      s.matterDriver.emit('a1', { kind: 'ac', state: { ...defaultAcState(), power: true } });
+      s.matterDriver.emit('a2', { kind: 'ac', state: { ...defaultAcState(), power: false } });
+    });
+    const stroke = (id: string): string => {
+      const found: string[] = [];
+      const walk = (n: unknown, inside: boolean): void => {
+        if (n === null || typeof n !== 'object') return;
+        if (Array.isArray(n)) return n.forEach((c) => walk(c, inside));
+        const node = n as { props?: Record<string, unknown>; children?: unknown };
+        const here = inside || node.props?.testID === `device-card-${id}`;
+        if (here && typeof node.props?.stroke === 'string') found.push(node.props.stroke);
+        walk(node.children, here);
+      };
+      walk(screen.toJSON(), false);
+      return found.join(' ');
+    };
+    await waitFor(() => expect(stroke('a1')).toContain(lightTokens.color.accent));
+    expect(stroke('a2')).not.toContain(lightTokens.color.accent);
   });
 });
 

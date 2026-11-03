@@ -123,22 +123,26 @@ export function HomeScreen(): ReactElement {
     );
   }
 
-  let n = 0;
+  // First card index of each section, so the staggered rise needs no counter during render.
+  const starts = home.sections.reduce<number[]>(
+    (acc, sec) => [...acc, (acc[acc.length - 1] ?? 0) + sec.cards.length],
+    [0],
+  );
   return (
     <Screen scroll>
       {header}
       <Column gap={4}>
         {home.showNoIrBanner ? <Banner icon="ir" text={t('home.noIrBanner')} /> : null}
-        {home.sections.map((section) => (
+        {home.sections.map((section, si) => (
           <Column key={section.room.id} gap={2}>
             <Txt variant="label" color="ink2">
               {section.room.name}
             </Txt>
-            {section.cards.map((card) => (
+            {section.cards.map((card, ci) => (
               <DeviceCard
                 key={card.view.device.id}
                 card={card}
-                index={n++}
+                index={(starts[si] ?? 0) + ci}
                 onOpen={(id) => router.push(`/device/${id}`)}
                 onSettings={(id) => router.push(`/device-sheet/${id}`)}
                 onTogglePower={home.togglePower}
