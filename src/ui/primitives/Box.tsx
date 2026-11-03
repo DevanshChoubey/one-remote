@@ -13,8 +13,6 @@ export interface BoxProps {
   bg?: ColorToken;
   border?: ColorToken;
   radius?: RadiusToken;
-  /** A circle of this diameter, with the exact radius (Android draws a large pill radius as an octagon). */
-  circle?: number;
   shadow?: ShadowToken;
   flex?: number;
   /** Fixed width / height in px (round buttons, glyph parts). */
@@ -73,11 +71,6 @@ export function boxStyle(props: BoxProps, theme: Tokens): Mutable<ViewStyle> {
     style.borderWidth = 1;
   }
   if (props.radius) style.borderRadius = theme.radius[props.radius];
-  if (props.circle !== undefined) {
-    style.width = props.circle;
-    style.height = props.circle;
-    style.borderRadius = props.circle / 2;
-  }
   if (props.shadow) Object.assign(style, theme.shadow[props.shadow]);
   if (props.wrap) style.flexWrap = 'wrap';
   if (props.flex !== undefined) style.flex = props.flex;
@@ -111,6 +104,9 @@ export function Box(props: BoxProps): ReactElement {
   return (
     <View
       style={style}
+      // A see-through box fades as one layer, as on the web. Otherwise Android shows each child's
+      // shadow through its surface (an octagon under every dimmed round key).
+      needsOffscreenAlphaCompositing={props.opacity !== undefined && props.opacity < 1}
       testID={props.testID}
       accessible={props.accessibilityLabel ? true : undefined}
       accessibilityLabel={props.accessibilityLabel}

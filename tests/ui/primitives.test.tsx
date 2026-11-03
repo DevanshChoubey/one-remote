@@ -28,6 +28,13 @@ describe('primitives', () => {
     expect(flat(screen.getByTestId('b').props.style).padding).toBe(lightTokens.space(4));
   });
 
+  it('a see-through Box fades as one layer, so child shadows do not show through on Android', async () => {
+    await render(wrap(<Box opacity={0.45} testID="b" />));
+    expect(screen.getByTestId('b').props.needsOffscreenAlphaCompositing).toBe(true);
+    await render(wrap(<Box opacity={1} testID="c" />));
+    expect(screen.getByTestId('c').props.needsOffscreenAlphaCompositing).toBe(false);
+  });
+
   it('Box follows the dark scheme', async () => {
     await render(wrap(<Box bg="bg" testID="b" />, 'dark'));
     expect(flat(screen.getByTestId('b').props.style).backgroundColor).toBe(darkTokens.color.bg);

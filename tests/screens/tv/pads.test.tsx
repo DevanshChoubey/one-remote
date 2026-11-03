@@ -65,21 +65,6 @@ describe('KeyButton', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('tv-sent-ring')).toBeTruthy();
   });
-
-  it('is an exact circle of its size, not a pill radius (Android draws that as an octagon)', async () => {
-    await renderWith(
-      makeServices(),
-      <KeyButton label={t('tv.goBack')} icon="back" size={84} onPress={noop} />,
-    );
-    const style = surfaceStyle(screen.getByRole('button', { name: t('tv.goBack') }));
-    expect(style).toMatchObject({ width: 84, height: 84, borderRadius: 42 });
-    // The shadow wrapper shows through the key while it is dimmed, so it is an exact circle too.
-    expect(screen.getByTestId('tv-key-shadow')).toHaveStyle({
-      width: 84,
-      height: 84,
-      borderRadius: 42,
-    });
-  });
 });
 
 describe('TouchPad', () => {

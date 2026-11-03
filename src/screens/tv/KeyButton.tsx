@@ -34,7 +34,7 @@ export function KeyButton(props: KeyButtonProps): ReactElement {
       accessibilityLabel={props.label}
       bg={accent ? 'accent' : flat ? undefined : 'surface'}
       border={accent ? 'accent' : flat ? undefined : 'line'}
-      circle={size}
+      radius="pill"
       pressedBg={accent ? 'accentPressed' : 'surface2'}
       pressScale={accent ? 0.94 : 0.92}
     >
@@ -53,7 +53,7 @@ export function KeyButton(props: KeyButtonProps): ReactElement {
   return flat || accent ? (
     key
   ) : (
-    <Box bg="surface" circle={size} shadow="card" testID="tv-key-shadow">
+    <Box bg="surface" radius="pill" shadow="card">
       {key}
       <SentRing trigger={sent} />
     </Box>
