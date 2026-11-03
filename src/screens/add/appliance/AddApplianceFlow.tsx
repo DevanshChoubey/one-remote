@@ -123,7 +123,14 @@ function Flow(props: FlowProps): ReactElement {
 
   switch (step.name) {
     case 'brand':
-      return <BrandStep brands={brands} onPick={(b) => go(afterBrand(b, env))} onBack={back} />;
+      return (
+        <BrandStep
+          brands={brands}
+          kind={kind}
+          onPick={(b) => go(afterBrand(b, env))}
+          onBack={back}
+        />
+      );
     case 'matter':
       return (
         <>

@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { MatterError } from '@/core/matterSetup';
 import type { MatterSetup } from '@/core/matterSetup';
 import { t } from '@/i18n';
+import { darkTokens } from '@/theme';
 import { MatterStep } from '@/screens/add/appliance/MatterStep';
 import { makeServices, renderWith } from '../helpers';
 
@@ -29,12 +30,16 @@ jest.mock('expo-camera', () => ({
 }));
 jest.mock('expo-clipboard', () => ({ getStringAsync: () => Promise.resolve('') }));
 
-async function open(m: MatterSetup): Promise<{ onDone: jest.Mock; onSkip: jest.Mock }> {
+async function open(
+  m: MatterSetup,
+  opts: { scheme?: 'light' | 'dark'; reducedMotion?: boolean } = {},
+): Promise<{ onDone: jest.Mock; onSkip: jest.Mock }> {
   const onDone = jest.fn();
   const onSkip = jest.fn();
   await renderWith(
     { ...makeServices(), matter: m },
     <MatterStep brandId="panasonic" onDone={onDone} onSkip={onSkip} />,
+    opts,
   );
   return { onDone, onSkip };
 }
@@ -62,7 +67,7 @@ describe('MatterStep', () => {
       '3497-0112-332',
     );
     await fireEvent.press(screen.getByText(t('matter.connect')));
-    await waitFor(() => expect(onDone).toHaveBeenCalledWith(link));
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith(link), { timeout: 4000 });
   });
 
   it('shows the failing step and lets the user retry', async () => {
@@ -76,5 +81,51 @@ describe('MatterStep', () => {
     await waitFor(() => expect(screen.getByText(t('matter.error.notFound'))).toBeTruthy());
     await fireEvent.press(screen.getByText(t('matter.retry')));
     expect(screen.getByText(t('matter.connect'))).toBeTruthy();
+  });
+
+  it('marks the failed step and the steps before it on the commissioning list', async () => {
+    const commission = jest.fn(async (_c, onStep: (s: 'found') => void) => {
+      onStep('found');
+      throw new MatterError('unreachable', 'network');
+    });
+    await open(stub(commission as unknown as MatterSetup['commission']));
+    await fireEvent.press(await screen.findByText(t('matter.enter')));
+    await fireEvent.changeText(await screen.findByLabelText(t('matter.codeLabel')), '34970112332');
+    await fireEvent.press(screen.getByText(t('matter.connect')));
+    await waitFor(() => expect(screen.getByText(t('matter.error.unreachable'))).toBeTruthy());
+    expect(screen.getAllByTestId('step-fail')).toHaveLength(1);
+    expect(screen.getAllByTestId('step-done')).toHaveLength(1);
+    expect(screen.getAllByTestId('step-idle')).toHaveLength(1);
+    expect(screen.getByText(t('matter.retry'))).toBeTruthy();
+    expect(screen.getByText(t('matter.notNow'))).toBeTruthy();
+  });
+
+  it('shows the finished list with an ok disc, then hands the link back', async () => {
+    const commission = jest.fn(async (_c, onStep: (s: 'found') => void) => {
+      onStep('found');
+      return link;
+    });
+    const { onDone } = await open(stub(commission as unknown as MatterSetup['commission']));
+    await fireEvent.press(await screen.findByText(t('matter.enter')));
+    await fireEvent.changeText(await screen.findByLabelText(t('matter.codeLabel')), '34970112332');
+    await fireEvent.press(screen.getByText(t('matter.connect')));
+    await waitFor(() => expect(screen.getAllByTestId('step-done')).toHaveLength(3));
+    expect(screen.getByLabelText(t('matter.step.responds'))).toBeTruthy();
+    expect(onDone).not.toHaveBeenCalled();
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith(link), { timeout: 4000 });
+  });
+
+  it('draws the step card on the dark surface', async () => {
+    const commission = jest.fn(async () => {
+      throw new MatterError('notFound', 'found');
+    });
+    await open(stub(commission), { scheme: 'dark', reducedMotion: true });
+    await fireEvent.press(await screen.findByText(t('matter.enter')));
+    await fireEvent.changeText(await screen.findByLabelText(t('matter.codeLabel')), '34970112332');
+    await fireEvent.press(screen.getByText(t('matter.connect')));
+    await waitFor(() => expect(screen.getByTestId('step-list')).toBeTruthy());
+    expect(JSON.stringify(screen.getByTestId('step-list').props.style)).toContain(
+      darkTokens.color.surface,
+    );
   });
 });
