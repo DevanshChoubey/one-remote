@@ -20,6 +20,10 @@ export interface BoxProps {
   h?: number | `${number}%`;
   minH?: number;
   maxH?: number | `${number}%`;
+  maxW?: number | `${number}%`;
+  overflow?: 'hidden' | 'visible';
+  /** accessibilityState.busy (a loading region). */
+  busy?: boolean;
   opacity?: number;
   /** Rounds only the top corners (sheets). Wins over `radius`. */
   topRadius?: RadiusToken;
@@ -88,6 +92,8 @@ export function boxStyle(props: BoxProps, theme: Tokens): Mutable<ViewStyle> {
   }
   if (props.minH !== undefined) style.minHeight = props.minH;
   if (props.maxH !== undefined) style.maxHeight = props.maxH;
+  if (props.maxW !== undefined) style.maxWidth = props.maxW;
+  if (props.overflow) style.overflow = props.overflow;
   if (props.opacity !== undefined) style.opacity = props.opacity;
   return style;
 }
@@ -104,7 +110,14 @@ export function Box(props: BoxProps): ReactElement {
       accessibilityRole={props.accessibilityRole}
       accessibilityValue={props.accessibilityValue}
       accessibilityLiveRegion={props.accessibilityLiveRegion}
-      accessibilityState={props.selected === undefined ? undefined : { selected: props.selected }}
+      accessibilityState={
+        props.selected === undefined && props.busy === undefined
+          ? undefined
+          : {
+              ...(props.selected === undefined ? null : { selected: props.selected }),
+              ...(props.busy === undefined ? null : { busy: props.busy }),
+            }
+      }
     >
       {props.children}
     </View>

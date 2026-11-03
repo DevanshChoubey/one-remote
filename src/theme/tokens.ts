@@ -40,6 +40,7 @@ export interface Tokens {
     heading: { fontWeight: '700' };
     body: { fontWeight: '400' };
     bodyBold: { fontWeight: '700' };
+    semibold: { fontWeight: '600' };
   };
   size: {
     title: number;
@@ -49,6 +50,18 @@ export interface Tokens {
     display: number;
     displaySup: number;
     label: number;
+    /** Badge text (12). */
+    badge: number;
+    /** Banner text (14). */
+    banner: number;
+    /** Option card name (18). */
+    cardName: number;
+    /** OTP cell digit (26). */
+    otp: number;
+    /** Welcome empty-state title (30). */
+    welcome: number;
+    /** Pair ring number (32). */
+    ring: number;
   };
   /** Pixel line heights per text variant. */
   lineHeight: {
@@ -111,8 +124,23 @@ const base = {
     heading: { fontWeight: '700' },
     body: { fontWeight: '400' },
     bodyBold: { fontWeight: '700' },
+    semibold: { fontWeight: '600' },
   },
-  size: { title: 30, heading: 21, body: 16, caption: 13, display: 76, displaySup: 28, label: 15 },
+  size: {
+    title: 30,
+    heading: 21,
+    body: 16,
+    caption: 13,
+    display: 76,
+    displaySup: 28,
+    label: 15,
+    badge: 12,
+    banner: 14,
+    cardName: 18,
+    otp: 26,
+    welcome: 30,
+    ring: 32,
+  },
   lineHeight: { title: 35, heading: 25, body: 22, label: 20, caption: 18, display: 76 },
   tracking: { title: -0.45, display: -2.28 },
   space: (n: number): number => n * 4,
