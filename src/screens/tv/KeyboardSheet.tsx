@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { t } from '@/i18n';
-import { Button, Column, Input } from '@/ui';
+import { Button, Field, Sheet } from '@/ui';
 
 const DEBOUNCE_MS = 300;
 
@@ -32,24 +32,26 @@ export function KeyboardSheet(props: {
   // Leaving the sheet (Done, or the TV going away) still sends what was typed last.
   useEffect(() => flush, []);
 
+  const done = (): void => {
+    flush();
+    props.onDone();
+  };
+
   return (
-    <Column gap={3} testID="tv-keyboard">
-      <Input
+    <Sheet
+      open
+      onClose={done}
+      title={t('tv.keyboard')}
+      testID="tv-keyboard"
+      footer={<Button label={t('common.done')} onPress={done} />}
+    >
+      <Field
+        label={t('tv.keyboardField')}
         value={text}
         onChangeText={change}
-        accessibilityLabel={t('tv.keyboardField')}
-        onSubmitEditing={() => {
-          flush();
-          props.onDone();
-        }}
+        autoFocus
+        onSubmitEditing={done}
       />
-      <Button
-        label={t('tv.keyboardDone')}
-        onPress={() => {
-          flush();
-          props.onDone();
-        }}
-      />
-    </Column>
+    </Sheet>
   );
 }
