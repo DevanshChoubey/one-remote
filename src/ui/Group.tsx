@@ -15,11 +15,14 @@ export interface GroupProps {
 export function Group(props: GroupProps): ReactElement {
   const rows = Children.toArray(props.children);
   return (
-    <Column gap={2}>
+    <Column gap={1}>
       {props.label ? (
-        <Txt variant="label" color="ink2">
-          {props.label}
-        </Txt>
+        // The mock's `.sect`: 13 px bold ink2, 4 px in from the card edge, 4 px above the card.
+        <Box px={1}>
+          <Txt variant="captionBold" color="ink2">
+            {props.label}
+          </Txt>
+        </Box>
       ) : null}
       <Box bg="surface" border="line" radius="md" overflow="hidden">
         {rows.map((row, i) => (
@@ -45,10 +48,13 @@ export interface ListItemProps {
   testID?: string;
 }
 
+const CHEV = 22;
+
 function Trailing(props: Pick<ListItemProps, 'trailing' | 'expanded'>): ReactElement | null {
-  if (props.trailing === 'chevron') return <Icon name="chev" size={20} color="ink2" />;
+  if (props.trailing === 'chevron') return <Icon name="chev" size={CHEV} color="ink2" />;
+  // Closed: the right chevron (it opens in place); open: up.
   if (props.trailing === 'expand') {
-    return <Icon name={props.expanded ? 'up' : 'down'} size={20} color="ink2" />;
+    return <Icon name={props.expanded ? 'up' : 'chev'} size={CHEV} color="ink2" />;
   }
   return <>{props.trailing}</>;
 }
@@ -58,7 +64,7 @@ export function ListItem(props: ListItemProps): ReactElement {
   const body = (
     <Row gap={3} align="center" px={4} py={2} minH={56}>
       <Box flex={1}>
-        <Txt variant="bodyBold">{props.title}</Txt>
+        <Txt weight="semibold">{props.title}</Txt>
         {props.subtitle ? (
           <Txt variant="caption" color="ink2">
             {props.subtitle}
