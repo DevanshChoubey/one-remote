@@ -1,6 +1,8 @@
 import type { ReactElement } from 'react';
 import type { ColorToken } from '@/theme';
-import { Box, Touchable, Txt } from './primitives';
+import { Icon } from './Icon';
+import type { IconName } from './Icon';
+import { Box, Row, Touchable, Txt } from './primitives';
 
 export type ChipState = 'neutral' | 'selected';
 
@@ -9,6 +11,7 @@ export interface ChipProps {
   state: ChipState;
   onToggle?: () => void;
   disabled?: boolean;
+  icon?: IconName;
 }
 
 const LOOK: Record<ChipState, { bg: ColorToken; border: ColorToken; text: ColorToken }> = {
@@ -21,22 +24,27 @@ const DISABLED_LOOK = { bg: 'surface2', border: 'line', text: 'ink2' } as const;
 export function Chip(props: ChipProps): ReactElement {
   const look = props.disabled ? DISABLED_LOOK : LOOK[props.state];
   const selected = props.state === 'selected';
-  const body = (
-    <Box
-      bg={look.bg}
-      border={look.border}
-      radius="pill"
-      px={4}
-      py={2}
-      accessibilityLabel={props.onToggle ? undefined : props.label}
-      selected={props.onToggle ? undefined : selected}
-    >
-      <Txt variant="bodyBold" color={look.text}>
+  const content = (
+    <Row gap={2} align="center" justify="center" px={4} minH={48}>
+      {props.icon ? <Icon name={props.icon} size={18} color={look.text} /> : null}
+      <Txt variant="label" color={look.text}>
         {props.label}
       </Txt>
-    </Box>
+    </Row>
   );
-  if (!props.onToggle) return body;
+  if (!props.onToggle) {
+    return (
+      <Box
+        bg={look.bg}
+        border={look.border}
+        radius="pill"
+        accessibilityLabel={props.label}
+        selected={selected}
+      >
+        {content}
+      </Box>
+    );
+  }
   return (
     <Touchable
       onPress={props.onToggle}
@@ -44,8 +52,12 @@ export function Chip(props: ChipProps): ReactElement {
       selected={selected}
       accessibilityRole="togglebutton"
       accessibilityLabel={props.label}
+      bg={look.bg}
+      border={look.border}
+      radius="pill"
+      pressScale={0.95}
     >
-      {body}
+      {content}
     </Touchable>
   );
 }

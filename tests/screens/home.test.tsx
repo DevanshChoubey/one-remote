@@ -121,7 +121,7 @@ describe('HomeScreen', () => {
     await fireEvent(await screen.findByLabelText('Name l1'), 'longPress');
     expect(mockPush).toHaveBeenCalledWith('/device-sheet/l1');
     const card = screen.getByLabelText(`Name i1, ${t('home.needsIr')}`);
-    expect(StyleSheet.flatten(card.props.style).opacity).toBe(0.5);
+    expect(StyleSheet.flatten(card.props.style).opacity).toBe(0.6);
     expect(card.props.accessibilityHint).toBe(t('home.longPressHint'));
     await fireEvent.press(card);
     expect(mockPush).not.toHaveBeenCalledWith('/device/i1');

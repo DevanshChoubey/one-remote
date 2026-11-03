@@ -4,6 +4,7 @@ import type { Device, LinkDriver, Room } from '@/core';
 import { createServices, ServicesProvider } from '@/services';
 import type { Services } from '@/services';
 import { ThemeProvider } from '@/theme';
+import { ToastProvider } from '@/ui';
 import { createMemoryStore } from '@/store/memoryStore';
 import { createMemorySecretStore } from '@/store/secrets';
 import { createMemoryPreferenceStore } from '@/store/preferences';
@@ -17,10 +18,16 @@ export function makeServices(drivers: LinkDriver[] = []): Services {
   });
 }
 
-export async function renderWith(s: Services, ui: ReactElement): Promise<void> {
+export async function renderWith(
+  s: Services,
+  ui: ReactElement,
+  opts: { scheme?: 'light' | 'dark'; reducedMotion?: boolean } = {},
+): Promise<void> {
   await render(
-    <ThemeProvider scheme="light">
-      <ServicesProvider services={s}>{ui}</ServicesProvider>
+    <ThemeProvider scheme={opts.scheme ?? 'light'} reducedMotion={opts.reducedMotion}>
+      <ServicesProvider services={s}>
+        <ToastProvider>{ui}</ToastProvider>
+      </ServicesProvider>
     </ThemeProvider>,
   );
 }

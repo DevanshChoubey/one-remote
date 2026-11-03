@@ -3,7 +3,8 @@ import { FlatList, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { t } from '@/i18n';
 import { useTheme } from '@/theme';
-import { Box, Column, Row, Touchable, Txt } from './primitives';
+import { IconButton } from './IconButton';
+import { Box, Column, Row, Txt } from './primitives';
 
 export interface ScreenProps {
   title?: string;
@@ -15,29 +16,46 @@ export interface ScreenProps {
   footer?: ReactNode;
   /** No title or back button: the screen draws its own bar and fills the height (no scrolling). */
   bare?: boolean;
+  /** A caption row under a bar title (status text and a StatusDot). */
+  subtitle?: ReactNode;
+  /** IconButtons at the right of the bar, or of the big title. */
+  actions?: ReactNode;
 }
 
 const ONE_PAGE = [0];
 
 export function Screen(props: ScreenProps): ReactElement {
   const theme = useTheme();
-  const title = props.title ? <Txt variant="title">{props.title}</Txt> : null;
   const header = props.bare ? null : props.onBack ? (
     <Row gap={2} align="center">
-      <Touchable onPress={props.onBack} accessibilityLabel={t('common.back')}>
-        <Box bg="surface2" radius="pill" align="center" justify="center" testID="screen-back">
-          <Box px={3} py={2}>
-            <Txt variant="heading" color="ink">
-              ‹
-            </Txt>
-          </Box>
-        </Box>
-      </Touchable>
-      <Box flex={1}>{title}</Box>
+      <IconButton
+        icon="back"
+        label={t('common.back')}
+        onPress={props.onBack}
+        testID="screen-back"
+      />
+      <Box flex={1}>
+        {props.title ? (
+          <Txt variant="heading" numberOfLines={1}>
+            {props.title}
+          </Txt>
+        ) : null}
+        {props.subtitle}
+      </Box>
+      {props.actions}
     </Row>
-  ) : (
-    title
-  );
+  ) : props.title || props.actions ? (
+    <Row gap={2} align="center">
+      <Box flex={1}>
+        {props.title ? (
+          <Txt variant="title" numberOfLines={1}>
+            {props.title}
+          </Txt>
+        ) : null}
+      </Box>
+      {props.actions}
+    </Row>
+  ) : null;
   const content = props.bare ? (
     <Column flex={1} gap={4} px={5} py={4}>
       {props.children}
