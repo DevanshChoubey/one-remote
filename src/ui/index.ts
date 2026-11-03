@@ -58,3 +58,4 @@ export type {
   TouchableProps,
   TxtProps,
 } from './primitives';
+export * from './appliance';

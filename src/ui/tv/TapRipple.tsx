@@ -21,6 +21,7 @@ const RING = 44;
 export function TapRipple(props: TapRippleProps): ReactElement {
   const theme = useTheme();
   const motion = useMotion();
+  const { reduced } = motion;
   const progress = useSharedValue(1);
   const { trigger } = props;
   useEffect(() => {
@@ -31,7 +32,7 @@ export function TapRipple(props: TapRippleProps): ReactElement {
   }, [trigger, progress, motion]);
   const style = useAnimatedStyle(() => ({
     opacity: 0.8 * (1 - progress.value),
-    transform: [{ scale: motion.reduced ? 1 : 0.6 + 2 * progress.value }],
+    transform: [{ scale: reduced ? 1 : 0.6 + 2 * progress.value }],
   }));
   return (
     <Animated.View

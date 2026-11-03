@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ReactElement } from 'react';
 import Animated, {
   useAnimatedStyle,
@@ -26,8 +26,11 @@ export function Field(props: FieldProps): ReactElement {
   const { label, error, helper, shakeKey, accessibilityLabel, ...input } = props;
   const motion = useMotion();
   const shake = useSharedValue(0);
+  // Not on mount, whatever the first key is: only a change of the key shakes.
+  const lastKey = useRef(shakeKey);
   useEffect(() => {
-    // Not on mount: only a change of the key shakes.
+    if (lastKey.current === shakeKey) return;
+    lastKey.current = shakeKey;
     if (!shakeKey || motion.reduced) return;
     const step = motion.duration.base / 4;
     const t = { duration: step, easing: motion.ease.standard };

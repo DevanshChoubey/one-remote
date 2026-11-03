@@ -1,6 +1,8 @@
 import type { ReactElement } from 'react';
+import Animated from 'react-native-reanimated';
 import type { ColorToken } from '@/theme';
-import { Box, Txt } from './primitives';
+import { useTheme } from '@/theme';
+import { Txt } from './primitives';
 
 export interface BadgeProps {
   label: string;
@@ -16,13 +18,23 @@ const LOOK: Record<
   accent: { bg: 'accentSoft', text: 'ink' },
 };
 
+/** A small pill: 10 px across, 3 px down (the mock's badge). */
 export function Badge(props: BadgeProps): ReactElement {
+  const theme = useTheme();
   const look = LOOK[props.tone ?? 'neutral'];
   return (
-    <Box bg={look.bg} border={look.border} radius="pill" px={3} py={1}>
+    <Animated.View
+      style={{
+        backgroundColor: theme.color[look.bg],
+        borderRadius: theme.radius.pill,
+        paddingHorizontal: 10,
+        paddingVertical: 3,
+        ...(look.border ? { borderWidth: 1, borderColor: theme.color[look.border] } : null),
+      }}
+    >
       <Txt variant="caption" color={look.text}>
         {props.label}
       </Txt>
-    </Box>
+    </Animated.View>
   );
 }

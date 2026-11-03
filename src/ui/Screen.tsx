@@ -1,5 +1,6 @@
 import type { ReactElement, ReactNode } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { t } from '@/i18n';
 import { useTheme } from '@/theme';
@@ -61,6 +62,13 @@ export function Screen(props: ScreenProps): ReactElement {
           <Txt variant="title" numberOfLines={1}>
             {props.title}
           </Txt>
+        ) : null}
+        {props.title && typeof props.subtitle === 'string' && props.subtitle ? (
+          <Animated.View style={{ marginTop: 6 }}>
+            <Txt variant="caption" color="ink2">
+              {props.subtitle}
+            </Txt>
+          </Animated.View>
         ) : null}
       </Box>
       {props.actions}
