@@ -76,7 +76,7 @@ function FanSkeleton(props: { name?: string; onBack: () => void }): ReactElement
       <RemoteBody>
         <Row justify="center">
           <Box testID="fan-skeleton">
-            <Skeleton width={112} height={112} radius="art" />
+            <Skeleton width={112} height={112} radius="hero" />
           </Box>
         </Row>
         <SpeedBarsSkeleton />

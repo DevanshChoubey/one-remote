@@ -32,9 +32,15 @@ export interface ScreenProps {
   /**
    * The add-flow page head (mock `Bar({title:''})` + `Head(title, sub)`): with `onBack`, the bar
    * holds only the back button (and `actions`), and the title is drawn under it at 30 px, with a
-   * string `subtitle` as a 16 px ink2 line 6 px below. Without `onBack` it is the big title.
+   * string `subtitle` as a 16 px ink2 line 6 px below. Without `onBack` the bar row stays, empty,
+   * so the title does not move when a later state adds the back button.
    */
   largeTitle?: boolean;
+  /**
+   * The subtitle is a paragraph of its own under a large title, 8 px below it instead of the
+   * Head's 6 (mock: the IP hint, a `t-body` with margin-top -8 in the 16 px screen gap).
+   */
+  subtitleParagraph?: boolean;
   /**
    * A custom header (Home: title, count and buttons). It replaces the title row and, like it,
    * stays fixed while `scroll` content moves.
@@ -45,10 +51,15 @@ export interface ScreenProps {
 const ONE_PAGE = [0];
 /** The mock's `Head` gap between the title and its sub line. */
 const HEAD_GAP = 6;
+/** A paragraph after the Head: the 16 px screen gap less the mock's 8 px pull-up. */
+const PARAGRAPH_GAP = 8;
 
-function Subline(props: { text: string; body: boolean }): ReactElement {
+function Subline(props: { text: string; body: boolean; paragraph?: boolean }): ReactElement {
   return (
-    <Animated.View style={{ marginTop: HEAD_GAP }}>
+    <Animated.View
+      testID="screen-subline"
+      style={{ marginTop: props.paragraph ? PARAGRAPH_GAP : HEAD_GAP }}
+    >
       <Txt variant={props.body ? 'body' : 'caption'} color="ink2">
         {props.text}
       </Txt>
@@ -61,13 +72,14 @@ function BigTitle(props: {
   subtitle?: ReactNode;
   actions?: ReactNode;
   body: boolean;
+  paragraph?: boolean;
 }): ReactElement {
   return (
     <Row gap={2} align="center">
       <Box flex={1}>
         {props.title ? <Txt variant="title">{props.title}</Txt> : null}
         {props.title && typeof props.subtitle === 'string' && props.subtitle ? (
-          <Subline text={props.subtitle} body={props.body} />
+          <Subline text={props.subtitle} body={props.body} paragraph={props.paragraph} />
         ) : null}
       </Box>
       {props.actions}
@@ -79,27 +91,35 @@ function BigTitle(props: {
 function headerOf(props: ScreenProps, minBar: number): ReactElement | null {
   if (props.bare) return null;
   if (props.header !== undefined && props.header !== null) return <>{props.header}</>;
-  if (!props.onBack) {
+  if (!props.onBack && !props.largeTitle) {
     return props.title || props.actions ? (
       <BigTitle
         title={props.title}
         subtitle={props.subtitle}
         actions={props.actions}
-        body={props.largeTitle === true}
+        body={false}
       />
     ) : null;
   }
-  const back = (
+  const back = props.onBack ? (
     <IconButton icon="back" label={t('common.back')} onPress={props.onBack} testID="screen-back" />
-  );
+  ) : null;
   if (props.largeTitle) {
     return (
       <Column gap={4}>
-        <Row gap={2} align="center" justify="between" minH={minBar}>
-          {back}
+        {/* Mock `Bar({ title: '' })`: the 48 px row is there with or without the back button. */}
+        <Row gap={2} align="center" justify="between" minH={minBar} testID="screen-bar">
+          {back ?? <Box />}
           {props.actions}
         </Row>
-        {props.title ? <BigTitle title={props.title} subtitle={props.subtitle} body /> : null}
+        {props.title ? (
+          <BigTitle
+            title={props.title}
+            subtitle={props.subtitle}
+            body
+            paragraph={props.subtitleParagraph}
+          />
+        ) : null}
       </Column>
     );
   }

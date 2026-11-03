@@ -63,7 +63,7 @@ export function FindTvStep(props: FindTvStepProps): ReactElement {
         <Column gap={4}>
           {ended || !none ? (
             <Row gap={2} align="center" justify="center">
-              {ended ? null : <Spinner size="sm" color="ink2" />}
+              {ended ? null : <Spinner size="xs" color="ink2" />}
               <Txt variant="caption" color="ink2" live>
                 {t('addTv.stillLooking')}
               </Txt>

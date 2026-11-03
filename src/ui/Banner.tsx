@@ -1,6 +1,4 @@
 import type { ReactElement } from 'react';
-import Animated from 'react-native-reanimated';
-import { useTheme } from '@/theme';
 import type { ColorToken } from '@/theme';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
@@ -26,9 +24,7 @@ const LOOK: Record<NonNullable<BannerProps['tone']>, { bg: ColorToken; icon: Ico
 };
 
 export function Banner(props: BannerProps): ReactElement {
-  const theme = useTheme();
   const look = LOOK[props.tone ?? 'info'];
-  const size = theme.size.banner;
   return (
     <Box
       bg={look.bg}
@@ -44,17 +40,9 @@ export function Banner(props: BannerProps): ReactElement {
         </Box>
         <Box flex={1}>
           <Column gap={1}>
-            {/* Txt has no line-height override, and its 1.3 is too tight for the mock's 1.4. */}
-            <Animated.Text
-              style={{
-                ...theme.font.body,
-                fontSize: size,
-                lineHeight: size * LINE,
-                color: theme.color.ink,
-              }}
-            >
+            <Txt size="banner" lineHeight={LINE}>
               {props.text}
-            </Animated.Text>
+            </Txt>
             {props.action ? (
               <Touchable
                 onPress={props.action.onPress}

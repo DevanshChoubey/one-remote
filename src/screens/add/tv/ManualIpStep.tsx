@@ -62,6 +62,7 @@ export function ManualIpStep(props: ManualIpStepProps): ReactElement {
       // The where-to-find-it hint sits under the title, above the field, and stays when an error
       // shows (mock: the paragraph 8 px under the head).
       subtitle={t('addTv.manualHint')}
+      subtitleParagraph
       largeTitle
       onBack={props.onBack}
       scroll

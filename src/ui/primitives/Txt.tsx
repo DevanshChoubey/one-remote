@@ -9,6 +9,8 @@ export interface TxtProps {
     'title' | 'heading' | 'body' | 'bodyBold' | 'caption' | 'captionBold' | 'display' | 'label';
   /** Overrides the variant's font size with a token (line height follows). */
   size?: keyof Tokens['size'];
+  /** Overrides the line height, as a multiple of the font size (the mock's `line-height: 1.4`). */
+  lineHeight?: number;
   /** Overrides the variant's weight: regular 400, semibold 600, bold 700. */
   weight?: 'regular' | 'semibold' | 'bold';
   align?: 'left' | 'center' | 'right';
@@ -65,7 +67,11 @@ export function Txt(props: TxtProps): ReactElement {
   const style: TextStyle = {
     ...(props.weight ? weightFont[props.weight] : fontByVariant[variant]),
     fontSize,
-    lineHeight: props.size ? Math.round(fontSize * 1.3) : lineByVariant[variant],
+    lineHeight: props.lineHeight
+      ? fontSize * props.lineHeight
+      : props.size
+        ? Math.round(fontSize * 1.3)
+        : lineByVariant[variant],
     ...(props.align ? { textAlign: props.align } : null),
     ...(props.underline ? { textDecorationLine: 'underline' as const } : null),
     color: theme.color[props.color ?? 'ink'],

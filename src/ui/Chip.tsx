@@ -83,6 +83,10 @@ export function Chip(props: ChipProps): ReactElement {
             ...theme.font.heading,
             fontSize: theme.size.label,
             lineHeight: theme.lineHeight.label,
+            // A glyph from a fallback font ("＋ New room") brings taller metrics and pushes the
+            // line down on Android; drop the font padding and centre the line in its box.
+            includeFontPadding: false,
+            textAlignVertical: 'center',
           },
           labelColour,
         ]}

@@ -84,6 +84,8 @@ export interface Tokens {
     sheet: number;
     tile: number;
     art: number;
+    /** The fan skeleton's hero tile (mock `skelFan`, 36). */
+    hero: number;
   };
   shadow: {
     card: ShadowStyle;
@@ -147,7 +149,7 @@ const base = {
   lineHeight: { title: 35, heading: 25, body: 22, label: 20, caption: 18, display: 76 },
   tracking: { title: -0.45, display: -2.28 },
   space: (n: number): number => n * 4,
-  radius: { sm: 10, md: 18, lg: 26, pill: 999, sheet: 28, tile: 14, art: 32 },
+  radius: { sm: 10, md: 18, lg: 26, pill: 999, sheet: 28, tile: 14, art: 32, hero: 36 },
   touch: { min: 48, key: 56 },
   motion: {
     duration: { instant: 90, fast: 160, base: 260, slow: 380, ambient: 1500, spinner: 900 },
