@@ -1,3 +1,4 @@
+import { StyleSheet } from 'react-native';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { Capabilities, FanState } from '@/core';
 import { t } from '@/i18n';
@@ -6,7 +7,7 @@ import { fanView } from '@/screens/appliance/fanModel';
 import type { DeviceView } from '@/services';
 import { createIrDriver } from '@/ir/driver';
 import { createFakeEmitter } from '@/ir/testing/fakeEmitter';
-import { renderWith } from '../helpers';
+import { makeServices, renderWith } from '../helpers';
 import { fanDevice, heldDriver, servicesWith, silentDriver } from './applianceHelpers';
 
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: jest.fn() }) }));
@@ -127,6 +128,69 @@ describe('FanScreen', () => {
     expect(await screen.findByText('Needs a phone with IR')).toBeTruthy();
     const bar = screen.getByLabelText(t('fan.speed', { n: 3 }));
     expect(bar.props.accessibilityState.disabled).toBe(true);
+  });
+});
+
+const rotation = (): string | undefined => {
+  const style = StyleSheet.flatten(screen.getByTestId('spinning-icon').props.style) as {
+    transform?: { rotate?: string }[];
+  };
+  return style.transform?.find((x) => x.rotate !== undefined)?.rotate;
+};
+
+describe('FanScreen design', () => {
+  it('keeps the fan icon still under reduced motion', async () => {
+    const { driver } = silentDriver('ir', { capabilities: {} });
+    const s = await servicesWith([driver], [fanDevice()]);
+    await s.hub.send('d1', { kind: 'fan.set', state: on });
+    await renderWith(s, <FanScreen deviceId="d1" />, { reducedMotion: true, scheme: 'dark' });
+    await screen.findByTestId('spinning-icon');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(rotation()).toBe('0deg');
+  });
+
+  it('shows the speed labels and the lit bars for the current speed', async () => {
+    await setup({}, on);
+    for (const n of [1, 2, 3, 4, 5]) {
+      expect(await screen.findByLabelText(t('fan.speed', { n }))).toBeTruthy();
+    }
+    expect(screen.getByLabelText(t('fan.speed', { n: 2 })).props.accessibilityState.selected).toBe(
+      true,
+    );
+  });
+
+  it('shows a skeleton while loading and a quiet message once gone', async () => {
+    const { driver } = silentDriver('ir', { capabilities: {} });
+    const loading = makeServices([driver]);
+    loading.store.devices = () => new Promise(() => undefined);
+    loading.store.rooms = () => new Promise(() => undefined);
+    await renderWith(loading, <FanScreen deviceId="d1" />);
+    expect(await screen.findByTestId('fan-skeleton')).toBeTruthy();
+    expect(screen.queryByText(t('fan.notFound'))).toBeNull();
+  });
+
+  it('says the fan is gone once the store has loaded without it', async () => {
+    const { driver } = silentDriver('ir', { capabilities: {} });
+    const s = await servicesWith([driver], []);
+    await renderWith(s, <FanScreen deviceId="d1" />);
+    expect(await screen.findByText(t('fan.notFound'))).toBeTruthy();
+  });
+
+  it('shows a failed send in a toast', async () => {
+    const { driver, fake } = silentDriver('ir', { capabilities: {} });
+    const s = await servicesWith([driver], [fanDevice()]);
+    await s.hub.send('d1', { kind: 'fan.set', state: on });
+    await renderWith(s, <FanScreen deviceId="d1" />);
+    fake.failNext('notSent');
+    await fireEvent.press(await screen.findByLabelText(t('fan.speed', { n: 4 })));
+    expect(await screen.findByTestId('toast')).toBeTruthy();
+    expect(screen.getByLabelText(t('common.retry'))).toBeTruthy();
+  });
+
+  it('has no dot glyph in the status line', async () => {
+    await setup({}, on);
+    await screen.findByLabelText(t('fan.speed', { n: 1 }));
+    expect(screen.queryByText(/●/)).toBeNull();
   });
 });
 

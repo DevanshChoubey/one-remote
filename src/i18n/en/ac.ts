@@ -5,6 +5,7 @@ export default {
   setpoint: '{temp} degrees, {mode}',
   subtitleTemp: '{room} · {temp}° in the room',
   subtitleTempOnly: '{temp}° in the room',
+  modeTitle: 'Mode',
   'mode.cool': 'Cool',
   'mode.dry': 'Dry',
   'mode.fan': 'Fan',
@@ -26,5 +27,6 @@ export default {
   'error.timeout': "The AC didn't answer. Try again",
   'error.partial': 'Only part of that went out. Try again',
   'error.needsIr': 'Needs a phone with IR',
+  off: 'Off',
   offHint: 'Tap power to turn on',
 } as const;
