@@ -1,13 +1,25 @@
+import ac from './en/ac';
+import addAppliance from './en/addAppliance';
 import add from './en/add';
 import addTv from './en/addTv';
 import common from './en/common';
 import device from './en/device';
+import fan from './en/fan';
 import home from './en/home';
+import ir from './en/ir';
+import irBackup from './en/irBackup';
+import matter from './en/matter';
 import settings from './en/settings';
 import tv from './en/tv';
 
 const namespaces: Record<string, Record<string, string>> = {
   common,
+  ac,
+  fan,
+  addAppliance,
+  irBackup,
+  ir,
+  matter,
   home,
   add,
   addTv,

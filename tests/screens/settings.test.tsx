@@ -126,7 +126,10 @@ describe('SettingsScreen', () => {
   it('lists the licences, with the LGPL notice', async () => {
     await renderWith(makeServices(), <SettingsScreen />);
     await fireEvent.press(await screen.findByLabelText(t('settings.about')));
-    expect(screen.getByText(t('settings.licenseLgpl'))).toBeTruthy();
+    expect(screen.getByText('IR encoders: IRremoteESP8266, LGPL-2.1')).toBeTruthy();
+    expect(screen.getByText('Fan IR codes: MIT licence')).toBeTruthy();
+    expect(screen.getByText(/devanshc13@gmail\.com/)).toBeTruthy();
+    expect(JSON.stringify(screen.toJSON())).not.toMatch(/SmartIR/i);
     expect(screen.getByText(t('settings.licenseOss'))).toBeTruthy();
   });
 });

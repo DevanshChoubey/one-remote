@@ -1,7 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isTvLink, tvLinkOf, tvLinkRef } from '@/core';
-import type { Device, LinkDriver, TvLink, TvSetup } from '@/core';
+import type { Device, FanState, LinkDriver, TvLink, TvSetup } from '@/core';
 import { DeviceHub } from '@/device/hub';
+import { createIrDriver } from '@/ir/driver';
+import type { IrEmitter } from '@/ir/emitter';
+import { createIrSetup } from '@/ir/setup';
+import { createNativeMatterController } from '@/matter/native/controller';
+import { createMatterSetup } from '@/matter/native/setup';
+import { createMatterDriver } from '@/matter/driver';
+import type { MatterController } from '@/matter/controller';
+import { createNativeIrEmitter } from '@/transport/irEmitter';
 import { createAsyncStorageStore } from '@/store/asyncStorageStore';
 import { createAsyncStoragePreferenceStore } from '@/store/preferences';
 import { createSecureSecretStore } from '@/store/secrets';
@@ -83,6 +91,16 @@ interface LaneContext {
   store: Services['store'];
   secrets: Services['secrets'];
   tvTransport: TvTransport;
+  irEmitter: IrEmitter;
+  matterController: MatterController;
+}
+
+/** The IR driver's `seedFan`, when `d` has one (tests may pass plain fakes). */
+function seedOf(d: LinkDriver): ((id: string, s: FanState) => void) | undefined {
+  const seed = (d as { seedFan?: unknown }).seedFan;
+  return typeof seed === 'function'
+    ? (seed.bind(d) as (id: string, s: FanState) => void)
+    : undefined;
 }
 
 /** The real drivers, one per line, each just under its lane's slot comment. */
@@ -107,7 +125,9 @@ function laneDrivers(ctx: LaneContext): LinkDriver[] {
       onHostChanged: tvHostChanged(ctx.store),
     }),
     // ir lane
+    createIrDriver({ emitter: ctx.irEmitter }),
     // matter lane
+    createMatterDriver({ controller: ctx.matterController, enabled: true }),
   ];
 }
 
@@ -188,10 +208,13 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
   const tvBase = deps.tvTransport ?? createRnTvTransport();
   const tvTransport = tvTap ? tvTap.wrap(tvBase) : tvBase;
   // ir lane
+  const irEmitter = createNativeIrEmitter();
   // matter lane
+  const matterController = createNativeMatterController();
   const store = deps.store ?? createAsyncStorageStore(AsyncStorage);
   const secrets = deps.secrets ?? createSecureSecretStore();
-  const drivers = deps.drivers ?? laneDrivers({ store, secrets, tvTransport });
+  const drivers =
+    deps.drivers ?? laneDrivers({ store, secrets, tvTransport, irEmitter, matterController });
   const hub = deps.hub ?? new DeviceHub({ drivers });
   const prefs = deps.prefs ?? createAsyncStoragePreferenceStore(AsyncStorage);
   syncHub(hub, store);
@@ -232,6 +255,15 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
     // voice
     voice: deps.voice ?? { mic: createNativeMic(), dictation: createNativeDictation() },
     // ir lane
+    ir:
+      deps.ir ??
+      createIrSetup({
+        emitter: irEmitter,
+        seedFan: (id, state) => {
+          for (const d of drivers) if (d.kind === 'ir' && 'seedFan' in d) seedOf(d)?.(id, state);
+        },
+      }),
     // matter lane
+    matter: deps.matter ?? createMatterSetup(matterController),
   };
 }

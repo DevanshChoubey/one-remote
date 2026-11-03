@@ -77,4 +77,41 @@ describe('asyncStorage preference store', () => {
     expect(await t.get()).toEqual({ ...defaultPreferences, tvPad: { b: 'dpad' } });
     warn.mockRestore();
   });
+
+  it('keeps valid last-sent states, drops bad ones, and defaults when absent', async () => {
+    const good = {
+      kind: 'ac',
+      state: { power: true, mode: 'cool', setpoint: 24, fan: 'auto', swing: false, sleep: false },
+    };
+    const s = createAsyncStoragePreferenceStore(
+      memStorage({
+        'one-remote/prefs/v1': JSON.stringify({ lastSent: { a: good, b: { kind: 'tv' }, c: 5 } }),
+      }),
+    );
+    expect((await s.get()).lastSent).toEqual({ a: good });
+    const old = createAsyncStoragePreferenceStore(
+      memStorage({ 'one-remote/prefs/v1': JSON.stringify({ theme: 'dark' }) }),
+    );
+    expect((await old.get()).lastSent).toEqual({});
+  });
+
+  it('treats a last-sent entry missing a needed field as absent', async () => {
+    const ac = { power: true, mode: 'cool', setpoint: 24, fan: 'auto', swing: false, sleep: false };
+    const fan = { power: true, speed: 3, boost: false, sleep: false, timerHours: 0 };
+    const s = createAsyncStoragePreferenceStore(
+      memStorage({
+        'one-remote/prefs/v1': JSON.stringify({
+          lastSent: {
+            okAc: { kind: 'ac', state: ac },
+            okFan: { kind: 'fan', state: fan },
+            noSetpoint: { kind: 'ac', state: { ...ac, setpoint: undefined } },
+            badMode: { kind: 'ac', state: { ...ac, mode: 'heat' } },
+            noSpeed: { kind: 'fan', state: { power: true } },
+            badTimer: { kind: 'fan', state: { ...fan, timerHours: 3 } },
+          },
+        }),
+      }),
+    );
+    expect(Object.keys((await s.get()).lastSent).sort()).toEqual(['okAc', 'okFan']);
+  });
 });

@@ -1,5 +1,12 @@
 export type DeviceErrorCode =
-  'notSent' | 'timeout' | 'notPaired' | 'noIrEmitter' | 'noLink' | 'notLocal' | 'unsupported';
+  | 'notSent'
+  | 'timeout'
+  | 'notPaired'
+  | 'noIrEmitter'
+  | 'noLink'
+  | 'notLocal'
+  | 'unsupported'
+  | 'partiallySent';
 
 /** A finer reason behind a code, for the cases a screen words differently. */
 export type DeviceErrorDetail = 'noTextField';

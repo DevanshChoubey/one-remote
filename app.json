@@ -43,6 +43,14 @@
         }
       ],
       "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Scan the Matter code on your AC",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
       "./plugins/withVolumeKeys.js",
       "./plugins/withLanCleartext.js",
       [
