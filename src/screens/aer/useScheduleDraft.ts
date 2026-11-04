@@ -30,6 +30,18 @@ const sameSchedule = (a: AerSchedule, b: AerSchedule): boolean =>
   a.interval === b.interval &&
   sortDays(a.days).join() === sortDays(b.days).join();
 
+/** Same length and every expected entry present once each, in any order. */
+function sameList(expected: AerSchedule[], actual: AerSchedule[]): boolean {
+  if (expected.length !== actual.length) return false;
+  const left = [...actual];
+  for (const want of expected) {
+    const at = left.findIndex((s) => sameSchedule(s, want));
+    if (at < 0) return false;
+    left.splice(at, 1);
+  }
+  return true;
+}
+
 export interface ScheduleDraft {
   /** Editing an index that is not on the dispenser's list. */
   stale: boolean;
@@ -45,8 +57,6 @@ export interface ScheduleDraft {
   saving: boolean;
   /** An aer.* copy key for the last failure. */
   errorKey: string | null;
-  /** Set after a save when the dispenser rounded the end time to something else. */
-  roundedEnd: TimeOfDay | null;
   /** The end time the dispenser kept after the last save (null if it kept what was asked). */
   lastRoundedEnd(): TimeOfDay | null;
   setStart(time: TimeOfDay): void;
@@ -69,7 +79,6 @@ export function useScheduleDraft(deviceId: string, index: number | undefined): S
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
-  const [roundedEnd, setRoundedEnd] = useState<TimeOfDay | null>(null);
   const alive = useRef(true);
   const inflight = useRef(false);
   const rounded = useRef<TimeOfDay | null>(null);
@@ -98,7 +107,7 @@ export function useScheduleDraft(deviceId: string, index: number | undefined): S
   const ready = !unknown && !stale;
 
   const edit = (change: Partial<AerSchedule>): void => {
-    setRoundedEnd(null);
+    rounded.current = null;
     setEdited({ ...draft, ...change });
   };
 
@@ -112,7 +121,7 @@ export function useScheduleDraft(deviceId: string, index: number | undefined): S
    */
   const write = async (
     build: (current: AerSchedule[], at: number) => AerSchedule[],
-  ): Promise<AerSchedule[] | null> => {
+  ): Promise<{ sent: AerSchedule[]; readBack: AerSchedule[] } | null> => {
     setSaving(true);
     setErrorKey(null);
     try {
@@ -122,7 +131,8 @@ export function useScheduleDraft(deviceId: string, index: number | undefined): S
         failWith(PROBLEM_COPY.failed.line);
         return null;
       }
-      return await aer.saveSchedules(deviceId, build(fresh, at));
+      const sent = build(fresh, at);
+      return { sent, readBack: await aer.saveSchedules(deviceId, sent) };
     } catch (e) {
       failWith(PROBLEM_COPY[aerProblem(e)].line);
       return null;
@@ -137,10 +147,6 @@ export function useScheduleDraft(deviceId: string, index: number | undefined): S
     rounded.current = null;
     try {
       const entry: AerSchedule = { ...draft, days: sortDays(draft.days) };
-      const readBack = await write((current, at) =>
-        at < 0 ? [...current, entry] : current.map((s, i) => (i === at ? entry : s)),
-      );
-      if (!readBack) return 'failed';
       // The dispenser stores a repeat count, not an end, so it reads back start + count x interval.
       const repeats = Math.max(0, sprayCount(entry) - 1);
       const minutes = entry.start.h * 60 + entry.start.m + repeats * entry.interval;
@@ -148,18 +154,24 @@ export function useScheduleDraft(deviceId: string, index: number | undefined): S
         ...entry,
         end: { h: Math.floor(minutes / 60), m: minutes % 60 },
       };
-      const stored = readBack.find((s) => sameSchedule(s, normalized));
-      if (!stored) {
+      let pos = -1;
+      const written = await write((current, at) => {
+        pos = at < 0 ? current.length : at;
+        return at < 0 ? [...current, entry] : current.map((s, i) => (i === at ? entry : s));
+      });
+      if (!written) return 'failed';
+      // The whole list must read back as sent (the edited end normalized), in any order.
+      const expected = written.sent.map((s, i) => (i === pos ? normalized : s));
+      if (!sameList(expected, written.readBack)) {
         failWith('aer.notKept');
         return 'failed';
       }
       const changed = !sameTime(normalized.end, entry.end);
-      rounded.current = changed ? stored.end : null;
+      rounded.current = changed ? normalized.end : null;
       if (alive.current) {
         // From now on this stored entry is the one being edited, so a second save replaces it.
-        setOriginal(stored);
+        setOriginal(normalized);
         setEdited(null);
-        setRoundedEnd(changed ? stored.end : null);
       }
       return changed ? 'rounded' : 'done';
     } finally {
@@ -171,8 +183,13 @@ export function useScheduleDraft(deviceId: string, index: number | undefined): S
     if (!ready || !original || inflight.current) return false;
     inflight.current = true;
     try {
-      const readBack = await write((current, at) => current.filter((_, i) => i !== at));
-      return readBack !== null;
+      const written = await write((current, at) => current.filter((_, i) => i !== at));
+      if (!written) return false;
+      if (!sameList(written.sent, written.readBack)) {
+        failWith('aer.notKept');
+        return false;
+      }
+      return true;
     } finally {
       inflight.current = false;
     }
@@ -201,7 +218,6 @@ export function useScheduleDraft(deviceId: string, index: number | undefined): S
     canSave: ready && problems.length === 0 && !saving,
     saving,
     errorKey,
-    roundedEnd,
     lastRoundedEnd: () => rounded.current,
     setStart: (start) => edit({ start }),
     setEnd: (end) => edit({ end }),

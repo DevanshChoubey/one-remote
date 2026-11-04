@@ -37,6 +37,8 @@ export function ScheduleEditor(props: ScheduleEditorProps): ReactElement {
   const d = useScheduleDraft(deviceId, valid ? index : undefined);
   const [failed, setFailed] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteFailed, setDeleteFailed] = useState(false);
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -61,7 +63,7 @@ export function ScheduleEditor(props: ScheduleEditorProps): ReactElement {
   if (!valid || d.stale) {
     return (
       <Screen title={title} onBack={back}>
-        <ErrorLine text={t('aer.notKept')} />
+        <ErrorLine text={t('aer.probFailed')} />
       </Screen>
     );
   }
@@ -113,11 +115,13 @@ export function ScheduleEditor(props: ScheduleEditorProps): ReactElement {
   };
 
   const onDelete = async (): Promise<void> => {
+    setDeleteFailed(false);
+    setDeleting(true);
     const done = await d.remove();
     if (!alive.current) return;
+    setDeleting(false);
     if (!done) {
-      setConfirming(false);
-      setFailed(true);
+      setDeleteFailed(true);
       return;
     }
     toast.show(t('aer.deleted'), { kind: 'ok' });
@@ -125,7 +129,7 @@ export function ScheduleEditor(props: ScheduleEditorProps): ReactElement {
   };
 
   // Two plain steps while the save runs; after a failed read-back the second one fails.
-  const stepsShown = d.saving || failed;
+  const stepsShown = (d.saving && !deleting) || failed;
   const kept = d.errorKey === 'aer.notKept';
   const steps = [
     { label: t('aer.stepSaving'), state: d.saving || kept ? ('done' as const) : ('fail' as const) },
@@ -217,16 +221,26 @@ export function ScheduleEditor(props: ScheduleEditorProps): ReactElement {
         </Box>
       )}
 
-      {!d.isNew && !d.saving ? (
+      {!d.isNew && (!d.saving || deleting) ? (
         confirming ? (
           <Column gap={3}>
             <Txt variant="heading">{t('aer.deleteTitle')}</Txt>
             <Txt color="ink2">{t('aer.deleteBody')}</Txt>
-            <Button variant="danger" label={t('aer.yesDelete')} onPress={() => void onDelete()} />
+            {deleteFailed && d.errorKey ? <ErrorLine text={t(d.errorKey)} /> : null}
+            <Button
+              variant="danger"
+              label={deleteFailed ? t('aer.tryAgain') : t('aer.yesDelete')}
+              onPress={() => void onDelete()}
+              loading={deleting}
+            />
             <Button
               variant="secondary"
               label={t('aer.cancel')}
-              onPress={() => setConfirming(false)}
+              disabled={deleting}
+              onPress={() => {
+                setConfirming(false);
+                setDeleteFailed(false);
+              }}
             />
           </Column>
         ) : (

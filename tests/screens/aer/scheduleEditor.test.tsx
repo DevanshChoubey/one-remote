@@ -195,6 +195,59 @@ describe('ScheduleEditor', () => {
     expect(aer.calls.find((c) => c.op === 'saveSchedules')?.arg).toEqual([keep]);
   });
 
+  it('a delete the dispenser did not keep says so and shows no Deleted', async () => {
+    const keep = sch([6, 0], [7, 0], 20);
+    const target = sch([18, 0], [22, 0]);
+    const { aer, services, ui } = setup([keep, target], 1);
+    await renderWith(services, ui);
+    // The dispenser still holds both entries after the save.
+    aer.saveSchedules = async () => [keep, target];
+    await fireEvent.press(screen.getByLabelText(t('aer.deleteSchedule')));
+    await fireEvent.press(screen.getByLabelText(t('aer.yesDelete')));
+    expect(await screen.findByText(t('aer.notKept'))).toBeTruthy();
+    expect(screen.queryByText(t('aer.deleted'))).toBeNull();
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('a failed delete shows its error in the confirm and Try again deletes', async () => {
+    const keep = sch([6, 0], [7, 0], 20);
+    const { aer, services, ui } = setup([keep, sch([18, 0], [22, 0])], 1);
+    await renderWith(services, ui);
+    aer.failNext('saveSchedules', new AerError('unreachable'));
+    await fireEvent.press(screen.getByLabelText(t('aer.deleteSchedule')));
+    await fireEvent.press(screen.getByLabelText(t('aer.yesDelete')));
+    expect(await screen.findByText(t('aer.probAway'))).toBeTruthy();
+    expect(screen.getByText(t('aer.deleteTitle'))).toBeTruthy();
+    expect(screen.queryByTestId('step-list')).toBeNull();
+    expect(screen.queryByLabelText(t('aer.saveSchedule'))).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText(t('aer.tryAgain')));
+    expect(await screen.findByText(t('aer.deleted'))).toBeTruthy();
+    expect(aer.calls.filter((c) => c.op === 'saveSchedules').at(-1)?.arg).toEqual([keep]);
+  });
+
+  it('a save whose read-back drops another entry fails', async () => {
+    const other = sch([6, 0], [7, 0], 20);
+    const { aer, services, ui } = setup([other, sch([18, 0], [22, 0])], 1);
+    await renderWith(services, ui);
+    aer.saveSchedules = async (_id, list) => list.slice(1);
+    await fireEvent.press(screen.getByLabelText('20 min'));
+    await fireEvent.press(saveButton());
+    expect(await screen.findByText(t('aer.notKept'))).toBeTruthy();
+    expect(screen.queryByText(t('aer.saved'))).toBeNull();
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('an identical entry already in the list cannot satisfy the check twice', async () => {
+    const twin = sch([18, 0], [22, 0]);
+    const { aer, services, ui } = setup([twin, twin], 0);
+    await renderWith(services, ui);
+    await fireEvent.press(screen.getByLabelText('20 min'));
+    // The dispenser keeps two copies of the old entry instead of the edit.
+    aer.saveSchedules = async () => [twin, twin];
+    await fireEvent.press(saveButton());
+    expect(await screen.findByText(t('aer.notKept'))).toBeTruthy();
+  });
+
   it('10 already shows the banner before anything is typed', async () => {
     const full = Array.from({ length: 10 }, (_, i) => sch([i, 0], [i + 1, 0], 20));
     const { services, ui } = setup(full);
