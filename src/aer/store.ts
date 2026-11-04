@@ -26,6 +26,38 @@ export interface AerStore extends DispenserStore {
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
+const INTERVALS: readonly unknown[] = [10, 20, 40];
+
+const isTime = (v: unknown): boolean =>
+  isRecord(v) && typeof v.h === 'number' && typeof v.m === 'number';
+
+const isSchedule = (v: unknown): boolean =>
+  isRecord(v) &&
+  isTime(v.start) &&
+  isTime(v.end) &&
+  Array.isArray(v.days) &&
+  v.days.every((d) => typeof d === 'string') &&
+  INTERVALS.includes(v.interval);
+
+const isStatus = (v: unknown): boolean =>
+  isRecord(v) &&
+  typeof v.at === 'string' &&
+  typeof v.batteryMv === 'number' &&
+  typeof v.firmware === 'string' &&
+  (v.autoSpray === null || INTERVALS.includes(v.autoSpray)) &&
+  typeof v.scheduleRunning === 'boolean' &&
+  typeof v.spraysSinceRefill === 'number';
+
+const isSchedules = (v: unknown): boolean =>
+  isRecord(v) && typeof v.at === 'string' && Array.isArray(v.list) && v.list.every(isSchedule);
+
+/** A cached entry the screens can render; anything else (tampering, an old format) is dropped. */
+const isEntry = (e: unknown): e is CacheEntry =>
+  isRecord(e) &&
+  (e.clockSet === undefined || typeof e.clockSet === 'boolean') &&
+  (e.status === undefined || isStatus(e.status)) &&
+  (e.schedules === undefined || isSchedules(e.schedules));
+
 const aerLink = (d: Device): AerLink | undefined =>
   d.links.find((l): l is AerLink => l.kind === 'aer');
 
@@ -82,7 +114,7 @@ export function createAerStore(deps: { home: HomeStore; storage: AsyncStorageLik
       return {};
     }
     const out: Record<string, CacheEntry> = {};
-    for (const [id, e] of Object.entries(parsed)) if (isRecord(e)) out[id] = e as CacheEntry;
+    for (const [id, e] of Object.entries(parsed)) if (isEntry(e)) out[id] = e;
     return out;
   };
 

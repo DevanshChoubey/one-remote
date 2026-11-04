@@ -149,6 +149,37 @@ describe('aer store', () => {
     expect(await home.devices()).toHaveLength(1);
   });
 
+  it('drops cache entries whose status or schedules are not the expected shape', async () => {
+    const home = createMemoryStore();
+    const storage = memStorage();
+    const goodSchedules = {
+      list: [{ start: { h: 8, m: 0 }, end: { h: 9, m: 0 }, days: ['mon'], interval: 20 }],
+      at: status.at,
+    };
+    storage.data.set(
+      AER_CACHE_KEY,
+      JSON.stringify({
+        good: { clockSet: true, status, schedules: goodSchedules },
+        noList: { status, schedules: { at: status.at } },
+        badItem: { schedules: { list: [{ start: 8 }], at: status.at } },
+        badStatus: { status: { ...status, batteryMv: 'full' } },
+        statusArray: { status: [] },
+        badClock: { clockSet: 'yes' },
+      }),
+    );
+    const store = createAerStore({ home, storage });
+    await store.load();
+    expect(store.view('good')).toEqual({
+      deviceId: 'good',
+      clockSet: true,
+      status,
+      schedules: goodSchedules,
+    });
+    for (const id of ['noList', 'badItem', 'badStatus', 'statusArray', 'badClock']) {
+      expect(store.view(id)).toEqual({ deviceId: id });
+    }
+  });
+
   it('corrupt cache reads as empty', async () => {
     const home = createMemoryStore();
     await home.upsertRoom({ id: 'r1', name: 'Living', order: 0 });
