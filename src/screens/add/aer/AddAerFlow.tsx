@@ -8,13 +8,14 @@ import { newId } from '../../shared/newId';
 import { NameRoomStep } from '../NameRoomStep';
 import { planNewDevice } from '../newDevice';
 import type { NamePick } from '../newDevice';
+import { openBluetoothSettings } from '../../aer/openSettings';
 import { BlinkStep } from './BlinkStep';
 import type { BlinkTarget } from './BlinkStep';
 import { ScanStep } from './ScanStep';
 import { ZoneStep } from './ZoneStep';
 
 export interface AddAerFlowProps {
-  /** Opens the phone's Bluetooth (or this app's) settings; W.1 wires the real one. */
+  /** Opens the phone's Bluetooth (or this app's) settings (tests replace it). */
   openBluetoothSettings?: () => void;
 }
 
@@ -25,6 +26,10 @@ type Step =
   | { name: 'zone'; target: BlinkTarget; pick: NamePick };
 
 const NOTHING = (): void => {};
+
+function openBluetooth(): void {
+  openBluetoothSettings().catch((e: unknown) => console.error('Could not open the settings', e));
+}
 
 /** Add an air freshener: find it nearby, blink it, then (E.3) name it and set its time zone. */
 export function AddAerFlow(props: AddAerFlowProps): ReactElement {
@@ -60,7 +65,7 @@ export function AddAerFlow(props: AddAerFlowProps): ReactElement {
       return (
         <ScanStep
           onBack={() => router.back()}
-          openBluetoothSettings={props.openBluetoothSettings ?? NOTHING}
+          openBluetoothSettings={props.openBluetoothSettings ?? openBluetooth}
           onPick={(found) =>
             setStep({
               name: 'blink',

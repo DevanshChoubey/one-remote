@@ -36,6 +36,7 @@ const DEV_SPIKE_FILES = [
   // ir lane
   // matter lane
   // aer lane
+  'app/dev/aer-spike.tsx',
 ];
 
 const SERVICE_MODULES = [

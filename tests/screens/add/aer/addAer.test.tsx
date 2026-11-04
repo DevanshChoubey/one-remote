@@ -18,6 +18,12 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
+const mockOpenBluetooth = jest.fn(async () => undefined);
+jest.mock('@/screens/aer/openSettings', () => ({
+  openBluetoothSettings: () => mockOpenBluetooth(),
+  openNotificationSettings: jest.fn(async () => undefined),
+}));
+
 beforeEach(() => mockBack.mockClear());
 // Lets the fake's last emissions land inside act before a test ends.
 afterEach(async () => {
@@ -92,6 +98,15 @@ describe('looking nearby', () => {
     await fireEvent.press(screen.getByText(t('aer.tryAgain')));
     expect(await screen.findByTestId('aer-found-B')).toBeTruthy();
     expect(scans(aer)).toHaveLength(2);
+  });
+
+  it('Open Settings with no prop opens the Bluetooth settings', async () => {
+    mockOpenBluetooth.mockClear();
+    const aer = createFakeAerService({ found: FOUND });
+    aer.failNext('scan', new AerError('bluetoothOff'));
+    await renderWith(makeServices([], { aer }), <AddAerFlow />);
+    await fireEvent.press(await screen.findByText(t('aer.openSettings')));
+    expect(mockOpenBluetooth).toHaveBeenCalledTimes(1);
   });
 
   it('says Nearby devices is refused', async () => {

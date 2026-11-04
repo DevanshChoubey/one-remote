@@ -22,12 +22,14 @@ import {
   Tile,
   Toggle,
   Txt,
+  useToast,
 } from '@/ui';
 import { useKnownDevice } from '@/screens/device';
 import type { IconName, StatusDotProps } from '@/ui';
 import { LinkLine } from '@/ui/appliance';
 import { LevelTile, SprayDisc } from '@/ui/aer';
 import { isStale } from './cardLine';
+import { openBluetoothSettings } from './openSettings';
 import { daysLabel, formatTime, formatWhen, PROBLEM_COPY } from './format';
 import { BATTERY_LOW_PERCENT, isCached, isLive, levels, REFILL_LOW_PERCENT } from './screenState';
 import type { AerScreenState } from './screenState';
@@ -35,8 +37,12 @@ import { useAerDevice } from './useAerDevice';
 
 export interface AerScreenProps {
   deviceId: string;
-  /** Opens the phone's Bluetooth or app settings (wired by the route). */
+  /** Opens the phone's Bluetooth or app settings (tests replace it). */
   onOpenSettings?: () => void;
+}
+
+function openBluetooth(): void {
+  openBluetoothSettings().catch((e: unknown) => console.error('Could not open the settings', e));
 }
 
 const PROBLEM_OF: Partial<Record<AerScreenState, AerProblem>> = {
@@ -122,6 +128,7 @@ export function AerScreen(props: AerScreenProps): ReactElement {
   const router = useRouter();
   const { deviceId } = props;
   const dev = useAerDevice(deviceId);
+  const toast = useToast();
   const { view, state } = dev;
   const now = new Date();
   const live = isLive(state);
@@ -174,7 +181,7 @@ export function AerScreen(props: AerScreenProps): ReactElement {
                   label={t('aer.openSettings')}
                   variant="secondary"
                   size="small"
-                  onPress={props.onOpenSettings ?? noop}
+                  onPress={props.onOpenSettings ?? openBluetooth}
                 />
               ) : null}
               <Button label={t('aer.tryAgain')} size="small" onPress={() => void dev.retry()} />
@@ -206,7 +213,11 @@ export function AerScreen(props: AerScreenProps): ReactElement {
               label={t('aer.autoSpray')}
               value={auto !== null}
               disabled={!live}
-              onChange={(on) => void dev.setAuto(on ? DEFAULT_INTERVAL : null)}
+              onChange={(on) =>
+                void dev.setAuto(on ? DEFAULT_INTERVAL : null, () =>
+                  toast.show(t(on ? 'aer.autoOnToast' : 'aer.autoOffToast'), { kind: 'ok' }),
+                )
+              }
             />
             <Txt variant="caption" color="ink2">
               {auto === null ? t('aer.autoOff') : t('aer.autoEvery', { minutes: auto })}
@@ -337,5 +348,3 @@ export function AerScreen(props: AerScreenProps): ReactElement {
     </Screen>
   );
 }
-
-function noop(): void {}

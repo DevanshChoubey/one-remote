@@ -16,6 +16,11 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 jest.mock('react-native-udp', () => ({ __esModule: true, default: { createSocket: jest.fn() } }));
+const mockOpenBluetooth = jest.fn(async () => undefined);
+jest.mock('@/screens/aer/openSettings', () => ({
+  openBluetoothSettings: () => mockOpenBluetooth(),
+  openNotificationSettings: jest.fn(async () => undefined),
+}));
 
 const HOUR = 3_600_000;
 const reading = (
@@ -120,6 +125,15 @@ describe('AerScreen', () => {
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
   });
 
+  it('Open Settings with no prop opens the Bluetooth settings', async () => {
+    mockOpenBluetooth.mockClear();
+    const { aer, services, ui } = setup();
+    aer.failNext('refresh', new AerError('bluetoothOff'));
+    await renderWith(services, ui);
+    await fireEvent.press(await screen.findByRole('button', { name: t('aer.openSettings') }));
+    expect(mockOpenBluetooth).toHaveBeenCalledTimes(1);
+  });
+
   it('has no Open Settings for out of range', async () => {
     const { aer, services, ui } = setup();
     aer.failNext('refresh', new AerError('unreachable'));
@@ -203,6 +217,21 @@ describe('AerScreen', () => {
     await screen.findAllByText('Read just now');
     await fireEvent.press(screen.getByRole('switch', { name: 'Auto spray' }));
     expect(aer.calls).toContainEqual({ op: 'setAutoSpray', deviceId: 'a1', arg: null });
+  });
+
+  it('says when auto spray turned on or off, but not for a new interval', async () => {
+    const { aer, services, ui } = setup(reading({ auto: null }));
+    await renderWith(services, ui);
+    await screen.findAllByText('Read just now');
+    await fireEvent.press(screen.getByRole('switch', { name: 'Auto spray' }));
+    expect(await screen.findByText(t('aer.autoOnToast'))).toBeTruthy();
+    expect(t('aer.autoOnToast')).toBe('Auto spray on');
+    await fireEvent.press(await screen.findByRole('togglebutton', { name: '40 min' }));
+    expect(aer.calls).toContainEqual({ op: 'setAutoSpray', deviceId: 'a1', arg: 40 });
+    expect(screen.queryByText(t('aer.autoOffToast'))).toBeNull();
+    await fireEvent.press(screen.getByRole('switch', { name: 'Auto spray' }));
+    expect(await screen.findByText(t('aer.autoOffToast'))).toBeTruthy();
+    expect(t('aer.autoOffToast')).toBe('Auto spray off');
   });
 
   it('a running schedule toasts why auto spray stayed off', async () => {

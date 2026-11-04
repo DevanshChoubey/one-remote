@@ -52,6 +52,8 @@ export default {
   autoSpray: 'Auto spray',
   autoEvery: 'Every {minutes} minutes',
   autoOff: 'Off',
+  autoOnToast: 'Auto spray on',
+  autoOffToast: 'Auto spray off',
   intervalChip: '{minutes} min',
   autoNote: 'When a schedule starts, auto spray turns off until you turn it on again.',
   status: 'Status',

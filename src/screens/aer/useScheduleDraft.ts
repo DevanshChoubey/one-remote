@@ -2,12 +2,18 @@
 // steppers. Adapted: the dispenser list comes from the AerService view (not a store and client),
 // and failures are worded through PROBLEM_COPY.
 import { useEffect, useRef, useState } from 'react';
-import { aerProblem, MAX_SCHEDULES, sprayCount, useServices, validateSchedule } from '@/services';
-import type { AerInterval, AerSchedule, TimeOfDay, Weekday } from '@/services';
+import {
+  aerProblem,
+  MAX_SCHEDULES,
+  repeatCount,
+  sprayCount,
+  useServices,
+  validateSchedule,
+} from '@/services';
+import type { AerInterval, AerSchedule, ScheduleProblem, TimeOfDay, Weekday } from '@/services';
 import { PROBLEM_COPY } from './format';
 import { useAerView } from './useAerView';
 
-export type ScheduleProblem = ReturnType<typeof validateSchedule>[number];
 export type DraftProblem = ScheduleProblem | 'tooMany';
 export type SaveOutcome = 'done' | 'rounded' | 'failed';
 
@@ -148,7 +154,7 @@ export function useScheduleDraft(deviceId: string, index: number | undefined): S
     try {
       const entry: AerSchedule = { ...draft, days: sortDays(draft.days) };
       // The dispenser stores a repeat count, not an end, so it reads back start + count x interval.
-      const repeats = Math.max(0, sprayCount(entry) - 1);
+      const repeats = repeatCount(entry);
       const minutes = entry.start.h * 60 + entry.start.m + repeats * entry.interval;
       const normalized: AerSchedule = {
         ...entry,

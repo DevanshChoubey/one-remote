@@ -21,11 +21,13 @@ export type {
   Interval as AerInterval,
   Weekday,
   TimeOfDay,
+  ScheduleProblem,
 } from '@/aer/protocol';
 export { AerError, aerProblem } from '@/aer/errors';
 export {
   MAX_SCHEDULES,
   sprayCount,
+  repeatCount,
   validateSchedule,
   nextSprayToday,
   runsToday,

@@ -19,7 +19,8 @@ export interface AerDevice {
   /** The last refresh in this visit succeeded, so the reading is what the dispenser said just now. */
   read: boolean;
   spray(): Promise<void>;
-  setAuto(interval: AerInterval | null): Promise<void>;
+  /** `onDone` runs only when the dispenser took the change (and the screen is still open). */
+  setAuto(interval: AerInterval | null, onDone?: () => void): Promise<void>;
   retry(): Promise<void>;
 }
 
@@ -129,7 +130,8 @@ export function useAerDevice(deviceId: string): AerDevice {
     [aer, deviceId, run, toast],
   );
   const setAuto = useCallback(
-    (interval: AerInterval | null) => run(null, () => aer.setAutoSpray(deviceId, interval)),
+    (interval: AerInterval | null, onDone?: () => void) =>
+      run(null, () => aer.setAutoSpray(deviceId, interval), onDone),
     [aer, deviceId, run],
   );
 

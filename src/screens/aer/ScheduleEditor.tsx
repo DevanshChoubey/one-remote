@@ -9,6 +9,7 @@ import { StepList } from '@/ui/add';
 import { openTimePicker, TimeCard, TimePickerSheet } from '@/ui/aer';
 import { formatTime } from './format';
 import { useScheduleDraft, WEEKDAYS } from './useScheduleDraft';
+import type { DraftProblem } from './useScheduleDraft';
 
 export interface ScheduleEditorProps {
   deviceId: string;
@@ -83,7 +84,7 @@ export function ScheduleEditor(props: ScheduleEditorProps): ReactElement {
   }
 
   const { draft, problems } = d;
-  const has = (p: (typeof problems)[number]): boolean => problems.includes(p);
+  const has = (p: DraftProblem): boolean => problems.includes(p);
   const tooMany = has('tooMany');
   const endErr = has('endNotAfterStart');
 
