@@ -18,6 +18,7 @@ import type {
 } from '@matter/general';
 import dgram from 'react-native-udp';
 import { getOnLinkPrefixes } from './netInfo';
+import { isAllowedMulticast, isLocalAddress } from './localOnly';
 
 /**
  * The network matter.js runs on: UDP over `react-native-udp`, on the phone's Wi-Fi only. Adapted from
@@ -50,6 +51,16 @@ interface RnSocket {
   dropMembership(group: string, iface?: string): void;
   address(): { address: string; port: number };
   close(): void;
+}
+
+/**
+ * Matter peers come from mDNS, which anyone on the Wi-Fi can answer, so every packet is checked
+ * here: only IP literals that are private, link-local, ULA or loopback, or the mDNS groups. Host
+ * names and global addresses (including global IPv6) are refused with `NetworkError`, so
+ * matter.js moves on to the device's next address.
+ */
+export function isMatterDestination(host: string): boolean {
+  return isLocalAddress(host, []) || isAllowedMulticast(host);
 }
 
 /** The phone's current Wi-Fi IPv4 address and `/24` mask; undefined off Wi-Fi. */
@@ -130,6 +141,11 @@ class RnUdpSocket implements UdpSocket {
   }
 
   send(host: string, port: number, data: Uint8Array): Promise<void> {
+    if (!isMatterDestination(host)) {
+      return Promise.reject(
+        new NetworkError(`Refusing to send to ${host}: not on the local network`),
+      );
+    }
     return new Promise((resolve, reject) => {
       this.socket.send(data, 0, data.byteLength, port, host, (e) =>
         e ? reject(repackErrorAs(e, NetworkError)) : resolve(),
