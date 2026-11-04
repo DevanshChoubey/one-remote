@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { t } from '@/i18n';
@@ -82,9 +82,18 @@ const BAR_DOT: Partial<Record<AerScreenState, Pick<StatusDotProps, 'tone' | 'liv
   flat: { tone: 'err' },
 };
 
-/** "Read just now" only after a refresh this visit succeeded; otherwise when it was read. */
+/** How long a good read is "Read just now"; after that, the screen says when it was read. */
+const JUST_NOW_MS = 60_000;
+
+const readAge = (view: AerView, now: Date): number =>
+  view.status ? now.getTime() - new Date(view.status.at).getTime() : Infinity;
+
+/** "Read just now" only within a minute of a refresh this visit that succeeded; otherwise when it was read. */
 function readText(view: AerView, state: AerScreenState, read: boolean, now: Date): string {
-  if (view.status && (isCached(state) || !read || isStale(view, now))) {
+  if (
+    view.status &&
+    (isCached(state) || !read || isStale(view, now) || !(readAge(view, now) < JUST_NOW_MS))
+  ) {
     return t('aer.lastRead', { when: formatWhen(view.status.at, now) });
   }
   return view.status ? t('aer.readNow') : t('aer.notRead');
@@ -132,12 +141,26 @@ function linkOf(state: AerScreenState): { text: string; icon: IconName; fell: bo
   }
 }
 
+/** Draws the screen again when "Read just now" runs out, so the subtitle says when it was read. */
+function useJustNowExpiry(view: AerView): void {
+  const [, setExpired] = useState<string | null>(null);
+  const at = view.status?.at;
+  useEffect(() => {
+    if (at === undefined) return undefined;
+    const left = new Date(at).getTime() + JUST_NOW_MS - Date.now();
+    if (!(left >= 0)) return undefined;
+    const timer = setTimeout(() => setExpired(at), left + 1);
+    return () => clearTimeout(timer);
+  }, [at]);
+}
+
 export function AerScreen(props: AerScreenProps): ReactElement {
   const router = useRouter();
   const { deviceId } = props;
   const dev = useAerDevice(deviceId);
   const toast = useToast();
   const { view, state } = dev;
+  useJustNowExpiry(view);
   const now = new Date();
   const live = isLive(state);
   const cached = isCached(state);

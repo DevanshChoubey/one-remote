@@ -185,6 +185,30 @@ describe('AerScreen', () => {
     expect(screen.queryByRole('button', { name: t('aer.openSettings') })).toBeNull();
   });
 
+  // "Read just now" only within the first minute of the reading; after that, when it was read.
+  it('a reading older than a minute says when it was read, even after a good refresh', async () => {
+    const { services, ui } = setup(reading({ ageMs: 5 * 60_000 }));
+    await renderWith(services, ui);
+    expect(await screen.findByText('Firmware 2.1.4 · Last read 5 min ago')).toBeTruthy();
+    expect(screen.queryByText('Read just now')).toBeNull();
+  });
+
+  it('"Read just now" turns into the time once a minute has passed on the open screen', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    try {
+      const { services, ui } = setup();
+      await renderWith(services, ui);
+      expect(await screen.findByText('Firmware 2.1.4 · Read just now')).toBeTruthy();
+      await act(async () => {
+        jest.advanceTimersByTime(61_000);
+      });
+      expect(screen.getByText('Firmware 2.1.4 · Last read 1 min ago')).toBeTruthy();
+      expect(screen.queryByText('Read just now')).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('labels a reading with its time when the refresh failed', async () => {
     const { aer, services, ui } = setup(reading({ ageMs: 30 * 60_000 }));
     aer.failNext('refresh', new AerError('rejected'));
