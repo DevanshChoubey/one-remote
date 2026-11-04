@@ -53,7 +53,13 @@ interface DeviceState {
   storeTail: Promise<unknown>;
   timer: ReturnType<typeof setTimeout> | null;
   /** What a session opened for an unsaved device learned; add() saves it, nothing else does. */
-  unsaved?: { channels: SavedDispenser['channels']; clockSet: boolean; status: DeviceStatus };
+  unsaved?: {
+    channels: SavedDispenser['channels'];
+    clockSet: boolean;
+    status: DeviceStatus;
+    /** The zone its clock was set in. */
+    homeTimeZone: string;
+  };
 }
 
 export class DispenserClient {
@@ -104,7 +110,13 @@ export class DispenserClient {
   ): Promise<SavedDispenser> {
     await this.run(id, async () => {
       const existing = await this.store.get(id);
-      const base = { ...existing, id, bleId, name, homeTimeZone };
+      const base: SavedDispenser = { ...existing, id, bleId, name, homeTimeZone };
+      const blinked = this.state(id).unsaved;
+      if (blinked && blinked.homeTimeZone !== homeTimeZone) {
+        // The blink set the clock in another zone; reconnect so it is set in the home zone.
+        await this.closeSession(id);
+        base.channels ??= blinked.channels;
+      }
       await this.session(id, base);
       const st = this.state(id);
       if (st.unsaved) {
@@ -356,7 +368,12 @@ export class DispenserClient {
       if (st.session === session) st.session = null;
     });
     if (unsaved) {
-      st.unsaved = { channels: opened.channels, clockSet: opened.clockSet, status: opened.status };
+      st.unsaved = {
+        channels: opened.channels,
+        clockSet: opened.clockSet,
+        status: opened.status,
+        homeTimeZone: known.homeTimeZone,
+      };
       return session;
     }
     await this.upsertOpened(

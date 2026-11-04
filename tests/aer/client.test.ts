@@ -580,6 +580,19 @@ describe('blink before add', () => {
     expect(await r.store.list()).toHaveLength(1);
   });
 
+  it('add in another zone than the blink reconnects and sets the clock in the home zone', async () => {
+    const r = rig();
+    await r.client.blink(ID, { bleId: ID, homeTimeZone: 'UTC' });
+    expect(r.t.state(ID).tz).toBe(0);
+    const saved = await r.client.add(ID, 'Hall', TZ, ID);
+    // Asia/Kolkata is UTC+5:30, so the dispenser takes tZ -330.
+    expect(r.t.state(ID).tz).toBe(-330);
+    expect(r.counts.connects).toBe(2);
+    expect(r.counts.disconnects).toBe(1);
+    expect(saved.homeTimeZone).toBe(TZ);
+    expect(saved.clockSet).toBe(true);
+  });
+
   it('closes a blinked-but-never-added session on idle and stores nothing', async () => {
     jest.useFakeTimers();
     const r = rig({}, { idleMs: 10000 });
