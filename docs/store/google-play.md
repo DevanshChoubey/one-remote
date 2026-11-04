@@ -101,3 +101,30 @@ grep -o 'android:name="com\.google[^"]*"' /tmp/manifest.xml | sort -u           
 
 Any new `com.google` service, receiver or provider is either removed by a plugin (with a test) or
 written up above with why it cannot reach the network.
+
+## Automatic internal releases
+
+Every push to `main` that passes the `verify` job builds a signed bundle and uploads it to the
+**internal testing** track (`release-internal` in `.github/workflows/ci.yml`). The versionCode is the
+workflow run number + 1 (release 1 was uploaded by hand). The job also runs the forbidden-entries
+grep from the release manifest check, on the merged release manifest. Closed testing and
+production stay a manual promotion in Play Console. Until all five secrets exist the job skips
+with a warning, so `main` stays green.
+
+Repository secrets (Settings → Secrets and variables → Actions), set by the owner, never committed:
+
+| Secret                              | Value                                              |
+| ----------------------------------- | -------------------------------------------------- |
+| `ONE_REMOTE_UPLOAD_KEYSTORE_BASE64` | `base64 -w0 ~/Android/aer-release/aer-release.jks` |
+| `ONE_REMOTE_UPLOAD_STORE_PASSWORD`  | the keystore password                              |
+| `ONE_REMOTE_UPLOAD_KEY_ALIAS`       | the key alias                                      |
+| `ONE_REMOTE_UPLOAD_KEY_PASSWORD`    | the key password                                   |
+| `PLAY_SERVICE_ACCOUNT_JSON`         | the service account's JSON key, whole file         |
+
+The service account (once):
+
+1. Google Cloud console → a project → IAM & Admin → Service accounts → Create (no roles), then
+   Keys → Add key → JSON. Enable the **Google Play Android Developer API** in that project.
+2. Play Console → Users and permissions → Invite new users → the service account's email. Under
+   App permissions add One Remote with **Release to testing tracks** (and View app information).
+   Leave account-wide permissions off.
