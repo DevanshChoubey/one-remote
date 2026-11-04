@@ -53,7 +53,7 @@ describe('Stepper', () => {
   });
 
   it('keeps the disc shadow when enabled', async () => {
-    await render(wrap(<Stepper icon="plus" label="Raise" onPress={jest.fn()} />));
+    await render(wrap(<Stepper icon="plus" label="Raise" onPress={jest.fn()} disabled={false} />));
     const disc = flat(screen.getByTestId('stepper-plus').props.style);
     expect(disc.elevation).toBe(lightTokens.shadow.card.elevation);
   });
