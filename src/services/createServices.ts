@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { AerService } from '@/aer/types';
 import { isTvLink, tvLinkOf, tvLinkRef } from '@/core';
 import type { Device, FanState, LinkDriver, TvLink, TvSetup } from '@/core';
 import { DeviceHub } from '@/device/hub';
@@ -26,6 +27,7 @@ import { createWebosBrand } from '@/webos/setup';
 import { createNativeDictation } from '@/voice/dictation';
 import { createNativeMic } from '@/voice/mic';
 import type { TvTransport } from '@/tv/transport';
+import { createAerOff } from './aerOff';
 import type { Services } from './services';
 
 /** Keeps the hub's device list equal to the store's; applies the newest read that succeeded. */
@@ -66,6 +68,7 @@ function removeDeviceWith(
   store: Services['store'],
   secrets: Services['secrets'],
   drivers: Services['drivers'],
+  aer: AerService,
 ): Services['removeDevice'] {
   return async (id) => {
     const device = (await store.devices()).find((d) => d.id === id);
@@ -77,6 +80,9 @@ function removeDeviceWith(
         const driver = drivers.find((d) => d.kind === link.kind);
         const forget = driver?.forget?.bind(driver);
         if (forget) jobs.push(bestEffort(`forget a ${link.kind} link`, () => forget(device, link)));
+        if (link.kind === 'aer') {
+          jobs.push(bestEffort('forget an air freshener', () => aer.forget(device.id)));
+        }
         if (link.kind === 'webos') {
           jobs.push(bestEffort('delete a device secret', () => secrets.delete(link.clientKeyRef)));
         }
@@ -225,7 +231,10 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
     // samsung brand
     createSamsungBrand({ transport: tvTransport, secrets }),
   ];
-  const removeDevice = deps.removeDevice ?? removeDeviceWith(store, secrets, drivers);
+  // aer lane
+  const aerOff = createAerOff();
+  const aer = deps.aer ?? aerOff.aer;
+  const removeDevice = deps.removeDevice ?? removeDeviceWith(store, secrets, drivers, aer);
   return {
     hub,
     store,
@@ -265,5 +274,8 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
       }),
     // matter lane
     matter: deps.matter ?? createMatterSetup(matterController),
+    // aer lane
+    aer,
+    aerAlerts: deps.aerAlerts ?? aerOff.aerAlerts,
   };
 }
