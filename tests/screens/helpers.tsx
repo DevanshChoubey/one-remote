@@ -8,16 +8,22 @@ import { createServices, ServicesProvider } from '@/services';
 import type { Services } from '@/services';
 import { ThemeProvider } from '@/theme';
 import { ToastProvider } from '@/ui';
+import { createFakeAerService } from '@/aer/testing/fakeAerService';
+import { createFakeAlerts } from '@/aer/testing/fakeAlerts';
 import { createMemoryStore } from '@/store/memoryStore';
 import { createMemorySecretStore } from '@/store/secrets';
 import { createMemoryPreferenceStore } from '@/store/preferences';
 
-export function makeServices(drivers: LinkDriver[] = []): Services {
+export function makeServices(drivers: LinkDriver[] = [], extra: Partial<Services> = {}): Services {
+  const store = createMemoryStore();
   return createServices({
-    store: createMemoryStore(),
+    store,
     secrets: createMemorySecretStore(),
     prefs: createMemoryPreferenceStore(),
     drivers,
+    aer: createFakeAerService({ home: store }),
+    aerAlerts: createFakeAlerts(),
+    ...extra,
   });
 }
 

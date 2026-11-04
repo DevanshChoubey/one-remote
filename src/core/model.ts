@@ -1,12 +1,20 @@
-export type DeviceKind = 'tv' | 'ac' | 'fan';
-export type LinkKind = 'webos' | 'androidtv' | 'samsung' | 'matter' | 'ir';
+export type DeviceKind = 'tv' | 'ac' | 'fan' | 'aer';
+export type LinkKind = 'webos' | 'androidtv' | 'samsung' | 'matter' | 'ir' | 'aer';
+
+/** The GATT characteristic UUIDs of an air freshener. Missing means the defaults. */
+export interface AerChannels {
+  reply: string;
+  command: string;
+  schedule: string;
+}
 
 export type Link =
   | { kind: 'webos'; host: string; mac?: string; secure: boolean; clientKeyRef: string }
   | { kind: 'androidtv'; host: string; mac?: string; certRef: string; pinSha256: string }
   | { kind: 'samsung'; host: string; mac?: string; tokenRef: string; pinSha256: string }
   | { kind: 'matter'; nodeId: string }
-  | { kind: 'ir'; remoteId: string }; // catalogue id, e.g. 'panasonic-ac/dke'
+  | { kind: 'ir'; remoteId: string } // catalogue id, e.g. 'panasonic-ac/dke'
+  | { kind: 'aer'; bleId: string; timeZone: string; channels?: AerChannels };
 
 export interface Room {
   id: string;

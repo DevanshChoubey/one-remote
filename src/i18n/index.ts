@@ -1,4 +1,6 @@
 import ac from './en/ac';
+import aer from './en/aer';
+import aerAlerts from './en/aerAlerts';
 import addAppliance from './en/addAppliance';
 import add from './en/add';
 import addTv from './en/addTv';
@@ -20,6 +22,8 @@ const namespaces: Record<string, Record<string, string>> = {
   irBackup,
   ir,
   matter,
+  aer,
+  aerAlerts,
   home,
   add,
   addTv,

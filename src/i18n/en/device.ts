@@ -11,6 +11,7 @@ export default {
   linkWifi: 'Wi-Fi',
   linkMatter: 'Matter',
   linkIr: 'IR',
+  linkBluetooth: 'Bluetooth',
   main: 'main',
   backup: 'backup',
   remove: 'Remove device',

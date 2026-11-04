@@ -1,5 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useKnownDevice } from '@/screens/device';
+import { AerScreen } from '@/screens/aer/AerScreen';
 import { AcScreen } from '@/screens/appliance/AcScreen';
 import { FanScreen } from '@/screens/appliance/FanScreen';
 import { PlaceholderRemote } from '@/screens/device/PlaceholderRemote';
@@ -16,6 +17,8 @@ export default function DeviceRoute(): React.JSX.Element {
       return <AcScreen deviceId={id} />;
     case 'fan':
       return <FanScreen deviceId={id} />;
+    case 'aer':
+      return <AerScreen deviceId={id} />;
     default:
       return <PlaceholderRemote id={id} />;
   }

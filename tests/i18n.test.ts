@@ -2,6 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { interpolate, t } from '@/i18n';
 import ac from '@/i18n/en/ac';
+import aer from '@/i18n/en/aer';
+import aerAlerts from '@/i18n/en/aerAlerts';
 import addAppliance from '@/i18n/en/addAppliance';
 import add from '@/i18n/en/add';
 import addTv from '@/i18n/en/addTv';
@@ -29,6 +31,8 @@ const NAMESPACES: Record<string, Record<string, string>> = {
   irBackup,
   ir,
   matter,
+  aer,
+  aerAlerts,
 };
 
 const ROOT = path.resolve(__dirname, '..');
@@ -96,6 +100,12 @@ describe('i18n', () => {
     expect(ac['status.connected']).toBe("Connected · how it's connected");
     expect([fan.boost, fan.sleep, fan.light]).toEqual(['Boost', 'Sleep', 'Light']);
     expect(fan['status.connected']).toBe("Connected · how it's connected");
+  });
+
+  it('has the mock words for the aer', () => {
+    expect(t('aer.sprayNow')).toBe('Spray now');
+    expect(t('add.needsAndroid12')).toBe('Needs Android 12');
+    expect(t('settings.privacyHint')).toBe('Home network and Bluetooth only');
   });
 
   it('has no emoji or glyph prefixes in AC and fan labels', () => {

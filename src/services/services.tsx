@@ -1,5 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { ReactElement, ReactNode } from 'react';
+import type { Alerts } from '@/aer/alerts/types';
+import type { AerService, DispenserStore } from '@/aer/types';
 import type { LinkDriver, TvSetup } from '@/core';
 import type { IrSetup } from '@/core/irSetup';
 import type { MatterSetup } from '@/core/matterSetup';
@@ -35,6 +37,11 @@ export interface Services {
   ir: IrSetup;
   // matter lane
   matter: MatterSetup;
+  // aer lane
+  aer: AerService;
+  aerAlerts: Alerts;
+  /** The readings the alerts plan from. Only the dev spike writes here; screens use `aer`. */
+  aerDispensers?: DispenserStore;
 }
 
 const ServicesContext = createContext<Services | null>(null);

@@ -267,6 +267,22 @@ describe('DeviceHub', () => {
     expect(hub.view('tv1').status.problem).toBe('noLink');
   });
 
+  it('leaves an aer device inert', async () => {
+    const aerDevice: Device = {
+      id: 'aer1',
+      kind: 'aer',
+      name: 'Freshener',
+      roomId: 'r1',
+      order: 3,
+      links: [{ kind: 'aer', bleId: 'AA:BB', timeZone: 'Asia/Kolkata' }],
+    };
+    const hub = new DeviceHub({ drivers: [createFakeDriver('webos')] });
+    hub.setDevices([aerDevice]);
+    expect(hub.view('aer1').usable).toBe(false);
+    const err = await hub.send('aer1', { kind: 'tv.powerOn' }).catch((e: unknown) => e);
+    expect(codeOf(err)).toBe('noLink');
+  });
+
   it('throws noLink for unknown devices', async () => {
     const { hub } = setup();
     expect(() => hub.view('nope')).toThrow(DeviceError);

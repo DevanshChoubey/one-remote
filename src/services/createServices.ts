@@ -1,4 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createAlerts, createAlertStateStore } from '@/aer/alerts';
+import type { Alerts, AlertScheduler } from '@/aer/alerts';
+import { createAer } from '@/aer/service';
+import type { AerService } from '@/aer/types';
 import { isTvLink, tvLinkOf, tvLinkRef } from '@/core';
 import type { Device, FanState, LinkDriver, TvLink, TvSetup } from '@/core';
 import { DeviceHub } from '@/device/hub';
@@ -26,6 +30,9 @@ import { createWebosBrand } from '@/webos/setup';
 import { createNativeDictation } from '@/voice/dictation';
 import { createNativeMic } from '@/voice/mic';
 import type { TvTransport } from '@/tv/transport';
+import { bleSupported, createRnTransport } from '@/transport/ble/rnTransport';
+import type { BleTransport } from '@/transport/ble/transport';
+import { createExpoScheduler } from './aerAlerts';
 import type { Services } from './services';
 
 /** Keeps the hub's device list equal to the store's; applies the newest read that succeeded. */
@@ -66,6 +73,7 @@ function removeDeviceWith(
   store: Services['store'],
   secrets: Services['secrets'],
   drivers: Services['drivers'],
+  aer: AerService,
 ): Services['removeDevice'] {
   return async (id) => {
     const device = (await store.devices()).find((d) => d.id === id);
@@ -77,6 +85,9 @@ function removeDeviceWith(
         const driver = drivers.find((d) => d.kind === link.kind);
         const forget = driver?.forget?.bind(driver);
         if (forget) jobs.push(bestEffort(`forget a ${link.kind} link`, () => forget(device, link)));
+        if (link.kind === 'aer') {
+          jobs.push(bestEffort('forget an air freshener', () => aer.forget(device.id)));
+        }
         if (link.kind === 'webos') {
           jobs.push(bestEffort('delete a device secret', () => secrets.delete(link.clientKeyRef)));
         }
@@ -194,8 +205,47 @@ export function withTvFollowUp(
   };
 }
 
-/** `tvTransport` replaces the real TV network (tests pass a fake). */
-export type CreateServicesDeps = Partial<Services> & { tvTransport?: TvTransport };
+/**
+ * Starts `alerts` only after `load` (the aer cache) has finished, so the first sync sees the saved
+ * readings. A failed load is logged and the alerts start anyway; stopping before the load ends
+ * means they never start.
+ */
+export function startAfter(load: () => Promise<void>, alerts: Alerts): Alerts {
+  return {
+    ...alerts,
+    start() {
+      let stopped = false;
+      let stopInner: (() => void) | undefined;
+      const begin = (): void => {
+        if (!stopped) stopInner = alerts.start();
+      };
+      let loading: Promise<void>;
+      try {
+        loading = load();
+      } catch (e) {
+        loading = Promise.reject(e);
+      }
+      loading
+        .catch((e: unknown) => console.error('Could not load the air freshener readings', e))
+        .then(begin)
+        .catch((e: unknown) => console.error('Could not start the air freshener alerts', e));
+      return () => {
+        stopped = true;
+        stopInner?.();
+      };
+    },
+  };
+}
+
+/**
+ * `tvTransport` replaces the real TV network, `bleTransport` the real Bluetooth and
+ * `aerScheduler` the real local notifications (tests pass fakes).
+ */
+export type CreateServicesDeps = Partial<Services> & {
+  tvTransport?: TvTransport;
+  bleTransport?: BleTransport;
+  aerScheduler?: AlertScheduler;
+};
 
 /**
  * Builds the app's services. Pass any part to replace it (tests pass memory stores and fake
@@ -225,7 +275,26 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
     // samsung brand
     createSamsungBrand({ transport: tvTransport, secrets }),
   ];
-  const removeDevice = deps.removeDevice ?? removeDeviceWith(store, secrets, drivers);
+  // aer lane
+  // Exactly one createAer per app: its store holds the readings in memory.
+  const aerParts = createAer({
+    transport: deps.bleTransport ?? createRnTransport(),
+    home: store,
+    storage: AsyncStorage,
+    supported: bleSupported(),
+  });
+  const aer = deps.aer ?? aerParts.service;
+  const aerAlerts =
+    deps.aerAlerts ??
+    startAfter(
+      () => aerParts.start(),
+      createAlerts({
+        store: aerParts.dispenserStore,
+        scheduler: deps.aerScheduler ?? createExpoScheduler(),
+        state: createAlertStateStore(AsyncStorage),
+      }),
+    );
+  const removeDevice = deps.removeDevice ?? removeDeviceWith(store, secrets, drivers, aer);
   return {
     hub,
     store,
@@ -265,5 +334,10 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
       }),
     // matter lane
     matter: deps.matter ?? createMatterSetup(matterController),
+    // aer lane
+    aer,
+    aerAlerts,
+    // Dev only (the spike writes readings through it); release builds leave it out.
+    aerDispensers: __DEV__ ? aerParts.dispenserStore : undefined,
   };
 }

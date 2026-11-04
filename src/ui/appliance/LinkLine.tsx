@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import Animated from 'react-native-reanimated';
 import { useTheme } from '@/theme';
 import { Icon } from '../Icon';
+import type { IconName } from '../Icon';
 import { StatusDot } from '../StatusDot';
 import { Row, Touchable, Txt } from '../primitives';
 
@@ -10,6 +11,8 @@ export type StatusKind = 'connected' | 'irOnly' | 'fellBack' | 'needsIr';
 export interface LinkLineProps {
   kind: StatusKind;
   text: string;
+  /** Replaces the default status dot or IR icon. */
+  icon?: IconName;
   /** Opens the device settings. Tapping works for every kind so the sheet is always reachable. */
   onPress?: () => void;
 }
@@ -45,7 +48,13 @@ export function LinkLine(props: LinkLineProps): ReactElement {
       }}
       testID="link-line"
     >
-      {connected ? <StatusDot tone="ok" /> : <Icon name="ir" size={18} color={color} />}
+      {props.icon ? (
+        <Icon name={props.icon} size={18} color={color} />
+      ) : connected ? (
+        <StatusDot tone="ok" />
+      ) : (
+        <Icon name="ir" size={18} color={color} />
+      )}
       {/* Shrinks to wrap, but never pushes the icon away from the centred text. */}
       <Animated.View style={{ flexShrink: 1 }}>
         <Txt size="banner" color={color} align="center" live={fell}>

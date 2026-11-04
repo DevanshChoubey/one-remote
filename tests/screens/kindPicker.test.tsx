@@ -1,6 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react-native';
 import { t } from '@/i18n';
 import { KindPicker } from '@/screens/add/KindPicker';
+import { createFakeAerService } from '@/aer/testing/fakeAerService';
 import { createFakeDriver } from '@/device/testing/fakeDriver';
 import { makeServices, renderWith } from './helpers';
 
@@ -14,10 +15,25 @@ describe('KindPicker', () => {
     ['add.kindTv', '/add/tv'],
     ['add.kindAc', '/add/ac'],
     ['add.kindFan', '/add/fan'],
+    ['add.kindAer', '/add/aer'],
   ])('opens %s at %s', async (key, href) => {
     await renderWith(makeServices(), <KindPicker />);
     await fireEvent.press(screen.getByLabelText(t(key)));
     expect(mockPush).toHaveBeenCalledWith(href);
+  });
+
+  it('offers the air freshener', async () => {
+    await renderWith(makeServices(), <KindPicker />);
+    expect(screen.getByText(t('add.kindAer'))).toBeTruthy();
+    expect(screen.queryByText(t('add.needsAndroid12'))).toBeNull();
+  });
+
+  it('needs Android 12', async () => {
+    const aer = createFakeAerService({ supported: false });
+    await renderWith(makeServices([], { aer }), <KindPicker />);
+    expect(screen.getByText(t('add.needsAndroid12'))).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText(t('add.kindAer')));
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('lists every kind and notes the missing IR blaster', async () => {

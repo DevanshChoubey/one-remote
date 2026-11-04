@@ -29,7 +29,11 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
-        "android.permission.SYSTEM_ALERT_WINDOW"
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM"
       ]
     },
     "plugins": [
@@ -63,6 +67,23 @@
         {
           "microphonePermission": "One Remote uses the microphone while you hold the mic button, to talk to your TV.",
           "speechRecognitionPermission": "One Remote turns your speech into text on this phone, to type it on your TV."
+        }
+      ],
+      "./plugins/withNoPush.js",
+      "./plugins/withNoLocation.js",
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": [],
+          "neverForLocation": true,
+          "bluetoothAlwaysPermission": "One Remote uses Bluetooth to find and control your air freshener in the room."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#2f6df6"
         }
       ]
     ],
