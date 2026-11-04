@@ -132,6 +132,43 @@ describe('NameRoomStep', () => {
     await fireEvent.press(done);
     expect(onDone).not.toHaveBeenCalled();
   });
+
+  it('hands the pick over with Next', async () => {
+    const s = makeServices();
+    await s.store.upsertRoom(room('r1', 'Bedroom', 0));
+    const onNext = jest.fn();
+    const onDone = jest.fn();
+    await renderWith(
+      s,
+      <NameRoomStep
+        draft={draft}
+        suggestedName="Air freshener"
+        stepLabel={t('aer.nameStep')}
+        onNext={onNext}
+        onDone={onDone}
+      />,
+    );
+    expect(await screen.findByText(t('aer.nameStep'))).toBeTruthy();
+    await screen.findByLabelText('Bedroom');
+    await fireEvent.changeText(screen.getByDisplayValue('Air freshener'), ' Hall ');
+    await fireEvent.press(screen.getByLabelText(t('aer.next')));
+    expect(onNext).toHaveBeenCalledWith({ name: 'Hall', room: { id: 'r1' } });
+    expect(onDone).not.toHaveBeenCalled();
+    expect(await s.store.devices()).toEqual([]);
+  });
+
+  it('hands over a new room by name with Next', async () => {
+    const s = makeServices();
+    const onNext = jest.fn();
+    await renderWith(
+      s,
+      <NameRoomStep draft={draft} suggestedName="AC" onNext={onNext} onDone={jest.fn()} />,
+    );
+    await fireEvent.changeText(await screen.findByLabelText(t('add.roomName')), ' Study ');
+    await fireEvent.press(screen.getByLabelText(t('aer.next')));
+    expect(onNext).toHaveBeenCalledWith({ name: 'AC', room: { newName: 'Study' } });
+    expect(await s.store.rooms()).toEqual([]);
+  });
 });
 
 jest.mock('@react-native-async-storage/async-storage', () =>
