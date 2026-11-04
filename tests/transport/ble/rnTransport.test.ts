@@ -143,6 +143,18 @@ describe('wrapDevice subscribe', () => {
     expect(r.removed()).toBe(true);
   });
 
+  it.each([BleErrorCode.ServiceNotFound, BleErrorCode.CharacteristicNotFound])(
+    'rejects a device without the aer service or characteristic (code %i) as notDispenser',
+    async (errorCode) => {
+      const r = rig();
+      const p = r.conn.subscribe('c', () => undefined);
+      r.listener()({ errorCode }, null);
+      await expect(p).rejects.toBeInstanceOf(AerError);
+      await expect(p).rejects.toMatchObject({ code: 'notDispenser' });
+      expect(r.removed()).toBe(true);
+    },
+  );
+
   it('reports later errors but not cancel, disconnect or post-close errors', async () => {
     jest.useFakeTimers();
     try {

@@ -33,6 +33,12 @@ const toError = (e: unknown): Error => (e instanceof Error ? e : new Error(Strin
 const errorCodeOf = (e: unknown): unknown =>
   typeof e === 'object' && e !== null && 'errorCode' in e ? e.errorCode : undefined;
 
+/** Scans list every device, so the user can pick one without the aer service or characteristic. */
+const isNotDispenser = (e: unknown): boolean => {
+  const code = errorCodeOf(e);
+  return code === BleErrorCode.ServiceNotFound || code === BleErrorCode.CharacteristicNotFound;
+};
+
 /** A scan failure the user can fix becomes a AerError; anything else is passed on as it is. */
 export function scanError(e: unknown): Error {
   const code = errorCodeOf(e);
@@ -136,8 +142,7 @@ export function wrapDevice(manager: BleManager, device: Device): BleConnection {
     deviceId: id,
     async characteristics(): Promise<BleCharacteristic[]> {
       const list = await device.characteristicsForService(SERVICE_UUID).catch((e: unknown) => {
-        // Scans list every device, so the user can pick one that is not a dispenser.
-        throw errorCodeOf(e) === BleErrorCode.ServiceNotFound ? new AerError('notDispenser') : e;
+        throw isNotDispenser(e) ? new AerError('notDispenser') : e;
       });
       return list.map((c) => ({
         uuid: c.uuid.toLowerCase(),
@@ -181,7 +186,8 @@ export function wrapDevice(manager: BleManager, device: Device): BleConnection {
               settled = true;
               clearTimeout(timer);
               remove();
-              reject(toError(error));
+              // The first call that touches the service: a wrong pick fails here.
+              reject(isNotDispenser(error) ? new AerError('notDispenser') : toError(error));
             } else if (onError) {
               onError(toError(error));
             }

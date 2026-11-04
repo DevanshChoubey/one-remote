@@ -197,6 +197,32 @@ describe('openSession', () => {
     expect(await codeOf(openSession(t, ID, 'UTC', undefined, base))).toBe('unreachable');
     await expect(real.connect(ID, 1000)).resolves.toBeDefined();
   });
+
+  it('passes notDispenser from a failed subscribe through unchanged, and disconnects', async () => {
+    const real = setup();
+    let connects = 0;
+    const t: BleTransport = {
+      ...real,
+      async connect(id, ms) {
+        connects += 1;
+        const c = await real.connect(id, ms);
+        return {
+          ...c,
+          deviceId: c.deviceId,
+          characteristics: () => c.characteristics(),
+          write: (u, b) => c.write(u, b),
+          onDisconnect: (cb) => c.onDisconnect(cb),
+          disconnect: () => c.disconnect(),
+          subscribe: async () => {
+            throw new AerError('notDispenser');
+          },
+        };
+      },
+    };
+    expect(await codeOf(openSession(t, ID, 'UTC', undefined, base))).toBe('notDispenser');
+    expect(connects).toBe(1);
+    await expect(real.connect(ID, 1000)).resolves.toBeDefined();
+  });
 });
 
 describe('DispenserSession.send', () => {
