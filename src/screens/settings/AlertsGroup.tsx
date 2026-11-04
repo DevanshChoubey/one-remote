@@ -60,10 +60,11 @@ export function AlertsGroup(): ReactElement {
   }, [aerAlerts, alive, readPermission]);
 
   const change = (group: AlertGroup, on: boolean): void => {
+    const before = switches?.[group] ?? true;
     setSwitches((s) => (s ? { ...s, [group]: on } : s));
     aerAlerts.setSwitch(group, on).catch((e: unknown) => {
       console.error('Could not save the alert switch', e);
-      if (alive.current) setSwitches((s) => (s ? { ...s, [group]: !on } : s));
+      if (alive.current) setSwitches((s) => (s ? { ...s, [group]: before } : s));
     });
   };
 
@@ -107,7 +108,7 @@ export function AlertsGroup(): ReactElement {
                   hideLabel
                   noDim
                   label={t(r.title)}
-                  value={switches?.[r.group] ?? true}
+                  value={denied ? false : (switches?.[r.group] ?? true)}
                   disabled={denied || switches === null}
                   onChange={(v) => change(r.group, v)}
                 />

@@ -217,6 +217,20 @@ describe('Alerts in Settings', () => {
     );
   });
 
+  it('puts a switch back when saving it fails', async () => {
+    const alerts = createFakeAlerts();
+    alerts.setSwitch = jest.fn().mockRejectedValue(new Error('no'));
+    const err = jest.spyOn(console, 'error').mockImplementation(() => {});
+    await renderWith(makeServices([], { aerAlerts: alerts }), <SettingsScreen />);
+    await fireEvent.press(await screen.findByLabelText(t('settings.alertBattery')));
+    await waitFor(() => expect(err).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText(t('settings.alertBattery')).props.accessibilityState.checked,
+      ).toBe(true),
+    );
+  });
+
   it('notifications refused dims the switches and says where', async () => {
     const alerts = createFakeAlerts({ permission: 'denied' });
     const set = jest.spyOn(alerts, 'setSwitch');
@@ -224,6 +238,7 @@ describe('Alerts in Settings', () => {
     expect(await screen.findByText(t('settings.notificationsOff'))).toBeTruthy();
     const sw = screen.getByLabelText(t('settings.alertRefill'));
     expect(sw.props.accessibilityState.disabled).toBe(true);
+    expect(sw.props.accessibilityState.checked).toBe(false);
     await fireEvent.press(sw);
     expect(set).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByLabelText(t('settings.openSettings')));
