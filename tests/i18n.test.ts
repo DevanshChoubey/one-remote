@@ -102,6 +102,12 @@ describe('i18n', () => {
     expect(fan['status.connected']).toBe("Connected · how it's connected");
   });
 
+  it('has the mock words for the aer', () => {
+    expect(t('aer.sprayNow')).toBe('Spray now');
+    expect(t('add.needsAndroid12')).toBe('Needs Android 12');
+    expect(t('settings.privacyHint')).toBe('Home network and Bluetooth only');
+  });
+
   it('has no emoji or glyph prefixes in AC and fan labels', () => {
     for (const v of [...Object.values(ac), ...Object.values(fan)]) {
       expect(v).not.toMatch(/[←-⯿\u{1F300}-\u{1FAFF}●]/u);

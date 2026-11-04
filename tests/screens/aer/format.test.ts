@@ -84,11 +84,11 @@ describe('formatNextSpray', () => {
     };
     expect(
       formatNextSpray({ ...view, status }, 'Asia/Tokyo', new Date('2026-11-04T14:00:00Z')),
-    ).toBe('Auto spray every 20 minutes');
+    ).toBe('Auto spray every 20 min');
     expect(formatNextSpray(view, 'Asia/Tokyo', new Date('2026-11-04T14:00:00Z'))).toBe(
       'Done for today',
     );
-    expect(formatNextSpray({ deviceId: 'd1' }, 'Asia/Tokyo', now)).toBe('No spray planned today');
+    expect(formatNextSpray({ deviceId: 'd1' }, 'Asia/Tokyo', now)).toBe('No schedule today');
   });
 });
 
@@ -114,8 +114,8 @@ describe('problem copy', () => {
   it('words an error through aerProblem', () => {
     const e = new AerError('bluetoothOff');
     expect(aerProblem(e)).toBe('btoff');
-    expect(problemCopy(e).title).toBe('Bluetooth is off');
-    expect(problemCopy(new Error('x')).title).toBe('Something went wrong');
+    expect(problemCopy(e).title).toBe('Bluetooth is off. Turn it on, then try again.');
+    expect(problemCopy(new Error('x')).title).toBe('Something went wrong. Try again.');
   });
 });
 

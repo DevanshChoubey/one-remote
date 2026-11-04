@@ -99,7 +99,7 @@ export function formatNextSpray(view: AerView, timeZone: string, now: Date): str
   const next = nextSprayToday(list, now, timeZone);
   if (next) return t('aer.nextSpray', { time: formatTime(next) });
   const auto = view.status?.autoSpray;
-  if (auto) return t('aer.autoCard', { n: auto });
+  if (auto) return t('aer.autoCard', { minutes: auto });
   if (runsToday(list, now, timeZone)) return t('aer.doneToday');
   return t('aer.noScheduleToday');
 }
