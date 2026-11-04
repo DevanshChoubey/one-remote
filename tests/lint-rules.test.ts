@@ -321,7 +321,9 @@ describe('architecture lint rules', () => {
   it('bans expo-notifications except in src/services/aerAlerts.ts and tests', () => {
     const src = "import * as N from 'expo-notifications';\nexport const X = N;\n";
     expect(errorsFor(src, 'src/aer/alerts/x.ts')).toContain('no-restricted-imports');
+    expect(errorsFor(src, 'src/services/other.ts')).toContain('no-restricted-imports');
     expect(errorsFor(src, 'src/services/aerAlerts.ts')).toEqual([]);
+    expect(errorsFor(src, 'tests/x.test.ts')).toEqual([]);
   });
 
   it('keeps src/aer pure and behind useServices()', () => {
