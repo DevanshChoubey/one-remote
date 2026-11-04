@@ -25,6 +25,7 @@ const LINK_LABEL: Record<Link['kind'], string> = {
 };
 
 function linkDetail(link: Link): string | null {
+  if (link.kind === 'aer') return t('aer.linkSub');
   return isTvLink(link) ? link.host : null;
 }
 
@@ -156,6 +157,8 @@ function Body({
   const [name, setName] = useState(device.name);
   const [confirming, setConfirming] = useState(false);
   const [failed, setFailed] = useState(false);
+  // A lane's confirm that replaces the whole body, like the remove confirm (null: the sheet shows).
+  const [taken, setTaken] = useState<ReactElement | null>(null);
   const toast = useToast();
 
   const run = (job: Promise<unknown>, then?: () => void): void => {
@@ -187,11 +190,17 @@ function Body({
   const remove = (): Promise<void> => removeDevice(device.id);
   const trimmed = name.trim();
 
+  if (taken) return taken;
+
   if (confirming) {
     return (
       <Column gap={4}>
         <Txt variant="heading">{t('device.removeTitle', { name: device.name })}</Txt>
-        <Txt color="ink2">{t('device.removeAsk', { name: device.name })}</Txt>
+        <Txt color="ink2">
+          {device.kind === 'aer'
+            ? t('aer.removeBody')
+            : t('device.removeAsk', { name: device.name })}
+        </Txt>
         {failed ? <Failed /> : null}
         <Button
           label={t('device.confirmRemove')}
@@ -301,7 +310,7 @@ function Body({
       )}
 
       {deviceActions.map((render, n) => {
-        const node = render({ device });
+        const node = render({ device, takeOver: setTaken });
         return node ? <Box key={n}>{node}</Box> : null;
       })}
 

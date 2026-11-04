@@ -3,6 +3,7 @@ import { isTvLink } from '@/core';
 import type { Device, Link } from '@/core';
 import type { Services } from '@/services';
 import { TvLinkActions, TvPairAgainRow } from '../tv/TvLinkActions';
+import { aerSheetAction } from '../aer/AerSheetActions';
 import { IrRedoRow, irBackupAction } from '../appliance/IrBackupAction';
 
 /** A row in the link group asked the link's own block to do something ("pairAgain"). */
@@ -70,6 +71,8 @@ export const LINK_ROWS: readonly LinkRowRenderer[] = [
 
 export interface DeviceActionProps {
   device: Device;
+  /** A non-null node replaces the sheet's body (as the remove confirm does); null gives it back. */
+  takeOver(node: ReactElement | null): void;
 }
 
 /** Renders one lane's device-level actions, or null when the device is not that lane's. */
@@ -84,4 +87,6 @@ export const DEVICE_ACTIONS: readonly DeviceActionRenderer[] = [
   irBackupAction,
   // tv lane
   // matter lane
+  // aer lane
+  aerSheetAction,
 ];
