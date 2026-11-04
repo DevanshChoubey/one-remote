@@ -15,6 +15,7 @@ import {
   Spacer,
   Txt,
 } from '@/ui';
+import { AerCard } from './AerCard';
 import { DeviceCard } from './DeviceCard';
 import { useHome } from './useHome';
 
@@ -146,16 +147,26 @@ export function HomeScreen(): ReactElement {
               <Txt variant="captionBold" color="ink2">
                 {section.room.name}
               </Txt>
-              {section.cards.map((card, ci) => (
-                <DeviceCard
-                  key={card.view.device.id}
-                  card={card}
-                  index={(starts[si] ?? 0) + ci}
-                  onOpen={(id) => router.push(`/device/${id}`)}
-                  onSettings={(id) => router.push(`/device-sheet/${id}`)}
-                  onTogglePower={home.togglePower}
-                />
-              ))}
+              {section.cards.map((card, ci) =>
+                card.view.device.kind === 'aer' ? (
+                  <AerCard
+                    key={card.view.device.id}
+                    card={card}
+                    index={(starts[si] ?? 0) + ci}
+                    onOpen={(id) => router.push(`/device/${id}`)}
+                    onSettings={(id) => router.push(`/device-sheet/${id}`)}
+                  />
+                ) : (
+                  <DeviceCard
+                    key={card.view.device.id}
+                    card={card}
+                    index={(starts[si] ?? 0) + ci}
+                    onOpen={(id) => router.push(`/device/${id}`)}
+                    onSettings={(id) => router.push(`/device-sheet/${id}`)}
+                    onTogglePower={home.togglePower}
+                  />
+                ),
+              )}
             </Column>
           ))}
         </Column>
