@@ -23,8 +23,10 @@ const BLUETOOTH_TEXT =
 function compile(): Compiled {
   const projectRoot = path.resolve(__dirname, '../..');
   const script = `
-    const { getPrebuildConfigAsync } = require('@expo/prebuild-config');
-    const { compileModsAsync, withBaseMod } = require('@expo/config-plugins');
+    // Both come through expo itself (expo-doctor flags them as direct dependencies).
+    const fromExpo = (name) => require(require.resolve(name, { paths: [require.resolve('expo/package.json')] }));
+    const { getPrebuildConfigAsync } = fromExpo('@expo/prebuild-config');
+    const { compileModsAsync, withBaseMod } = require('expo/config-plugins');
     (async () => {
       const root = process.argv[1];
       let { exp } = await getPrebuildConfigAsync(root, { platforms: ['ios', 'android'] });
