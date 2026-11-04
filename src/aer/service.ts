@@ -41,15 +41,25 @@ export function createAer(deps: AerDeps): {
     scan(onFound, timeoutMs) {
       const reported = new Set<string>();
       let known: Set<string> | null = null;
-      let chain: Promise<void> = aerStore.bleIds().then((ids) => {
-        known = ids;
-      });
+      let chain: Promise<void> = aerStore.bleIds().then(
+        (ids) => {
+          known = ids;
+        },
+        () => {
+          // Unreadable saved ids: show every device rather than none.
+          known = new Set();
+        },
+      );
       const inner = client.scan((d) => {
         // Found devices wait for the saved ids; order is kept.
         chain = chain.then(() => {
           if (known?.has(d.id) || reported.has(d.id)) return;
           reported.add(d.id);
-          onFound({ bleId: d.id, name: d.name, rssi: d.rssi });
+          try {
+            onFound({ bleId: d.id, name: d.name, rssi: d.rssi });
+          } catch {
+            // One faulty listener call must not drop the finds after it.
+          }
         });
       }, timeoutMs);
       return {
@@ -82,6 +92,7 @@ export function createAer(deps: AerDeps): {
     setTimeZone: (id, zone) => client.setHomeTimeZone(id, zone),
     async forget(id) {
       await client.remove(id);
+      // Deliberate (matches the brief): removing the device also drops its cache entry.
       await aerStore.dropCache(id);
     },
     closeAll: () => client.closeAll(),

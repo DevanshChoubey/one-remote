@@ -93,6 +93,26 @@ describe('createAer', () => {
     expect(found).toEqual([{ bleId: 'AA:02', name: 'Smart Matic', rssi: -60 }]);
   });
 
+  it('scan still reports when the saved ids cannot be read', async () => {
+    const r = await rig({ 'AA:01': {}, 'AA:02': {} });
+    r.home.devices = async () => {
+      throw new Error('storage down');
+    };
+    const found: FoundAer[] = [];
+    await r.service.scan((d) => found.push(d), 1000).done;
+    expect(found.map((d) => d.bleId)).toEqual(['AA:01', 'AA:02']);
+  });
+
+  it('scan keeps reporting when a listener throws', async () => {
+    const r = await rig({ 'AA:01': {}, 'AA:02': {} });
+    const found: string[] = [];
+    await r.service.scan((d) => {
+      found.push(d.bleId);
+      if (d.bleId === 'AA:01') throw new Error('listener failed');
+    }, 1000).done;
+    expect(found).toEqual(['AA:01', 'AA:02']);
+  });
+
   it('blink before adding stores nothing', async () => {
     const r = await rig();
     await r.service.blink('new', { bleId: BLE, timeZone: 'Asia/Kolkata' });
