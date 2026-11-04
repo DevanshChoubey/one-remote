@@ -24,8 +24,7 @@ function compile(): Compiled {
   const projectRoot = path.resolve(__dirname, '../..');
   const script = `
     const { getPrebuildConfigAsync } = require('@expo/prebuild-config');
-    const { compileModsAsync } = require('@expo/config-plugins');
-    const { withBaseMod } = require('@expo/config-plugins/build/plugins/withMod');
+    const { compileModsAsync, withBaseMod } = require('@expo/config-plugins');
     (async () => {
       const root = process.argv[1];
       let { exp } = await getPrebuildConfigAsync(root, { platforms: ['ios', 'android'] });
