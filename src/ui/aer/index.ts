@@ -1,3 +1,5 @@
+export { BlinkArt } from './BlinkArt';
+export type { BlinkArtProps } from './BlinkArt';
 export { LevelTile } from './LevelTile';
 export type { LevelTileProps } from './LevelTile';
 export { SprayDisc } from './SprayDisc';

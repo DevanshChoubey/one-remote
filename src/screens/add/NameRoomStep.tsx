@@ -5,6 +5,8 @@ import { t } from '@/i18n';
 import { useServices } from '@/services';
 import { Box, Button, Chip, Column, ErrorLine, Field, Row, Screen, Rise, Spacer, Txt } from '@/ui';
 import { newId } from '../shared/newId';
+import { planNewDevice } from './newDevice';
+import type { NamePick } from './newDevice';
 import { useHomeData } from '../shared/useHomeData';
 
 export interface NameRoomStepProps {
@@ -14,6 +16,10 @@ export interface NameRoomStepProps {
   /** Called as the device is written, with the write; a caller can tell the save is under way. */
   onSaving?: (saving: Promise<void>) => void;
   onBack?: () => void;
+  /** The line under the title; defaults to the last-step line. */
+  stepLabel?: string;
+  /** With it the button reads Next and hands the pick over instead of saving. */
+  onNext?: (pick: NamePick) => void;
 }
 
 /** The shared last step of every add flow: name the device and pick (or create) its room. */
@@ -57,31 +63,21 @@ export function NameRoomStep(props: NameRoomStepProps): ReactElement {
   const newRoomName = roomName.trim();
   const hasRoom = creating ? newRoomName !== '' : roomId !== null;
   const canSave = name.trim() !== '' && hasRoom && !busy;
+  const pick = (): NamePick => ({
+    name: name.trim(),
+    room: creating || roomId === null ? { newName: newRoomName } : { id: roomId },
+  });
   const save = (): void => {
     if (!canSave) return;
+    if (props.onNext) {
+      props.onNext(pick());
+      return;
+    }
     setBusy(true);
-    const target = creating ? newId() : roomId;
-    if (target === null) return;
-    const order = creating
-      ? 0
-      : data.devices
-          .filter((d) => d.roomId === target)
-          .reduce((m, d) => Math.max(m, d.order + 1), 0);
-    const device: Device = {
-      ...props.draft,
-      id: newId(),
-      name: name.trim(),
-      roomId: target,
-      order,
-    };
-    const roomFirst = creating
-      ? store.upsertRoom({
-          id: target,
-          name: newRoomName,
-          order: data.rooms.reduce((m, r) => Math.max(m, r.order + 1), 0),
-        })
-      : Promise.resolve();
-    const saving = roomFirst.then(() => store.upsertDevice(device));
+    const { device, newRoom } = planNewDevice(data, props.draft, pick(), newId());
+    const saving = (newRoom ? store.upsertRoom(newRoom) : Promise.resolve()).then(() =>
+      store.upsertDevice(device),
+    );
     props.onSaving?.(saving);
     saving.then(
       () => props.onDone(device),
@@ -95,14 +91,18 @@ export function NameRoomStep(props: NameRoomStepProps): ReactElement {
   return (
     <Screen
       title={t('add.nameTitle')}
-      subtitle={t('add.nameStep')}
+      subtitle={props.stepLabel ?? t('add.nameStep')}
       largeTitle
       onBack={props.onBack}
       scroll
       footer={
         <Column gap={4}>
           {error ? <ErrorLine text={t('add.saveFailed')} /> : null}
-          <Button label={t('common.done')} onPress={save} disabled={!canSave} />
+          <Button
+            label={props.onNext ? t('aer.next') : t('common.done')}
+            onPress={save}
+            disabled={!canSave}
+          />
         </Column>
       }
     >

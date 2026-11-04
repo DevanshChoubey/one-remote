@@ -1,8 +1,8 @@
 import { useLocalSearchParams } from 'expo-router';
-import { PlaceholderRemote } from '@/screens/device/PlaceholderRemote';
+import { ZoneStep } from '@/screens/add/aer/ZoneStep';
 
-/** Stub until the air freshener zone screen replaces it. */
+/** The air freshener's home time zone, from its Device settings. */
 export default function AerZoneRoute(): React.JSX.Element {
   const { id } = useLocalSearchParams<{ id: string }>();
-  return <PlaceholderRemote id={id} />;
+  return <ZoneStep edit deviceId={id} />;
 }
