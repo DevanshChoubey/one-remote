@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 import type { FakeAerService } from '@/aer/testing/fakeAerService';
 import { t } from '@/i18n';
 import { DeviceSheet } from '@/screens/device';
@@ -154,5 +154,31 @@ describe('aer device sheet', () => {
     const { s } = await seeded();
     await renderWith(s, <DeviceSheet deviceId="d1" />, { reducedMotion: true });
     expect(await screen.findByText(t('aer.refilled'))).toBeTruthy();
+  });
+
+  it('ignores a blink that finishes after the sheet is gone', async () => {
+    const { s, aer } = await seeded();
+    const err = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const gate = aer.hold('blink');
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
+    await fireEvent.press(await screen.findByLabelText(t('aer.findIt')));
+    await screen.unmount();
+    await act(async () => gate.release());
+    expect(err).not.toHaveBeenCalled();
+    err.mockRestore();
+  });
+
+  it('ignores a failed reset that comes back after the sheet is gone', async () => {
+    const { s, aer } = await seeded();
+    const err = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const gate = aer.hold('resetRefill');
+    aer.failNext('resetRefill', new AerError('unreachable'));
+    await renderWith(s, <DeviceSheet deviceId="d1" />);
+    await fireEvent.press(await screen.findByLabelText(t('aer.refilled')));
+    await fireEvent.press(screen.getByLabelText(t('aer.refillYes')));
+    await screen.unmount();
+    await act(async () => gate.release());
+    expect(err).not.toHaveBeenCalled();
+    err.mockRestore();
   });
 });

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { t } from '@/i18n';
 import { refillPercent, useServices } from '@/services';
@@ -21,6 +21,18 @@ import type { DeviceActionProps } from '../device/linkActions';
 import { offsetLabel, problemCopy, zoneLabel } from './format';
 import { useAerView } from './useAerView';
 
+/** False once the component is gone, so a late result sets no state. */
+function useAlive(): { current: boolean } {
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  return alive;
+}
+
 interface AerRowProps {
   icon: IconName;
   title: string;
@@ -29,7 +41,7 @@ interface AerRowProps {
   busy?: boolean;
 }
 
-/** Mock `.li` with a leading icon: a 56 px row, icon, two lines, chevron (a spinner while busy). */
+/** Mirrors ListItem (ListItem has no leading-icon prop). Mock `.li` with a leading icon: a 56 px row, icon, two lines, chevron (a spinner while busy). */
 function AerRow(props: AerRowProps): ReactElement {
   return (
     <Touchable
@@ -61,6 +73,7 @@ function AerRow(props: AerRowProps): ReactElement {
 function RefillConfirm(props: { deviceId: string; back: () => void }): ReactElement {
   const { aer } = useServices();
   const toast = useToast();
+  const alive = useAlive();
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const yes = (): void => {
@@ -69,9 +82,10 @@ function RefillConfirm(props: { deviceId: string; back: () => void }): ReactElem
     aer.resetRefill(props.deviceId).then(
       () => {
         toast.show(t('aer.refillDone'), { kind: 'ok' });
-        props.back();
+        if (alive.current) props.back();
       },
       (e: unknown) => {
+        if (!alive.current) return;
         setBusy(false);
         setProblem(problemCopy(e).line);
       },
@@ -93,6 +107,7 @@ function AerSheetRows(props: DeviceActionProps): ReactElement | null {
   const router = useRouter();
   const { aer } = useServices();
   const toast = useToast();
+  const alive = useAlive();
   const view = useAerView(device.id);
   const [finding, setFinding] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -104,10 +119,11 @@ function AerSheetRows(props: DeviceActionProps): ReactElement | null {
     setProblem(null);
     aer.blink(device.id).then(
       () => {
-        setFinding(false);
+        if (alive.current) setFinding(false);
         toast.show(t('aer.blinkToast'));
       },
       (e: unknown) => {
+        if (!alive.current) return;
         setFinding(false);
         setProblem(problemCopy(e).line);
       },
