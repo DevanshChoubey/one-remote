@@ -35,6 +35,7 @@ const DEV_SPIKE_FILES = [
   'app/dev/svg-spike.tsx',
   // ir lane
   // matter lane
+  // aer lane
 ];
 
 const SERVICE_MODULES = [
@@ -48,6 +49,7 @@ const SERVICE_MODULES = [
   'samsung',
   'matter',
   'voice',
+  'aer',
 ];
 // `services` is the composition root (useServices); it is layered like a domain module but is not pure.
 const DOMAIN_FOLDERS = [
@@ -62,9 +64,20 @@ const DOMAIN_FOLDERS = [
   'samsung',
   'matter',
   'voice',
+  'aer',
   'services',
 ];
-const PURE_FOLDERS = ['core', 'device', 'ir', 'tv', 'webos', 'androidtv', 'samsung', 'matter'];
+const PURE_FOLDERS = [
+  'core',
+  'device',
+  'ir',
+  'tv',
+  'webos',
+  'androidtv',
+  'samsung',
+  'matter',
+  'aer',
+];
 
 const NETWORK_MESSAGE =
   'All networking lives in src/transport and goes through assertLocal(). fetch and XMLHttpRequest are banned.';
@@ -101,6 +114,18 @@ const socketImports = {
 const micImports = {
   group: ['mic-pcm', 'mic-pcm/**', '**/modules/mic-pcm', '**/modules/mic-pcm/**'],
   message: 'The microphone module (mic-pcm) is allowed only in src/voice.',
+};
+
+// Bluetooth is reached only through src/transport/ble.
+const bleImports = {
+  group: ['react-native-ble-plx', 'react-native-ble-plx/**'],
+  message: 'Bluetooth (react-native-ble-plx) is allowed only in src/transport/ble.',
+};
+
+// Notifications are scheduled only by src/services/aerAlerts.ts (tests may mock them).
+const notificationImports = {
+  group: ['expo-notifications', 'expo-notifications/**'],
+  message: 'expo-notifications is allowed only in src/services/aerAlerts.ts.',
 };
 
 // expo/fetch ships a working fetch with the SDK, so it is banned in every folder, src/transport too.
@@ -209,7 +234,10 @@ module.exports = [
     rules: {
       'no-restricted-imports': [
         'error',
-        { ...rnVisualRestriction, patterns: [socketImports, micImports, fetchImports] },
+        {
+          ...rnVisualRestriction,
+          patterns: [socketImports, micImports, fetchImports, bleImports, notificationImports],
+        },
       ],
       'no-restricted-globals': [
         'error',
@@ -253,7 +281,14 @@ module.exports = [
         'error',
         {
           ...rnVisualRestriction,
-          patterns: [domainLayering, socketImports, micImports, fetchImports],
+          patterns: [
+            domainLayering,
+            socketImports,
+            micImports,
+            fetchImports,
+            bleImports,
+            notificationImports,
+          ],
         },
       ],
     },
@@ -264,7 +299,10 @@ module.exports = [
     rules: {
       'no-restricted-imports': [
         'error',
-        { ...rnVisualRestriction, patterns: [domainLayering, micImports, fetchImports] },
+        {
+          ...rnVisualRestriction,
+          patterns: [domainLayering, micImports, fetchImports, bleImports, notificationImports],
+        },
       ],
     },
   },
@@ -276,7 +314,7 @@ module.exports = [
         'error',
         {
           ...rnVisualRestriction,
-          patterns: [domainLayering, socketImports, fetchImports],
+          patterns: [domainLayering, socketImports, fetchImports, bleImports, notificationImports],
         },
       ],
     },
@@ -295,6 +333,8 @@ module.exports = [
             socketImports,
             micImports,
             fetchImports,
+            bleImports,
+            notificationImports,
             {
               group: [
                 'react-native',
@@ -306,7 +346,7 @@ module.exports = [
                 '@react-native-async-storage/*',
               ],
               message:
-                'src/core, src/device, src/ir, src/tv, src/webos, src/androidtv, src/samsung and src/matter (except src/matter/native) must stay free of React Native and Expo.',
+                'src/core, src/device, src/ir, src/tv, src/webos, src/androidtv, src/samsung, src/matter and src/aer (except src/matter/native) must stay free of React Native and Expo.',
             },
           ],
         },
@@ -331,6 +371,8 @@ module.exports = [
             socketImports,
             micImports,
             fetchImports,
+            bleImports,
+            notificationImports,
           ],
         },
       ],
@@ -351,6 +393,8 @@ module.exports = [
             socketImports,
             micImports,
             fetchImports,
+            bleImports,
+            notificationImports,
           ],
         },
       ],
@@ -371,6 +415,8 @@ module.exports = [
             socketImports,
             micImports,
             fetchImports,
+            bleImports,
+            notificationImports,
           ],
         },
       ],
@@ -384,7 +430,15 @@ module.exports = [
         'error',
         {
           paths: [...rnVisualRestriction.paths, reanimatedRestriction],
-          patterns: [svgRestriction, ...serviceImports, socketImports, micImports, fetchImports],
+          patterns: [
+            svgRestriction,
+            ...serviceImports,
+            socketImports,
+            micImports,
+            fetchImports,
+            bleImports,
+            notificationImports,
+          ],
         },
       ],
       'import/no-default-export': 'off',
@@ -398,12 +452,46 @@ module.exports = [
           rules: {
             'no-restricted-imports': [
               'error',
-              { patterns: [socketImports, micImports, fetchImports] },
+              {
+                patterns: [
+                  socketImports,
+                  micImports,
+                  fetchImports,
+                  bleImports,
+                  notificationImports,
+                ],
+              },
             ],
           },
         },
       ]
     : []),
+  // src/transport/ble is the only place for Bluetooth.
+  {
+    files: ['src/transport/ble/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          ...rnVisualRestriction,
+          patterns: [domainLayering, micImports, fetchImports, notificationImports],
+        },
+      ],
+    },
+  },
+  // src/services/aerAlerts.ts is the only place for expo-notifications.
+  {
+    files: ['src/services/aerAlerts.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          ...rnVisualRestriction,
+          patterns: [domainLayering, socketImports, micImports, fetchImports, bleImports],
+        },
+      ],
+    },
+  },
   // Tests may use any import, except a working fetch.
   {
     files: ['tests/**'],

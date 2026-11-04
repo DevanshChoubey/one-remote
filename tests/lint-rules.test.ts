@@ -308,4 +308,31 @@ describe('architecture lint rules', () => {
       ),
     ).not.toContain('no-restricted-imports');
   });
+
+  it('bans react-native-ble-plx everywhere except src/transport/ble', () => {
+    const src =
+      "import { BleManager } from 'react-native-ble-plx';\nexport const X = BleManager;\n";
+    for (const file of ['src/aer/x.ts', 'src/screens/x.tsx', 'src/services/x.ts']) {
+      expect(errorsFor(src, file)).toContain('no-restricted-imports');
+    }
+    expect(errorsFor(src, 'src/transport/ble/x.ts')).toEqual([]);
+  });
+
+  it('bans expo-notifications except in src/services/aerAlerts.ts and tests', () => {
+    const src = "import * as N from 'expo-notifications';\nexport const X = N;\n";
+    expect(errorsFor(src, 'src/aer/alerts/x.ts')).toContain('no-restricted-imports');
+    expect(errorsFor(src, 'src/services/aerAlerts.ts')).toEqual([]);
+  });
+
+  it('keeps src/aer pure and behind useServices()', () => {
+    expect(
+      errorsFor(
+        "import { Platform } from 'react-native';\nexport const X = Platform;\n",
+        'src/aer/x.ts',
+      ),
+    ).toContain('no-restricted-imports');
+    expect(
+      errorsFor("import { x } from '@/aer/client';\nexport const X = x;\n", 'src/screens/x.tsx'),
+    ).toContain('no-restricted-imports');
+  });
 });
