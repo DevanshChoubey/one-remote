@@ -107,15 +107,15 @@ describe('problem copy', () => {
   it('has a title and a sub for every problem', () => {
     expect(Object.keys(PROBLEM_COPY).sort()).toEqual([...all].sort());
     for (const p of all) {
-      expect(t(PROBLEM_COPY[p].title).length).toBeGreaterThan(0);
-      expect(t(PROBLEM_COPY[p].sub).length).toBeGreaterThan(0);
+      expect(t(PROBLEM_COPY[p].line).length).toBeGreaterThan(0);
+      expect(t(PROBLEM_COPY[p].bar).length).toBeGreaterThan(0);
     }
   });
   it('words an error through aerProblem', () => {
     const e = new AerError('bluetoothOff');
     expect(aerProblem(e)).toBe('btoff');
-    expect(problemCopy(e).title).toBe('Bluetooth is off. Turn it on, then try again.');
-    expect(problemCopy(new Error('x')).title).toBe('Something went wrong. Try again.');
+    expect(problemCopy(e).line).toBe('Bluetooth is off. Turn it on, then try again.');
+    expect(problemCopy(new Error('x')).line).toBe('Something went wrong. Try again.');
   });
 });
 

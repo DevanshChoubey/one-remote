@@ -1,6 +1,6 @@
 // Worded from docs/design/one-remote-mockup.html (the aer* figures).
-// Kept from the earlier file, still used by src/screens/aer/format.ts or the problem map and not in the mock:
-// dayMon..daySun, subNotAer, subScheduleRunning, subTimeZone, subFailed.
+// Kept from the earlier file, used by the problem map and not in the mock:
+// subNotAer, subScheduleRunning, subTimeZone, subFailed.
 export default {
   // home card
   nextSpray: 'Next spray {time}',
@@ -77,13 +77,6 @@ export default {
   fri: 'Fri',
   sat: 'Sat',
   sun: 'Sun',
-  dayMon: 'Mon',
-  dayTue: 'Tue',
-  dayWed: 'Wed',
-  dayThu: 'Thu',
-  dayFri: 'Fri',
-  daySat: 'Sat',
-  daySun: 'Sun',
   monFull: 'Monday',
   tueFull: 'Tuesday',
   wedFull: 'Wednesday',

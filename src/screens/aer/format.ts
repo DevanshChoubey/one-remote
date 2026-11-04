@@ -35,13 +35,13 @@ export function formatTimeParts(time: TimeOfDay): { hm: string; ap: string } {
 
 const WEEK: Weekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const SHORT_DAY: Record<Weekday, TKey> = {
-  mon: 'aer.dayMon',
-  tue: 'aer.dayTue',
-  wed: 'aer.dayWed',
-  thu: 'aer.dayThu',
-  fri: 'aer.dayFri',
-  sat: 'aer.daySat',
-  sun: 'aer.daySun',
+  mon: 'aer.mon',
+  tue: 'aer.tue',
+  wed: 'aer.wed',
+  thu: 'aer.thu',
+  fri: 'aer.fri',
+  sat: 'aer.sat',
+  sun: 'aer.sun',
 };
 
 /** 'Every day', 'Weekdays', 'Weekends', else the short names in week order: 'Mon, Wed'. */
@@ -104,20 +104,20 @@ export function formatNextSpray(view: AerView, timeZone: string, now: Date): str
   return t('aer.noScheduleToday');
 }
 
-/** The one title and sub for each problem; every screen words a failure through this map. */
-export const PROBLEM_COPY: Record<AerProblem, { title: TKey; sub: TKey }> = {
-  btoff: { title: 'aer.probBtOff', sub: 'aer.subBtOff' },
-  denied: { title: 'aer.probDenied', sub: 'aer.subDenied' },
-  away: { title: 'aer.probAway', sub: 'aer.subAway' },
-  busy: { title: 'aer.probBusy', sub: 'aer.subBusy' },
-  flat: { title: 'aer.probFlat', sub: 'aer.subFlat' },
-  notAer: { title: 'aer.probNotAer', sub: 'aer.subNotAer' },
-  scheduleRunning: { title: 'aer.probScheduleRunning', sub: 'aer.subScheduleRunning' },
-  timeZone: { title: 'aer.probTimeZone', sub: 'aer.subTimeZone' },
-  failed: { title: 'aer.probFailed', sub: 'aer.subFailed' },
+/** The one line (banner or error line, a full sentence) and bar (short subtitle) for each problem; every screen words a failure through this map. */
+export const PROBLEM_COPY: Record<AerProblem, { line: TKey; bar: TKey }> = {
+  btoff: { line: 'aer.probBtOff', bar: 'aer.subBtOff' },
+  denied: { line: 'aer.probDenied', bar: 'aer.subDenied' },
+  away: { line: 'aer.probAway', bar: 'aer.subAway' },
+  busy: { line: 'aer.probBusy', bar: 'aer.subBusy' },
+  flat: { line: 'aer.probFlat', bar: 'aer.subFlat' },
+  notAer: { line: 'aer.probNotAer', bar: 'aer.subNotAer' },
+  scheduleRunning: { line: 'aer.probScheduleRunning', bar: 'aer.subScheduleRunning' },
+  timeZone: { line: 'aer.probTimeZone', bar: 'aer.subTimeZone' },
+  failed: { line: 'aer.probFailed', bar: 'aer.subFailed' },
 };
 
-export function problemCopy(e: unknown): { title: string; sub: string } {
+export function problemCopy(e: unknown): { line: string; bar: string } {
   const c = PROBLEM_COPY[aerProblem(e)];
-  return { title: t(c.title), sub: t(c.sub) };
+  return { line: t(c.line), bar: t(c.bar) };
 }
