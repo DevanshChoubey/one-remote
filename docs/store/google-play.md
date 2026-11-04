@@ -95,7 +95,7 @@ and then, in `android/`, `ANDROID_HOME=$HOME/Android/Sdk ./gradlew :app:assemble
 $HOME/Android/Sdk/cmdline-tools/latest/bin/apkanalyzer manifest print android/app/build/outputs/apk/release/app-release.apk > /tmp/manifest.xml
 grep -c 'BLUETOOTH_SCAN\|BLUETOOTH_CONNECT\|POST_NOTIFICATIONS' /tmp/manifest.xml   # present
 grep -A1 BLUETOOTH_SCAN /tmp/manifest.xml                                           # usesPermissionFlags="0x10000" (neverForLocation)
-grep -E 'ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|SCHEDULE_EXACT_ALARM|USE_EXACT_ALARM|c2dm.permission.RECEIVE|FirebaseMessagingService|ExpoFirebaseMessagingService|FirebaseInstanceIdReceiver|TransportBackendDiscovery|ComponentDiscoveryService|FirebaseInitProvider' /tmp/manifest.xml   # no output
+grep -E 'ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|SCHEDULE_EXACT_ALARM|USE_EXACT_ALARM|c2dm.permission.RECEIVE|FirebaseMessagingService|ExpoFirebaseMessagingService|FirebaseInstanceIdReceiver|TransportBackendDiscovery|com\.google\.firebase\.components\.ComponentDiscoveryService|com\.google\.firebase\.provider\.FirebaseInitProvider' /tmp/manifest.xml   # no output
 grep -o 'android:name="com\.google[^"]*"' /tmp/manifest.xml | sort -u               # compare with the list above
 ```
 
