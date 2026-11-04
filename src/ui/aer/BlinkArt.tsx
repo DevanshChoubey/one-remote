@@ -6,6 +6,7 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withTiming,
+  Easing,
 } from 'react-native-reanimated';
 import { useMotion } from '@/theme';
 import { Icon } from '../Icon';
@@ -21,7 +22,10 @@ const LED = 10;
 const GLOW = 22;
 const LED_TOP = 38;
 const BLINK_MS = 700;
-const DIM = 0.25;
+/** The mock's `@keyframes blink { 50% { opacity: .35 } }`. */
+const DIM = 0.35;
+/** The mock's `ease-in-out` (line 612); the theme has no such curve. */
+const EASE = Easing.inOut(Easing.ease);
 
 /** The air freshener with its light (mock `.blinkart`): the LED blinks every 700 ms while `on`; still under reduced motion. Decorative. */
 export function BlinkArt(props: BlinkArtProps): ReactElement {
@@ -32,14 +36,10 @@ export function BlinkArt(props: BlinkArtProps): ReactElement {
     cancelAnimation(level);
     level.value = 1;
     if (animate) {
-      level.value = withRepeat(
-        withTiming(DIM, { duration: BLINK_MS, easing: motion.ease.standard }),
-        -1,
-        true,
-      );
+      level.value = withRepeat(withTiming(DIM, { duration: BLINK_MS / 2, easing: EASE }), -1, true);
     }
     return () => cancelAnimation(level);
-  }, [animate, level, motion.ease.standard]);
+  }, [animate, level]);
   const style = useAnimatedStyle(() => ({ opacity: level.value }));
   return (
     <Box align="center" py={2}>

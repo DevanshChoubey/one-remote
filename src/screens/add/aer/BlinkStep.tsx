@@ -31,6 +31,8 @@ export function BlinkStep(props: BlinkStepProps): ReactElement {
   const { bleId, name, deviceId } = props.target;
   const [phase, setPhase] = useState<Phase>({ name: 'connect' });
   const alive = useRef(true);
+  const [repeating, setRepeating] = useState(false);
+  const inFlight = useRef(false);
 
   useEffect(() => {
     alive.current = true;
@@ -42,14 +44,21 @@ export function BlinkStep(props: BlinkStepProps): ReactElement {
   /** One blink; the screen only moves while it is still showing. */
   const send = useCallback(
     (again: boolean): void => {
+      if (inFlight.current) return;
+      inFlight.current = true;
       aer.blink(deviceId, { bleId, timeZone: phoneZone() }).then(
         () => {
+          inFlight.current = false;
           if (!alive.current) return;
+          setRepeating(false);
           setPhase({ name: 'ask' });
           if (again) toast.show(t('aer.blinkToast'));
         },
         (e: unknown) => {
-          if (alive.current) setPhase({ name: 'problem', error: e });
+          inFlight.current = false;
+          if (!alive.current) return;
+          setRepeating(false);
+          setPhase({ name: 'problem', error: e });
         },
       );
     },
@@ -59,6 +68,13 @@ export function BlinkStep(props: BlinkStepProps): ReactElement {
   useEffect(() => {
     send(false);
   }, [send]);
+
+  /** Blink again: the button waits until this blink is answered. */
+  const repeat = (): void => {
+    if (inFlight.current) return;
+    setRepeating(true);
+    send(true);
+  };
 
   /** Try again: back to "Blinking its light…", then one more blink. */
   const retry = (): void => {
@@ -131,7 +147,13 @@ export function BlinkStep(props: BlinkStepProps): ReactElement {
       footer={
         <Column gap={2}>
           <Button label={t('aer.yesThatOne')} onPress={props.onYes} />
-          <Button label={t('aer.blinkAgain')} variant="secondary" onPress={() => send(true)} />
+          <Button
+            label={t('aer.blinkAgain')}
+            variant="secondary"
+            loading={repeating}
+            disabled={repeating}
+            onPress={repeat}
+          />
           <Button
             label={t('aer.noChooseAnother')}
             variant="ghost"

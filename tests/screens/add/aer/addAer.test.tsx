@@ -1,3 +1,4 @@
+import { StyleSheet } from 'react-native';
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { createFakeAerService } from '@/aer/testing/fakeAerService';
 import type { FoundAer } from '@/aer/types';
@@ -18,6 +19,10 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 );
 
 beforeEach(() => mockBack.mockClear());
+// Lets the fake's last emissions land inside act before a test ends.
+afterEach(async () => {
+  await act(async () => {});
+});
 
 describe('AddAerFlow', () => {
   it('needs Android 12', async () => {
@@ -118,7 +123,7 @@ describe('looking nearby', () => {
         jest.advanceTimersByTime(SCAN_MS);
       });
       expect(screen.getByText(t('aer.nothingYet'))).toBeTruthy();
-      gate.release();
+      await act(async () => gate.release());
     } finally {
       jest.useRealTimers();
     }
@@ -186,6 +191,18 @@ describe('the blink', () => {
     expect(scans(aer)).toHaveLength(2);
   });
 
+  it('one tap on Blink again sends one blink', async () => {
+    const aer = createFakeAerService({ found: FOUND });
+    await pick(aer);
+    const again = await screen.findByText(t('aer.blinkAgain'));
+    const gate = aer.hold('blink');
+    await fireEvent.press(again);
+    await fireEvent.press(again);
+    await act(async () => gate.release());
+    expect(await screen.findByText(t('aer.blinkToast'))).toBeTruthy();
+    expect(blinks(aer)).toHaveLength(2);
+  });
+
   it('Yes goes on', async () => {
     const aer = createFakeAerService({ found: FOUND });
     await pick(aer);
@@ -234,14 +251,21 @@ describe('the blink', () => {
     expect(mockBack).not.toHaveBeenCalled();
   });
 
-  it('renders the list and the blink in dark with reduced motion', async () => {
+  it('renders the blink in dark', async () => {
     const aer = createFakeAerService({ found: FOUND });
-    await renderWith(makeServices([], { aer }), <AddAerFlow />, {
-      scheme: 'dark',
-      reducedMotion: true,
-    });
+    await renderWith(makeServices([], { aer }), <AddAerFlow />, { scheme: 'dark' });
     await fireEvent.press(await screen.findByTestId('aer-found-B'));
     expect(await screen.findByText(t('aer.askTitle'))).toBeTruthy();
-    expect(screen.getByTestId('blink-led').props.style).toBeTruthy();
+    expect(screen.getByTestId('blink-art-on')).toBeTruthy();
+  });
+
+  it('keeps the drawn light still with reduced motion', async () => {
+    const aer = createFakeAerService({ found: FOUND });
+    await renderWith(makeServices([], { aer }), <AddAerFlow />, { reducedMotion: true });
+    await fireEvent.press(await screen.findByTestId('aer-found-B'));
+    expect(await screen.findByText(t('aer.askTitle'))).toBeTruthy();
+    const led = screen.getByTestId('blink-led');
+    const style = { ...StyleSheet.flatten(led.props.style), ...led.props.jestAnimatedStyle?.value };
+    expect(style.opacity).toBe(1);
   });
 });
