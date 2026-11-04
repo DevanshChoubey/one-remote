@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { AppState, StyleSheet } from 'react-native';
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { createFakeAerService } from '@/aer/testing/fakeAerService';
 import type { FoundAer } from '@/aer/types';
@@ -26,10 +26,17 @@ jest.mock('@/screens/aer/openSettings', () => ({
   openNotificationSettings: jest.fn(async () => undefined),
 }));
 
-beforeEach(() => mockBack.mockClear());
+// The jest AppState returns no subscription, so every render here gets a plain one.
+beforeEach(() => {
+  mockBack.mockClear();
+  jest
+    .spyOn(AppState, 'addEventListener')
+    .mockImplementation((() => ({ remove: jest.fn() })) as never);
+});
 // Lets the fake's last emissions land inside act before a test ends.
 afterEach(async () => {
   await act(async () => {});
+  jest.restoreAllMocks();
 });
 
 describe('AddAerFlow', () => {
@@ -69,6 +76,44 @@ const scans = (aer: ReturnType<typeof createFakeAerService>) =>
   aer.calls.filter((c) => c.op === 'scan');
 
 describe('looking nearby', () => {
+  it('stops the scan when the app goes to the background', async () => {
+    let listener: ((s: string) => void) | undefined;
+    const remove = jest.fn();
+    const add = jest.spyOn(AppState, 'addEventListener').mockImplementation(((
+      _: string,
+      cb: (s: string) => void,
+    ) => {
+      listener = cb;
+      return { remove };
+    }) as never);
+    try {
+      const aer = createFakeAerService({ found: FOUND });
+      aer.hold('scan');
+      const stop = jest.fn();
+      const scan = aer.scan.bind(aer);
+      aer.scan = (onFound, ms) => {
+        const handle = scan(onFound, ms);
+        return {
+          done: handle.done,
+          stop: () => {
+            stop();
+            handle.stop();
+          },
+        };
+      };
+      await renderWith(makeServices([], { aer }), <AddAerFlow />);
+      expect(scans(aer)).toHaveLength(1);
+      await act(async () => listener?.('inactive'));
+      expect(stop).not.toHaveBeenCalled();
+      await act(async () => listener?.('background'));
+      expect(stop).toHaveBeenCalledTimes(1);
+      await screen.unmount();
+      expect(remove).toHaveBeenCalled();
+    } finally {
+      add.mockRestore();
+    }
+  });
+
   it('lists first found first', async () => {
     const aer = createFakeAerService({ found: FOUND });
     await renderWith(makeServices([], { aer }), <AddAerFlow />);

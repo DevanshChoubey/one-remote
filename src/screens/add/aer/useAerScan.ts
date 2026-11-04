@@ -1,6 +1,7 @@
 // Ported from aer-remote src/screens/add/useScan.ts (2026-11-04). Adapted: the `aer` service scans
 // (it already hides the added devices), rows are keyed by bleId, and there is no label number.
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import { useServices } from '@/services';
 import type { FoundAer } from '@/services';
 
@@ -20,7 +21,8 @@ export interface AerScanState {
 export const SCAN_MS = 15000;
 
 /**
- * Scans for air fresheners that are not added yet; starts on mount, stops on unmount. Every
+ * Scans for air fresheners that are not added yet; starts on mount, stops on unmount and when
+ * the app goes to the background (the list stays, as after a timeout). Every
  * device is listed: a real dispenser does not advertise its service, and picking one checks it.
  */
 export function useAerScan(): AerScanState {
@@ -85,6 +87,13 @@ export function useAerScan(): AerScanState {
     begin();
     return halt;
   }, [begin, halt]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background') stop();
+    });
+    return () => sub.remove();
+  }, [stop]);
 
   useEffect(() => {
     if (status !== 'scanning') return undefined;
