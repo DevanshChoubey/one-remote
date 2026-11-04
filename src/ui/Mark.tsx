@@ -25,6 +25,11 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 const RING_LENGTH = 126;
 const RING_DELAY = 260;
 const RING_DURATION = 700;
+/** The welcome mark (96 px) has its own corner in the mock: 30, not the art radius (32). */
+const SMALL_RADIUS = 30;
+
+/** 40% alpha as the last pair of an `#rrggbbaa` colour (0.4 x 255 = 102 = 0x66). */
+const GLOW_ALPHA = '66';
 
 /**
  * The app mark: the power ring with its stem on an accent tile. With `animate` the tile scales
@@ -63,7 +68,13 @@ export function Mark(props: MarkProps): ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animate, motion.reduced]);
 
-  const tileStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  // The mock's glow: `0 14px 34px` of the accent at 40%, not the neutral pop shadow.
+  const glow = `0px 14px 34px ${theme.color.accent}${GLOW_ALPHA}`;
+  const radius = size >= 112 ? theme.radius.art : SMALL_RADIUS;
+  const tileStyle = useAnimatedStyle(
+    () => ({ transform: [{ scale: scale.value }], boxShadow: glow, borderRadius: radius }),
+    [glow, radius],
+  );
   const ringProps = useAnimatedProps(() => ({
     strokeDashoffset: RING_LENGTH * (1 - draw.value),
   }));
@@ -71,9 +82,7 @@ export function Mark(props: MarkProps): ReactElement {
     <AnimatedBox
       w={size}
       h={size}
-      radius="art"
       bg="accent"
-      shadow="pop"
       align="center"
       justify="center"
       testID={props.testID ?? 'mark'}

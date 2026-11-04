@@ -1,7 +1,12 @@
 import { Fragment, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import { Modal } from 'react-native';
-import { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { Modal, useWindowDimensions } from 'react-native';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { t } from '@/i18n';
 import { useMotion } from '@/theme';
@@ -29,9 +34,17 @@ export interface MenuProps {
   onClosed?: () => void;
 }
 
+/** The mock's `.menu { min-width: 220px }`: a longer label widens the panel, up to the gutters. */
 const PANEL_W = 220;
-/** The mock puts the menu 104 px from the top of a phone whose status bar is 44 px: 60 px below it. */
-const BELOW_STATUS_BAR = 60;
+const GUTTER = 16;
+/** The mock's `.menu` padding and check size. */
+const PANEL_PAD = 6;
+const CHECK = 24;
+/**
+ * The mock's menu starts 4 px under the bar (bar ends at 100, menu at 104). In the app a bare
+ * screen's bar ends 64 px below the status bar (16 top padding + 48 bar), so the menu opens at 68.
+ */
+const BELOW_STATUS_BAR = 68;
 
 /**
  * A pop-up menu under the top-right of the bar. A tap outside, or Android back, closes it. It
@@ -45,6 +58,9 @@ export function Menu(props: MenuProps): ReactElement | null {
   const progress = useSharedValue(0);
   const reduced = motion.reduced;
   const drop = motion.lift / 2;
+  const screenW = useWindowDimensions().width;
+  // The panel's laid-out width, so the scale stays anchored to its top-right corner.
+  const panelW = useSharedValue(PANEL_W);
 
   // Mount as soon as `open` turns true (adjusting state while rendering, not in an effect).
   if (props.open && !mounted) setMounted(true);
@@ -89,7 +105,7 @@ export function Menu(props: MenuProps): ReactElement | null {
       opacity: progress.value,
       transform: [
         { translateY: (1 - progress.value) * -drop },
-        { translateX: (PANEL_W * (1 - scale)) / 2 },
+        { translateX: (panelW.value * (1 - scale)) / 2 },
         { scale },
       ],
     };
@@ -117,38 +133,50 @@ export function Menu(props: MenuProps): ReactElement | null {
           </Touchable>
         </Box>
         <AnimatedBox
-          float={{ top, right: 16 }}
+          float={{ top, right: GUTTER }}
           bg="surface"
           border="line"
           radius="md"
           shadow="pop"
-          p={1}
-          w={PANEL_W}
+          maxW={Math.max(PANEL_W, screenW - 2 * GUTTER)}
           testID={props.testID}
           animatedStyle={style}
         >
-          {props.items.map((item) => (
-            <Fragment key={item.key}>
-              {item.dividerBefore ? <Box h={1} bg="line" m={1} /> : null}
-              <Touchable
-                onPress={() => {
-                  if (props.open) item.onPress();
-                }}
-                accessibilityLabel={item.label}
-                selected={item.current}
-                pressedBg="surface2"
-                radius="sm"
-                pressScale={1}
-              >
-                <Row align="center" justify="between" gap={3} px={4} minH={48}>
-                  <Txt variant="bodyBold" color={item.current ? 'ink2' : 'ink'}>
-                    {item.label}
-                  </Txt>
-                  {item.current ? <Icon name="check" size={18} color="ink2" /> : null}
-                </Row>
-              </Touchable>
-            </Fragment>
-          ))}
+          <Animated.View
+            style={{ padding: PANEL_PAD, minWidth: PANEL_W }}
+            onLayout={(e) => {
+              panelW.value = e.nativeEvent.layout.width;
+            }}
+          >
+            {props.items.map((item) => (
+              <Fragment key={item.key}>
+                {item.dividerBefore ? (
+                  // The mock's `hr`: 4 px above and below, 8 px in from the sides.
+                  <Box px={2} py={1} testID="menu-divider">
+                    <Box h={1} bg="line" />
+                  </Box>
+                ) : null}
+                <Touchable
+                  onPress={() => {
+                    if (props.open) item.onPress();
+                  }}
+                  accessibilityLabel={item.label}
+                  selected={item.current}
+                  pressedBg="surface2"
+                  radius="sm"
+                  pressScale={1}
+                >
+                  <Row align="center" justify="between" gap={3} px={4} minH={48}>
+                    {/* Shrinks (and wraps) only once the panel has reached its widest. */}
+                    <Animated.View style={{ flexShrink: 1 }}>
+                      <Txt color={item.current ? 'ink2' : 'ink'}>{item.label}</Txt>
+                    </Animated.View>
+                    {item.current ? <Icon name="check" size={CHECK} color="ink2" /> : null}
+                  </Row>
+                </Touchable>
+              </Fragment>
+            ))}
+          </Animated.View>
         </AnimatedBox>
       </Box>
     </Modal>

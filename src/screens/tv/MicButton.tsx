@@ -279,11 +279,15 @@ function ListeningBubble(): ReactElement {
       pointerEvents="none"
       animatedStyle={style}
     >
-      <Box direction="row" align="center" gap={2} bg="ink" radius="pill" px={3} py={2}>
-        <Txt variant="bodyBold" color="bg" live>
+      {/* The mock's `.mlabel`: the bars, then the 14 px bold label, 8 px by 14 px inside. */}
+      <Box direction="row" align="center" bg="ink" radius="pill" py={2}>
+        <Box w={14} />
+        <Equaliser active />
+        <Box w={8} />
+        <Txt variant="bodyBold" size="banner" color="bg" live>
           {t('tv.listening')}
         </Txt>
-        <Equaliser active />
+        <Box w={14} />
       </Box>
     </AnimatedBox>
   );

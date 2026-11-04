@@ -26,6 +26,8 @@ describe('lane B: type sizes', () => {
   it('Banner text is 14', async () => {
     await render(wrap(<Banner text="Heads up" />));
     expect(styleOf('Heads up').fontSize).toBe(lightTokens.size.banner);
+    // Mock `.banner { line-height: 1.4 }`: 19.6 px.
+    expect(styleOf('Heads up').lineHeight).toBeCloseTo(19.6);
   });
 
   it('an error Banner is a polite live region and an info one is not', async () => {

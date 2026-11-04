@@ -13,6 +13,10 @@ export interface BannerProps {
   action?: { label: string; onPress: () => void };
 }
 
+/** Mock `.banner`: 14 px at line height 1.4; the 20 px icon sits 1 px down. */
+const LINE = 1.4;
+const ICON_DROP = 1;
+
 const LOOK: Record<NonNullable<BannerProps['tone']>, { bg: ColorToken; icon: IconName }> = {
   info: { bg: 'warmSoft', icon: 'info' },
   ok: { bg: 'okSoft', icon: 'check' },
@@ -31,10 +35,12 @@ export function Banner(props: BannerProps): ReactElement {
       accessibilityLiveRegion={props.tone === 'error' ? 'polite' : undefined}
     >
       <Row gap={3} align="start">
-        <Icon name={props.icon ?? look.icon} size={20} color="ink" />
+        <Box h={20 + ICON_DROP} justify="end">
+          <Icon name={props.icon ?? look.icon} size={20} color="ink" />
+        </Box>
         <Box flex={1}>
           <Column gap={1}>
-            <Txt variant="caption" size="banner">
+            <Txt size="banner" lineHeight={LINE}>
               {props.text}
             </Txt>
             {props.action ? (

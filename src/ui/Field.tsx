@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -8,7 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useMotion } from '@/theme';
 import { ErrorLine } from './ErrorLine';
-import { Column, Input, Txt } from './primitives';
+import { Box, Column, Input, Row, Txt } from './primitives';
 import type { InputProps } from './primitives';
 
 export interface FieldProps extends Omit<InputProps, 'accessibilityLabel'> {
@@ -19,11 +19,19 @@ export interface FieldProps extends Omit<InputProps, 'accessibilityLabel'> {
   helper?: string;
   /** Bump to shake the field once (260 ms; none under reduced motion). */
   shakeKey?: number;
+  /**
+   * A small button beside the input (Save name, Add room), centred on the input as the mock's
+   * `.row`; the label stays above both.
+   */
+  trailing?: ReactNode;
+  /** The label is a plain 13 px ink2 caption 8 px above the input (mock `label.t-cap`). */
+  plainLabel?: boolean;
 }
 
 /** A labelled input with an optional helper line and an announced error. */
 export function Field(props: FieldProps): ReactElement {
-  const { label, error, helper, shakeKey, accessibilityLabel, ...input } = props;
+  const { label, error, helper, shakeKey, accessibilityLabel, trailing, plainLabel, ...input } =
+    props;
   const motion = useMotion();
   const shake = useSharedValue(0);
   // Not on mount, whatever the first key is: only a change of the key shakes.
@@ -42,24 +50,41 @@ export function Field(props: FieldProps): ReactElement {
     );
   }, [shakeKey, shake, motion]);
   const shaking = useAnimatedStyle(() => ({ transform: [{ translateX: shake.value }] }));
+  const box = (
+    <Input {...input} accessibilityLabel={accessibilityLabel ?? label} invalid={!!error} />
+  );
+  // Mock `.field.shake`: the label, the input and the error line move together.
   return (
-    <Column gap={2}>
-      {/* The mock's label sits 6 px above the input (4 in from the edge): the column gap is 8. */}
-      <Animated.View style={{ marginBottom: -2, marginLeft: 4 }}>
-        <Txt variant="captionBold" color="ink2">
-          {label}
-        </Txt>
-      </Animated.View>
-      <Animated.View testID="field-shake" style={shaking}>
-        <Input {...input} accessibilityLabel={accessibilityLabel ?? label} invalid={!!error} />
-      </Animated.View>
-      {error ? (
-        <ErrorLine text={error} />
-      ) : helper ? (
-        <Txt variant="caption" color="ink2">
-          {helper}
-        </Txt>
-      ) : null}
-    </Column>
+    <Animated.View testID="field-shake" style={shaking}>
+      <Column gap={2}>
+        {plainLabel ? (
+          <Txt variant="caption" color="ink2">
+            {label}
+          </Txt>
+        ) : (
+          // The mock's label sits 6 px above the input (4 in from the edge): the column gap is 8.
+          <Animated.View style={{ marginBottom: -2, marginLeft: 4 }}>
+            <Txt variant="captionBold" color="ink2">
+              {label}
+            </Txt>
+          </Animated.View>
+        )}
+        {trailing ? (
+          <Row gap={2} align="center" testID="field-row">
+            <Box flex={1}>{box}</Box>
+            {trailing}
+          </Row>
+        ) : (
+          box
+        )}
+        {error ? (
+          <ErrorLine text={error} />
+        ) : helper ? (
+          <Txt variant="caption" color="ink2">
+            {helper}
+          </Txt>
+        ) : null}
+      </Column>
+    </Animated.View>
   );
 }

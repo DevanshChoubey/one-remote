@@ -8,3 +8,4 @@ export { usePadEnter } from './usePadEnter';
 export { SentRing } from './SentRing';
 export { createPadVisuals } from './padVisuals';
 export type { PadVisuals, PadVisualsDeps } from './padVisuals';
+export { PanelFade } from './PanelFade';

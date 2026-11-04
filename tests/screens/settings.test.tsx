@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { t } from '@/i18n';
-import { darkTokens } from '@/theme';
+import { darkTokens, lightTokens } from '@/theme';
 import { SettingsScreen } from '@/screens/settings/SettingsScreen';
 import { device, makeServices, renderWith, room } from './helpers';
 
@@ -107,6 +107,22 @@ describe('SettingsScreen', () => {
     expect((await s.store.rooms()).length).toBe(1);
   });
 
+  it("draws a room's up and down as arrow pills, disabled at the ends", async () => {
+    const s = makeServices();
+    await s.store.upsertRoom(room('a', 'Bedroom', 0));
+    await s.store.upsertRoom(room('b', 'Study', 1));
+    await renderWith(s, <SettingsScreen />);
+    await fireEvent.press(await screen.findByLabelText(t('settings.rooms')));
+    const up = await screen.findByLabelText(t('settings.roomUp', { name: 'Bedroom' }));
+    expect(up.props.accessibilityState.disabled).toBe(true);
+    expect(screen.getAllByText(t('settings.roomUpGlyph'))).toHaveLength(2);
+    expect(screen.getAllByText(t('settings.roomDownGlyph'))).toHaveLength(2);
+    expect(
+      screen.getByLabelText(t('settings.roomDown', { name: 'Study' })).props.accessibilityState
+        .disabled,
+    ).toBe(true);
+  });
+
   it('marks the section rows expanded or collapsed', async () => {
     await renderWith(makeServices(), <SettingsScreen />);
     const row = await screen.findByLabelText(t('settings.privacy'));
@@ -128,6 +144,8 @@ describe('SettingsScreen', () => {
     );
     const msg = await screen.findByText(t('settings.roomNotEmpty'));
     expect(msg.props.accessibilityLiveRegion).toBe('polite');
+    // Mock: a plain muted status sentence, not a red error line.
+    expect(StyleSheet.flatten(msg.props.style).color).toBe(lightTokens.color.ink2);
   });
 
   it('shows the privacy text', async () => {

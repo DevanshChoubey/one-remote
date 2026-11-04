@@ -126,6 +126,15 @@ describe('Add AC on a phone with IR', () => {
     expect(mockDismissAll).toHaveBeenCalled();
   });
 
+  it('offers Skip on the IR test, which goes to No codes (mock)', async () => {
+    const { s } = await setup({ hasIr: true });
+    await renderWith(s, <AddApplianceFlow kind="ac" />);
+    await fireEvent.press(await screen.findByLabelText('Panasonic'));
+    expect(await screen.findByText('Panasonic · try 1 of 5')).toBeTruthy();
+    await press(t('addAppliance.skip'));
+    expect(await screen.findByText(t('addAppliance.noCodesAc'))).toBeTruthy();
+  });
+
   it('has no Yes before Test was pressed', async () => {
     const { s } = await setup({ hasIr: true });
     await renderWith(s, <AddApplianceFlow kind="ac" />);
@@ -163,9 +172,9 @@ describe('Add fan', () => {
     await renderWith(s, <AddApplianceFlow kind="fan" />);
     expect(await screen.findByLabelText('Atomberg')).toBeTruthy();
     expect(screen.queryByLabelText('Panasonic')).toBeNull();
-    expect(
-      screen.getByLabelText(t('addAppliance.otherBrandsRow')).props.accessibilityState.disabled,
-    ).toBe(true);
+    // A quiet card, not a choice: no button to press (mock).
+    expect(screen.getByText(t('addAppliance.otherBrandsRow'))).toBeTruthy();
+    expect(screen.queryByLabelText(t('addAppliance.otherBrandsRow'))).toBeNull();
   });
 
   it('starts the IR test with speed 3 and suggests "{brand} fan"', async () => {

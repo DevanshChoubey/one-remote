@@ -62,23 +62,29 @@ describe('overlays', () => {
       expect(screen.queryByText('Failed')).toBeNull();
     });
 
-    it('lifts above the bottom safe area', async () => {
-      const { SafeAreaProvider } = jest.requireActual<
-        typeof import('react-native-safe-area-context')
-      >('react-native-safe-area-context');
-      await render(
-        <SafeAreaProvider
-          initialMetrics={{
-            frame: { x: 0, y: 0, width: 360, height: 800 },
-            insets: { top: 24, left: 0, right: 0, bottom: 20 },
-          }}
-        >
-          {wrap(<Raise message="Hi" />)}
-        </SafeAreaProvider>,
-      );
-      await fireEvent.press(screen.getByLabelText('raise'));
-      expect(StyleSheet.flatten(screen.getByTestId('toast').props.style).bottom).toBe(50);
-    });
+    it.each([
+      [20, 30],
+      [34, 42],
+    ])(
+      'sits 30 px from the bottom edge, and 8 px above a bottom inset of %i (bottom %i)',
+      async (inset, bottom) => {
+        const { SafeAreaProvider } = jest.requireActual<
+          typeof import('react-native-safe-area-context')
+        >('react-native-safe-area-context');
+        await render(
+          <SafeAreaProvider
+            initialMetrics={{
+              frame: { x: 0, y: 0, width: 360, height: 800 },
+              insets: { top: 24, left: 0, right: 0, bottom: inset },
+            }}
+          >
+            {wrap(<Raise message="Hi" />)}
+          </SafeAreaProvider>,
+        );
+        await fireEvent.press(screen.getByLabelText('raise'));
+        expect(StyleSheet.flatten(screen.getByTestId('toast').props.style).bottom).toBe(bottom);
+      },
+    );
 
     it('speaks an error toast: assertive live region and a screen-reader announcement', async () => {
       const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
@@ -327,6 +333,14 @@ describe('overlays', () => {
       { key: 'b', label: 'Dark', onPress: jest.fn(), current: true },
     ];
 
+    it('opens 4 px under the bar and grows past 220 px for a long label, within the gutters', async () => {
+      await render(wrap(<Menu open onClose={jest.fn()} items={items} testID="menu" />));
+      const style = StyleSheet.flatten(screen.getByTestId('menu').props.style);
+      expect(style.top).toBe(68);
+      expect(style.width).toBeUndefined();
+      expect(style.maxWidth).toBeGreaterThanOrEqual(220);
+    });
+
     it('under reduced motion renders its items with no transform', async () => {
       await render(wrap(<Menu open onClose={jest.fn()} items={items} testID="menu" />));
       expect(screen.getByLabelText('Light')).toBeTruthy();
@@ -404,6 +418,13 @@ describe('overlays', () => {
   });
 
   describe('Mark', () => {
+    it('glows with the accent at 40%, as the mock', async () => {
+      await render(wrap(<Mark />));
+      const style = StyleSheet.flatten(screen.getByTestId('mark').props.style);
+      expect(style.boxShadow).toBe(`0px 14px 34px ${lightTokens.color.accent}66`);
+      expect(style.borderRadius).toBe(lightTokens.radius.art);
+    });
+
     beforeEach(() => jest.useFakeTimers());
     afterEach(() => jest.useRealTimers());
 

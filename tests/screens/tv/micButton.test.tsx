@@ -164,8 +164,15 @@ const letGo = async (): Promise<void> => {
   await fireEvent(mic(), 'pressOut');
   await settle();
 };
-const showing = (r: Rig): Promise<void> =>
-  renderWith(r.s, <TvScreen deviceId="tv1" />).then(settle);
+/** The TV screen with the TV on: the mic and its lines live in the ready remote (while connecting
+ *  the keys are faded and take no touches). */
+const showing = async (r: Rig): Promise<void> => {
+  await renderWith(r.s, <TvScreen deviceId="tv1" />);
+  await act(async () => {
+    r.driver.emit('tv1', { kind: 'tv', state: { power: true } });
+  });
+  await settle();
+};
 
 beforeEach(() => {
   mockBlurs.length = 0;

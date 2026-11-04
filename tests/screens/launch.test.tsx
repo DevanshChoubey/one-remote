@@ -35,7 +35,11 @@ describe('navigation options', () => {
   });
 
   it('presents the sheet route as a transparent modal with no transition', () => {
-    expect(SHEET_ROUTE_OPTIONS).toEqual({ presentation: 'transparentModal', animation: 'none' });
+    expect(SHEET_ROUTE_OPTIONS).toEqual({
+      presentation: 'transparentModal',
+      animation: 'none',
+      contentStyle: { backgroundColor: 'transparent' },
+    });
   });
 });
 

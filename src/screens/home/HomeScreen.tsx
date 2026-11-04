@@ -12,6 +12,7 @@ import {
   Screen,
   SkelCard,
   Skeleton,
+  Spacer,
   Txt,
 } from '@/ui';
 import { DeviceCard } from './DeviceCard';
@@ -56,7 +57,6 @@ export function HomeScreen(): ReactElement {
         {home.corrupt ? (
           <EmptyState
             art="alert"
-            tone="danger"
             fill
             title={t('home.corruptTitle')}
             body={t('home.corruptBody')}
@@ -68,25 +68,25 @@ export function HomeScreen(): ReactElement {
     );
   }
 
+  // The mock draws Home's head inside its `.bar`, whose `h1` rule makes "Home" the 21 px heading
+  // with the count right under it; the bar is at least 56 high and its buttons sit at the top.
   const header = (
-    <Row align="start" justify="between" gap={2}>
-      <Column flex={1} gap={1}>
+    <Row align="start" justify="between" gap={2} minH={56}>
+      <Column flex={1}>
+        <Txt variant="heading" numberOfLines={1}>
+          {t('home.title')}
+        </Txt>
         {loading ? (
-          <>
-            <Txt variant="title">{t('home.title')}</Txt>
+          // The count's skeleton sits 6 px under the title (mock `margin-top: 6px`).
+          <Box h={19} justify="end">
             <Skeleton width={70} height={13} />
-          </>
+          </Box>
         ) : (
-          <>
-            <Txt variant="title" numberOfLines={1}>
-              {t('home.title')}
-            </Txt>
-            <Txt variant="caption" color="ink2">
-              {home.deviceCount === 1
-                ? t('home.deviceCountOne')
-                : t('home.deviceCountMany', { count: home.deviceCount })}
-            </Txt>
-          </>
+          <Txt variant="caption" color="ink2" numberOfLines={1}>
+            {home.deviceCount === 1
+              ? t('home.deviceCountOne')
+              : t('home.deviceCountMany', { count: home.deviceCount })}
+          </Txt>
         )}
       </Column>
       <Row gap={2} align="center">
@@ -97,27 +97,32 @@ export function HomeScreen(): ReactElement {
   );
 
   if (loading) {
+    // Mock: each section skeleton sits 4 px in, the first 8 px below the header, the second 24 px
+    // below the last card (its 12 px margin on the 12 px gap).
+    const skelSection = (width: number, cards: number[]): ReactElement => (
+      <Column gap={3}>
+        <Box px={1}>
+          <Skeleton width={width} height={13} />
+        </Box>
+        {cards.map((n) => (
+          <Box key={n} testID="skel-card">
+            <SkelCard />
+          </Box>
+        ))}
+      </Column>
+    );
     return (
-      <Screen scroll>
-        {header}
+      <Screen scroll header={header}>
         <Box
-          gap={3}
           accessibilityLabel={t('common.loading')}
           accessibilityRole="progressbar"
           testID="home-loading"
         >
-          <Skeleton width={90} height={13} />
-          {[0, 1, 2].map((n) => (
-            <Box key={n} testID="skel-card">
-              <SkelCard />
-            </Box>
-          ))}
-          <Skeleton width={70} height={13} />
-          {[3, 4].map((n) => (
-            <Box key={n} testID="skel-card">
-              <SkelCard />
-            </Box>
-          ))}
+          <Spacer size={2} />
+          <Column gap={6}>
+            {skelSection(90, [0, 1, 2])}
+            {skelSection(70, [3, 4])}
+          </Column>
         </Box>
       </Screen>
     );
@@ -128,29 +133,33 @@ export function HomeScreen(): ReactElement {
     (acc, sec) => [...acc, (acc[acc.length - 1] ?? 0) + sec.cards.length],
     [0],
   );
+  // Mock `.scroll` gap 12 between cards and under a room name; a room name has 8 px more above it
+  // (20 from the card or banner before it, 8 from the top when it comes first).
   return (
-    <Screen scroll>
-      {header}
-      <Column gap={4}>
-        {home.showNoIrBanner ? <Banner icon="ir" text={t('home.noIrBanner')} /> : null}
-        {home.sections.map((section, si) => (
-          <Column key={section.room.id} gap={2}>
-            <Txt variant="label" color="ink2">
-              {section.room.name}
-            </Txt>
-            {section.cards.map((card, ci) => (
-              <DeviceCard
-                key={card.view.device.id}
-                card={card}
-                index={(starts[si] ?? 0) + ci}
-                onOpen={(id) => router.push(`/device/${id}`)}
-                onSettings={(id) => router.push(`/device-sheet/${id}`)}
-                onTogglePower={home.togglePower}
-              />
-            ))}
-          </Column>
-        ))}
-      </Column>
+    <Screen scroll header={header}>
+      <Box>
+        {home.showNoIrBanner ? null : <Spacer size={2} />}
+        <Column gap={5}>
+          {home.showNoIrBanner ? <Banner icon="ir" text={t('home.noIrBanner')} /> : null}
+          {home.sections.map((section, si) => (
+            <Column key={section.room.id} gap={3}>
+              <Txt variant="captionBold" color="ink2">
+                {section.room.name}
+              </Txt>
+              {section.cards.map((card, ci) => (
+                <DeviceCard
+                  key={card.view.device.id}
+                  card={card}
+                  index={(starts[si] ?? 0) + ci}
+                  onOpen={(id) => router.push(`/device/${id}`)}
+                  onSettings={(id) => router.push(`/device-sheet/${id}`)}
+                  onTogglePower={home.togglePower}
+                />
+              ))}
+            </Column>
+          ))}
+        </Column>
+      </Box>
     </Screen>
   );
 }

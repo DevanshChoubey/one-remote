@@ -21,9 +21,10 @@ export default {
   swing: 'Swing',
   sleep: 'Sleep',
   'status.connected': "Connected · how it's connected",
-  'status.irOnly': 'Sent over IR · point the phone at the AC',
-  'status.fellBack': '{link} not reachable · sent over IR · point at the AC',
-  'status.needsIr': 'Needs a phone with IR',
+  // Every line ends with the underlined link to the device settings (mock S.ac / S.fan).
+  'status.irOnly': "Sent over IR · point the phone at the AC · how it's connected",
+  'status.fellBack': "{link} not reachable · sent over IR · point at the AC · how it's connected",
+  'status.needsIr': "Needs a phone with IR · how it's connected",
   'error.notSent': "Couldn't send. Try again",
   'error.timeout': "The AC didn't answer. Try again",
   'error.partial': 'Only part of that went out. Try again',

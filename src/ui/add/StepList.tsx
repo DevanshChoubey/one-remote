@@ -51,7 +51,7 @@ function Disc(props: { state: StepState }): ReactElement {
         style,
       ]}
     >
-      {state === 'active' ? <Spinner size="sm" /> : null}
+      {state === 'active' ? <Spinner size="sm" color="accent" /> : null}
       {state === 'done' ? <Icon name="check" size={18} strokeWidth={3} color="onFill" /> : null}
       {state === 'fail' ? <Icon name="close" size={18} strokeWidth={3} color="onFill" /> : null}
     </Animated.View>
@@ -69,7 +69,8 @@ export function StepList(props: StepListProps): ReactElement {
             <Disc state={s.state} />
             <Box flex={1}>
               <Txt
-                variant="bodyBold"
+                variant="body"
+                weight="semibold"
                 color={s.state === 'fail' ? 'dangerInk' : s.state === 'idle' ? 'ink2' : 'ink'}
               >
                 {s.label}

@@ -60,17 +60,39 @@ describe('Button', () => {
   });
 
   it.each(['primary', 'ghost'] as const)(
-    'small %s is 48 px and as wide as its label',
+    'small %s is 48 px and as wide as its label (no cross-axis stretch)',
     async (v) => {
       await render(wrap(<Button label="Go" variant={v} size="small" onPress={jest.fn()} />));
       expect(flat(screen.getByText('Go').parent?.props.style).minHeight).toBe(48);
-      expect(flat(screen.getByLabelText('Go').props.style).alignSelf).toBe('flex-start');
+      // No alignSelf: in a Row it follows the Row's `align`, so it can centre on an input.
+      expect(flat(screen.getByLabelText('Go').props.style).alignSelf).toBeUndefined();
     },
   );
 
-  it('a ghost button is auto-width without asking for size small', async () => {
+  it.each(['primary', 'secondary', 'danger'] as const)(
+    'a key %s button stretches to the parent width, even in a centring column',
+    async (v) => {
+      await render(wrap(<Button label="Wide" variant={v} onPress={jest.fn()} />));
+      expect(flat(screen.getByLabelText('Wide').props.style).alignSelf).toBe('stretch');
+      expect(flat(screen.getByText('Wide').parent?.props.style).minHeight).toBe(56);
+    },
+  );
+
+  it('a ghost button is full width and 48 px tall, with its label centred', async () => {
     await render(wrap(<Button label="Skip" variant="ghost" onPress={jest.fn()} />));
-    expect(flat(screen.getByLabelText('Skip').props.style).alignSelf).toBe('flex-start');
+    expect(flat(screen.getByLabelText('Skip').props.style).alignSelf).toBe('stretch');
+    expect(flat(screen.getByText('Skip').parent?.props.style).minHeight).toBe(48);
+    expect(screen.getByText('Skip')).toHaveStyle({ textAlign: 'center' });
+  });
+
+  it('flex shares a Row: two flex 1 buttons are equal halves', async () => {
+    await render(wrap(<Button label="Up" size="small" flex={1} onPress={jest.fn()} />));
+    expect(flat(screen.getByLabelText('Up').props.style).flex).toBe(1);
+  });
+
+  it('alignSelf overrides the default alignment', async () => {
+    await render(wrap(<Button label="Mid" alignSelf="center" onPress={jest.fn()} />));
+    expect(flat(screen.getByLabelText('Mid').props.style).alignSelf).toBe('center');
   });
 
   it('loading is busy and blocked but not dimmed; disabled dims to .42', async () => {
@@ -131,6 +153,23 @@ describe('Chip', () => {
   });
 });
 
+describe('Chip, as the mock', () => {
+  it('keeps its normal look when disabled and is only dimmed to .42', async () => {
+    await render(wrap(<Chip label="Cool" state="neutral" onToggle={jest.fn()} disabled />));
+    const button = screen.getByLabelText('Cool');
+    expect(flat(button.props.style).opacity).toBe(0.42);
+    const box = screen.getByText('Cool').parent?.parent;
+    if (!box) throw new Error('chip fill expected');
+    expect(anim(box).backgroundColor).toBe(lightTokens.color.surface);
+    expect(anim(screen.getByText('Cool') as unknown as El).color).toBe(lightTokens.color.ink);
+  });
+
+  it('puts 6 px between the icon and the label', async () => {
+    await render(wrap(<Chip label="Swing" icon="swing" state="neutral" onToggle={jest.fn()} />));
+    expect(flat(screen.getByTestId('chip-icon').props.style).marginRight).toBe(6);
+  });
+});
+
 describe('Toggle', () => {
   it('has a custom track and thumb and keeps the switch role', async () => {
     const onChange = jest.fn();
@@ -177,6 +216,18 @@ describe('SegmentedControl', () => {
     expect(screen.getByLabelText('Auto').props.accessibilityState.selected).toBe(true);
     await fireEvent.press(screen.getByLabelText('Cool'));
     expect(onChange).toHaveBeenCalledWith('b');
+  });
+
+  it('draws its ring over the edge, so it is 56 px tall like the mock (no border)', async () => {
+    await render(
+      wrap(<SegmentedControl label="Mode" options={SEGMENTS} value="a" onChange={jest.fn()} />),
+    );
+    const group = flat(screen.getByLabelText('Mode').props.style);
+    expect(group.borderWidth).toBeUndefined();
+    expect(group.padding).toBe(4);
+    const ring = flat(screen.getByTestId('segment-ring').props.style);
+    expect(ring.borderWidth).toBe(1);
+    expect(ring.position).toBe('absolute');
   });
 
   it('recolours the thumb at once when the theme changes to dark', async () => {

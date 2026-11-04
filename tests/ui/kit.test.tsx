@@ -1,4 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
+import type { StyleProp } from 'react-native';
 import { ThemeProvider } from '@/theme';
 import { Button, Card, Chip, EmptyState, Screen, Toggle, Txt } from '@/ui';
 
@@ -12,6 +14,10 @@ jest.mock('react-native/Libraries/Components/Keyboard/KeyboardAvoidingView', () 
     ),
   };
 });
+
+function flat(style: unknown): Record<string, unknown> {
+  return StyleSheet.flatten(style as StyleProp<object>) as Record<string, unknown>;
+}
 
 function wrap(node: React.ReactElement): React.ReactElement {
   return <ThemeProvider scheme="light">{node}</ThemeProvider>;
@@ -65,6 +71,73 @@ describe('ui kit', () => {
     );
     expect(screen.getByText('pinned')).toBeTruthy();
     expect(screen.getByText('body')).toBeTruthy();
+  });
+
+  it.each([
+    ['a bar title', { title: 'Settings', onBack: jest.fn() }],
+    ['a big title', { title: 'Home' }],
+    ['a large title', { title: 'Add device', onBack: jest.fn(), largeTitle: true }],
+  ])('Screen scroll keeps %s fixed above the scrolling content', async (_name, extra) => {
+    await render(
+      wrap(
+        <Screen scroll {...extra}>
+          <Txt>body</Txt>
+        </Screen>,
+      ),
+    );
+    const list = within(screen.getByTestId('screen-scroll'));
+    expect(list.getByText('body')).toBeTruthy();
+    expect(list.queryByText(extra.title)).toBeNull();
+    expect(screen.getByText(extra.title)).toBeTruthy();
+  });
+
+  it('Screen scroll keeps a custom header fixed', async () => {
+    await render(
+      wrap(
+        <Screen scroll header={<Txt>Home head</Txt>}>
+          <Txt>body</Txt>
+        </Screen>,
+      ),
+    );
+    expect(within(screen.getByTestId('screen-scroll')).queryByText('Home head')).toBeNull();
+    expect(screen.getByText('Home head')).toBeTruthy();
+  });
+
+  it('Screen content fills the height, so a fill EmptyState can centre in it', async () => {
+    await render(
+      wrap(
+        <Screen title="AC" onBack={jest.fn()}>
+          <EmptyState fill title="Gone" />
+        </Screen>,
+      ),
+    );
+    expect(flat(screen.getByTestId('screen-body').props.style).flex).toBe(1);
+  });
+
+  it('largeTitle draws the back button alone and a 30 px title with a 16 px ink2 sub', async () => {
+    await render(
+      wrap(
+        <Screen title="Add device" subtitle="What is it?" largeTitle onBack={jest.fn()}>
+          <Txt>body</Txt>
+        </Screen>,
+      ),
+    );
+    expect(screen.getByTestId('screen-back')).toBeTruthy();
+    expect(screen.getByText('Add device')).toHaveStyle({ fontSize: 30 });
+    expect(screen.getByText('What is it?')).toHaveStyle({ fontSize: 16 });
+    expect(flat(screen.getByText('What is it?').parent?.props.style).marginTop).toBe(6);
+  });
+
+  it('a bar subtitle string is a 13 px caption', async () => {
+    await render(
+      wrap(
+        <Screen title="AC" subtitle="Living room" onBack={jest.fn()}>
+          <Txt>body</Txt>
+        </Screen>,
+      ),
+    );
+    expect(screen.getByText('Living room')).toHaveStyle({ fontSize: 13 });
+    expect(screen.getByText('AC')).toHaveStyle({ fontSize: 21 });
   });
 
   it('Button fires onPress and is blocked while loading', async () => {

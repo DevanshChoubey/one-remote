@@ -37,18 +37,20 @@ describe('statusLine', () => {
       status: { via: 'ir', fellBack: false },
     });
     expect(statusLine(v).key).toBe('ac.status.irOnly');
-    expect(text(v)).toBe('Sent over IR · point the phone at the AC');
+    expect(text(v)).toBe("Sent over IR · point the phone at the AC · how it's connected");
   });
 
   it('names the link it fell back from', () => {
     const v = view({ status: { via: 'ir', fellBack: true } });
     expect(statusLine(v).key).toBe('ac.status.fellBack');
-    expect(text(v)).toBe('Matter not reachable · sent over IR · point at the AC');
+    expect(text(v)).toBe(
+      "Matter not reachable · sent over IR · point at the AC · how it's connected",
+    );
   });
 
   it('says a phone with IR is needed when the device is not usable', () => {
     const v = view({ usable: false, device: device('d', 'r', 0) });
-    expect(text(v)).toBe('Needs a phone with IR');
+    expect(text(v)).toBe("Needs a phone with IR · how it's connected");
   });
 
   it('uses the fan copy for a fan', () => {
@@ -56,7 +58,7 @@ describe('statusLine', () => {
       device: device('d', 'r', 0, { kind: 'fan' }),
       status: { via: 'ir', fellBack: false },
     });
-    expect(text(v)).toBe('Sent over IR · point the phone at the fan');
+    expect(text(v)).toBe("Sent over IR · point the phone at the fan · how it's connected");
   });
 
   it('before any press, an IR-first device says IR, others say connected', () => {

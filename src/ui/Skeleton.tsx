@@ -13,7 +13,6 @@ import { useMotion, useTheme } from '@/theme';
 import type { RadiusToken } from '@/theme';
 import { AnimatedBox } from './primitives/AnimatedBox';
 import { Box, Row } from './primitives';
-import { Tile } from './Tile';
 
 export interface SkeletonProps {
   width?: number | `${number}%`;
@@ -98,15 +97,27 @@ export function Skeleton(props: SkeletonProps): ReactElement {
   );
 }
 
-/** A device card while it loads: tile, two bars and a switch pill. */
+/**
+ * A device card while it loads (mock `SkelCard`): a shimmering 44 px tile block, a 16 and a 12 px
+ * bar (58% and 36% wide) and a switch pill, all in `line` at 0.7, at the card's 76 px height.
+ */
 export function SkelCard(props: { testID?: string }): ReactElement {
   return (
-    <Box testID={props.testID} bg="surface" border="line" radius="md" shadow="card" p={4}>
+    <Box
+      testID={props.testID}
+      bg="surface"
+      border="line"
+      radius="md"
+      shadow="card"
+      p={4}
+      minH={76}
+      justify="center"
+    >
       <Row gap={3} align="center">
-        <Tile icon="room" />
+        <Skeleton width={44} height={44} radius="tile" onCard />
         <Box flex={1} gap={2}>
-          <Skeleton width="60%" height={14} onCard />
-          <Skeleton width="35%" height={12} onCard />
+          <Skeleton width="58%" height={16} onCard />
+          <Skeleton width="36%" height={12} onCard />
         </Box>
         <Skeleton width={52} height={32} radius="pill" onCard />
       </Row>

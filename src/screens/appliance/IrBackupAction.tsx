@@ -3,15 +3,16 @@ import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
-import { Button, Column, ErrorLine } from '@/ui';
+import { Button, Column, ListItem, Txt } from '@/ui';
 import { useKnownDevice } from '../device/useKnownDevice';
 
 /** The one LG TV code set (NEC), so a TV needs no test. */
 const LG_TV_REMOTE = 'lg-tv/nec';
 
 /**
- * "Add IR backup" / "Redo IR backup" in the device sheet. Hidden on a phone without an IR blaster.
- * An AC or fan runs the add flow's IR test; a TV just gets the LG code set.
+ * "Add IR backup" in the device sheet, after the "How it's connected" group. Hidden on a phone
+ * without an IR blaster, and once the device has IR ("Redo IR backup" is then a row in the group,
+ * `IrRedoRow`). An AC or fan runs the add flow's IR test; a TV just gets the LG code set.
  */
 export function IrBackupAction(props: { deviceId: string }): ReactElement | null {
   const router = useRouter();
@@ -36,16 +37,34 @@ export function IrBackupAction(props: { deviceId: string }): ReactElement | null
     return (
       <Column gap={2}>
         <Button label={t('irBackup.add')} variant="secondary" onPress={add} />
-        {failed ? <ErrorLine text={t('irBackup.failed')} /> : null}
+        {/* Mock "IR backup failed": one plain status sentence, not a red error line. */}
+        {failed ? (
+          <Txt color="ink2" live>
+            {t('irBackup.failed')}
+          </Txt>
+        ) : null}
       </Column>
     );
   }
 
+  if (hasIr) return null;
   return (
     <Button
-      label={t(hasIr ? 'irBackup.redo' : 'irBackup.add')}
+      label={t('irBackup.add')}
       variant="secondary"
       onPress={() => router.push(`/add/ir-backup?id=${device.id}`)}
+    />
+  );
+}
+
+/** Mock `sheetSettings`: "Redo IR backup", a chevron row under an AC's or fan's IR link. */
+export function IrRedoRow(props: { deviceId: string }): ReactElement {
+  const router = useRouter();
+  return (
+    <ListItem
+      title={t('irBackup.redo')}
+      trailing="chevron"
+      onPress={() => router.push(`/add/ir-backup?id=${props.deviceId}`)}
     />
   );
 }

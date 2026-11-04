@@ -14,6 +14,11 @@ const DOT = 44;
 const HALO = 10;
 const FULL = DOT + HALO * 2;
 
+/** The mock's halo: the accent at 12 %, so the dot grid shows through it. */
+function halo(accent: string, fallback: string): string {
+  return /^#[0-9a-f]{6}$/i.test(accent) ? `${accent}1f` : fallback;
+}
+
 /** The finger dot: 44 px with a soft halo, following the finger on the UI thread. */
 export function TouchDot(props: TouchDotProps): ReactElement {
   const theme = useTheme();
@@ -39,7 +44,7 @@ export function TouchDot(props: TouchDotProps): ReactElement {
           width: FULL,
           height: FULL,
           borderRadius: theme.radius.pill,
-          backgroundColor: theme.color.accentSoft,
+          backgroundColor: halo(theme.color.accent, theme.color.accentSoft),
           alignItems: 'center',
           justifyContent: 'center',
         },

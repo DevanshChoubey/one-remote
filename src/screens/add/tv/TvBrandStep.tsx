@@ -13,10 +13,11 @@ export function TvBrandStep(props: { onFind: () => void; onManual: () => void })
   return (
     <Screen
       title={t('addTv.title')}
+      largeTitle
       onBack={() => router.back()}
       scroll
       footer={
-        <Column gap={2}>
+        <Column gap={4}>
           <Button label={t('addTv.findMine')} onPress={props.onFind} />
           <Button label={t('addTv.typeAddress')} variant="ghost" onPress={props.onManual} />
         </Column>
@@ -28,6 +29,7 @@ export function TvBrandStep(props: { onFind: () => void; onManual: () => void })
             key={b.kind}
             index={i}
             icon="tv"
+            size="regular"
             title={t(b.labelKey)}
             selected={picked === b.kind}
             onPress={() => setPicked(b.kind)}

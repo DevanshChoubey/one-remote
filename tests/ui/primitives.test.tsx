@@ -3,7 +3,7 @@ import type { StyleProp } from 'react-native';
 import * as RN from 'react-native';
 import { StyleSheet } from 'react-native';
 import { darkTokens, lightTokens, ThemeProvider } from '@/theme';
-import { Box, Scroll, Touchable, Txt } from '@/ui/primitives';
+import { AnimatedBox, Box, Scroll, Touchable, Txt } from '@/ui/primitives';
 
 function flat(style: unknown, state = { pressed: false }): Record<string, unknown> {
   const resolved =
@@ -33,6 +33,32 @@ describe('primitives', () => {
     expect(screen.getByTestId('b').props.needsOffscreenAlphaCompositing).toBe(true);
     await render(wrap(<Box opacity={1} testID="c" />));
     expect(screen.getByTestId('c').props.needsOffscreenAlphaCompositing).toBe(false);
+  });
+
+  it('a see-through AnimatedBox fades as one layer too', async () => {
+    await render(wrap(<AnimatedBox opacity={0.45} testID="a" />));
+    expect(screen.getByTestId('a').props.needsOffscreenAlphaCompositing).toBe(true);
+  });
+
+  it('a round box in a dimmed Touchable drops its shadow; a card keeps its own', async () => {
+    await render(
+      wrap(
+        <Touchable onPress={jest.fn()} accessibilityLabel="Off" disabled>
+          <Box radius="pill" shadow="card" testID="disc" />
+          <Box radius="md" shadow="card" testID="card" />
+        </Touchable>,
+      ),
+    );
+    expect(flat(screen.getByTestId('disc').props.style).elevation).toBeUndefined();
+    expect(flat(screen.getByTestId('card').props.style).elevation).toBeDefined();
+    await render(
+      wrap(
+        <Touchable onPress={jest.fn()} accessibilityLabel="On">
+          <Box radius="pill" shadow="card" testID="lit" />
+        </Touchable>,
+      ),
+    );
+    expect(flat(screen.getByTestId('lit').props.style).elevation).toBeDefined();
   });
 
   it('Box follows the dark scheme', async () => {

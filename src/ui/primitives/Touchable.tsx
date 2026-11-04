@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
-import { Pressable } from 'react-native';
+import { Pressable, experimental_LayoutConformance as LayoutConformance } from 'react-native';
 import Animated, {
   interpolateColor,
   useAnimatedStyle,
@@ -8,6 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useMotion, useTheme } from '@/theme';
 import type { ColorToken, RadiusToken } from '@/theme';
+import { DimmedContext } from './dimmed';
 
 export interface TouchableProps {
   onPress: () => void;
@@ -40,6 +41,8 @@ export interface TouchableProps {
   /** Opacity when disabled; 0.42 by default. */
   disabledOpacity?: number;
   alignSelf?: 'flex-start' | 'center' | 'flex-end' | 'stretch';
+  /** Grows along the parent's main axis (equal-width buttons in a Row). */
+  flex?: number;
   testID?: string;
   children: ReactNode;
 }
@@ -73,55 +76,62 @@ export function Touchable(props: TouchableProps): ReactElement {
     [base, pressed, target],
   );
   const dim = props.disabled && !props.noDim ? (props.disabledOpacity ?? 0.42) : null;
+  // Strict (W3C) layout: under RN's legacy errata the surface's flexGrow fills all the height a
+  // centring parent offers, so a lone button in a full-screen panel grew to the panel's height.
   return (
-    <Pressable
-      onPress={props.onPress}
-      onLongPress={props.onLongPress}
-      onPressIn={() => {
-        press.set(withTiming(1, instant));
-        props.onPressIn?.();
-      }}
-      onPressOut={() => {
-        press.set(withTiming(0, release));
-        props.onPressOut?.();
-      }}
-      disabled={props.disabled}
-      testID={props.testID}
-      accessibilityLabel={props.accessibilityLabel}
-      accessibilityHint={props.accessibilityHint}
-      accessibilityRole={props.accessibilityRole ?? 'button'}
-      accessibilityState={{
-        disabled: props.disabled === true,
-        selected: props.selected,
-        checked: props.checked,
-        busy: props.busy,
-        expanded: props.expanded,
-      }}
-      style={{
-        minHeight: theme.touch.min,
-        minWidth: theme.touch.min,
-        justifyContent: 'center',
-        opacity: dim ?? (props.dimmed ? 0.6 : 1),
-        ...(props.fill ? { flex: 1, alignSelf: 'stretch' as const } : null),
-        ...(props.alignSelf ? { alignSelf: props.alignSelf } : null),
-      }}
-    >
-      <Animated.View
-        testID={props.testID ? `${props.testID}-surface` : undefined}
-        style={[
-          {
-            flexGrow: 1,
-            justifyContent: 'center',
-            minHeight: theme.touch.min,
-            minWidth: theme.touch.min,
-            ...(props.border ? { borderColor: theme.color[props.border], borderWidth: 1 } : null),
-            ...(props.radius ? { borderRadius: theme.radius[props.radius] } : null),
-          },
-          animated,
-        ]}
+    <LayoutConformance mode="strict">
+      <Pressable
+        onPress={props.onPress}
+        onLongPress={props.onLongPress}
+        onPressIn={() => {
+          press.set(withTiming(1, instant));
+          props.onPressIn?.();
+        }}
+        onPressOut={() => {
+          press.set(withTiming(0, release));
+          props.onPressOut?.();
+        }}
+        disabled={props.disabled}
+        testID={props.testID}
+        accessibilityLabel={props.accessibilityLabel}
+        accessibilityHint={props.accessibilityHint}
+        accessibilityRole={props.accessibilityRole ?? 'button'}
+        accessibilityState={{
+          disabled: props.disabled === true,
+          selected: props.selected,
+          checked: props.checked,
+          busy: props.busy,
+          expanded: props.expanded,
+        }}
+        style={{
+          minHeight: theme.touch.min,
+          minWidth: theme.touch.min,
+          justifyContent: 'center',
+          opacity: dim ?? (props.dimmed ? 0.6 : 1),
+          ...(props.fill ? { flex: 1, alignSelf: 'stretch' as const } : null),
+          ...(props.alignSelf ? { alignSelf: props.alignSelf } : null),
+          ...(props.flex === undefined ? null : { flex: props.flex }),
+        }}
       >
-        {props.children}
-      </Animated.View>
-    </Pressable>
+        <Animated.View
+          testID={props.testID ? `${props.testID}-surface` : undefined}
+          style={[
+            {
+              flexGrow: 1,
+              justifyContent: 'center',
+              minHeight: theme.touch.min,
+              minWidth: theme.touch.min,
+              ...(props.border ? { borderColor: theme.color[props.border], borderWidth: 1 } : null),
+              ...(props.radius ? { borderRadius: theme.radius[props.radius] } : null),
+            },
+            animated,
+          ]}
+        >
+          <DimmedContext.Provider value={dim !== null || props.dimmed === true}>
+            {props.children}
+          </DimmedContext.Provider>
+        </Animated.View>
+      </Pressable>
+    </LayoutConformance>
   );
 }

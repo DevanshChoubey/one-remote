@@ -5,7 +5,18 @@ import { Platform } from 'react-native';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
 import type { Preferences } from '@/services';
-import { Banner, Box, Column, Group, ListItem, Screen, SegmentedControl, Toggle, Txt } from '@/ui';
+import {
+  Banner,
+  Box,
+  Column,
+  Group,
+  ListItem,
+  Screen,
+  SegmentedControl,
+  Spacer,
+  Toggle,
+  Txt,
+} from '@/ui';
 import { useHomeData } from '../shared/useHomeData';
 import { RoomsEditor } from './RoomsEditor';
 
@@ -65,6 +76,14 @@ export function SettingsScreen(): ReactElement {
       onPress={() => toggle(key)}
     />
   );
+  // Mock `.acc-body`: 4 px under the row, 16 at the sides and bottom.
+  const body = (children: ReactElement): ReactElement => (
+    <Box px={4}>
+      <Spacer size={1} />
+      {children}
+      <Spacer size={4} />
+    </Box>
+  );
   const volumeKeys =
     Platform.OS === 'ios' ? null : (
       <Box px={4} py={2} minH={56} justify="center">
@@ -78,57 +97,57 @@ export function SettingsScreen(): ReactElement {
 
   return (
     <Screen title={t('settings.title')} onBack={() => router.back()} scroll>
-      <Column gap={5}>
-        <Column gap={2}>
-          <Txt variant="label" color="ink2">
-            {t('settings.theme')}
-          </Txt>
-          <SegmentedControl
-            label={t('settings.theme')}
-            options={THEMES.map((th) => ({ value: th.value, label: t(th.key) }))}
-            value={current?.theme ?? 'system'}
-            onChange={(v) => save({ theme: v })}
-          />
-        </Column>
-
-        <Group>
-          {volumeKeys}
-          <Box px={4} py={2} minH={56} justify="center">
-            <Toggle
-              label={t('settings.haptics')}
-              value={current?.haptics ?? true}
-              onChange={(v) => save({ haptics: v })}
+      {/* Mock `.scroll` gap 12; the "Theme" `.sect` is 8 px lower, 4 px in, 4 px above the segment. */}
+      <Box>
+        <Spacer size={2} />
+        <Column gap={3}>
+          <Column gap={1}>
+            <Box px={1}>
+              <Txt variant="captionBold" color="ink2">
+                {t('settings.theme')}
+              </Txt>
+            </Box>
+            <SegmentedControl
+              label={t('settings.theme')}
+              options={THEMES.map((th) => ({ value: th.value, label: t(th.key) }))}
+              value={current?.theme ?? 'system'}
+              onChange={(v) => save({ theme: v })}
             />
-          </Box>
-        </Group>
+          </Column>
 
-        <Group>
-          {row('rooms', t('settings.rooms'), t('settings.roomsHint'))}
-          {open === 'rooms' ? (
-            <Box p={4}>
-              <RoomsEditor rooms={data.rooms} />
+          <Group>
+            {volumeKeys}
+            <Box px={4} py={2} minH={56} justify="center">
+              <Toggle
+                label={t('settings.haptics')}
+                value={current?.haptics ?? true}
+                onChange={(v) => save({ haptics: v })}
+              />
             </Box>
-          ) : null}
-          {row('privacy', t('settings.privacy'), t('settings.privacyHint'))}
-          {open === 'privacy' ? (
-            <Box p={4}>
-              <Banner tone="ok" icon="lock" text={t('settings.privacyBody')} />
-            </Box>
-          ) : null}
-          {row('about', t('settings.about'))}
-          {open === 'about' ? (
-            <Box p={4}>
-              <Column gap={3}>
-                <Txt color="ink2">{t('settings.licenseApp')}</Txt>
-                <Txt color="ink2">{t('settings.licenseOss')}</Txt>
-                <Txt color="ink2">{t('settings.licenseEncoders')}</Txt>
-                <Txt color="ink2">{t('settings.licenseFanCodes')}</Txt>
-                <Txt color="ink2">{t('settings.licenseSourceOffer')}</Txt>
-              </Column>
-            </Box>
-          ) : null}
-        </Group>
-      </Column>
+          </Group>
+
+          <Group>
+            {row('rooms', t('settings.rooms'), t('settings.roomsHint'))}
+            {open === 'rooms' ? body(<RoomsEditor rooms={data.rooms} />) : null}
+            {row('privacy', t('settings.privacy'), t('settings.privacyHint'))}
+            {open === 'privacy'
+              ? body(<Banner tone="ok" icon="lock" text={t('settings.privacyBody')} />)
+              : null}
+            {row('about', t('settings.about'))}
+            {open === 'about'
+              ? body(
+                  <Column gap={3}>
+                    <Txt color="ink2">{t('settings.licenseApp')}</Txt>
+                    <Txt color="ink2">{t('settings.licenseOss')}</Txt>
+                    <Txt color="ink2">{t('settings.licenseEncoders')}</Txt>
+                    <Txt color="ink2">{t('settings.licenseFanCodes')}</Txt>
+                    <Txt color="ink2">{t('settings.licenseSourceOffer')}</Txt>
+                  </Column>,
+                )
+              : null}
+          </Group>
+        </Column>
+      </Box>
     </Screen>
   );
 }

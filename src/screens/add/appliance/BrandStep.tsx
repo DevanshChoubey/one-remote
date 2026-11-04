@@ -2,7 +2,8 @@ import { Linking } from 'react-native';
 import type { ReactElement } from 'react';
 import type { BrandInfo } from '@/core';
 import { t } from '@/i18n';
-import { Column, OptionCard, Screen, Touchable, Txt } from '@/ui';
+import { Box, Card, Column, OptionCard, Screen, Tile, Txt } from '@/ui';
+import { TextLink } from '@/ui/add';
 import { BRAND_REQUEST_URL } from './feedback';
 
 export interface BrandStepProps {
@@ -19,13 +20,14 @@ export function BrandStep(props: BrandStepProps): ReactElement {
     Linking.openURL(BRAND_REQUEST_URL).catch((e: unknown) => console.error('No mail app', e));
   };
   return (
-    <Screen title={t('addAppliance.brandTitle')} onBack={props.onBack} scroll>
+    <Screen title={t('addAppliance.brandTitle')} largeTitle onBack={props.onBack} scroll>
       <Column gap={3}>
         {props.brands.map((b, i) => (
           <OptionCard
             key={b.id}
             title={b.name}
             icon={props.kind ?? 'ac'}
+            size="regular"
             index={i}
             {...(b.matter
               ? { badge: { label: t('addAppliance.brandMatter'), tone: 'accent' } }
@@ -34,21 +36,20 @@ export function BrandStep(props: BrandStepProps): ReactElement {
             accessibilityLabel={b.name}
           />
         ))}
-        <OptionCard
-          title={t('addAppliance.otherBrandsRow')}
-          icon="room"
-          disabled
-          onPress={() => undefined}
-          accessibilityLabel={t('addAppliance.otherBrandsRow')}
-        />
-        <Touchable
-          onPress={askForBrand}
-          accessibilityRole="link"
-          accessibilityLabel={t('addAppliance.brandMissing')}
-        >
-          <Txt color="accent">{t('addAppliance.brandMissing')}</Txt>
-        </Touchable>
+        {/* Not a choice: a quiet card at 0.6, its name 600, no chevron (mock). */}
+        <Card row off>
+          <Tile icon="room" />
+          <Box flex={1}>
+            <Txt weight="semibold">{t('addAppliance.otherBrandsRow')}</Txt>
+          </Box>
+        </Card>
       </Column>
+      <TextLink
+        label={t('addAppliance.brandMissing')}
+        onPress={askForBrand}
+        align="start"
+        external
+      />
     </Screen>
   );
 }

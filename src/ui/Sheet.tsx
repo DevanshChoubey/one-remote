@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, useWindowDimensions } from 'react-native';
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { t } from '@/i18n';
 import { useMotion } from '@/theme';
@@ -14,6 +15,11 @@ export interface SheetProps {
   title: string;
   children: ReactNode;
   footer?: ReactNode;
+  /**
+   * The flat close button beside the title (mock Device settings). False for a sheet the mock
+   * draws with the title alone (Inputs): the scrim, Android back and Done close it.
+   */
+  closeButton?: boolean;
   testID?: string;
   /**
    * Called once the exit animation has finished after `open` turned false (at once under reduced
@@ -22,6 +28,13 @@ export interface SheetProps {
    */
   onClosed?: () => void;
 }
+
+const GUTTER = 16;
+const BOTTOM_PAD = 30;
+/** Panel top padding (8) and the gap between its parts (16), from the mock's `.sheet`. */
+const TOP_PAD = 8;
+const PART_GAP = 16;
+const GRAB_OPACITY = 0.45;
 
 /**
  * A bottom sheet. Android back and a tap on the scrim both close it. The scrim fades in (`base`)
@@ -36,6 +49,9 @@ export function Sheet(props: SheetProps): ReactElement | null {
   const progress = useSharedValue(0);
   const reduced = motion.reduced;
   const toastHost = useToastHost(props.open || mounted);
+  const insets = useContext(SafeAreaInsetsContext);
+  // The mock's 30 px bottom padding, or more over a home indicator or gesture bar.
+  const bottomPad = Math.max(BOTTOM_PAD, (insets?.bottom ?? 0) + GUTTER);
 
   // Mount as soon as `open` turns true (adjusting state while rendering, not in an effect).
   if (props.open && !mounted) setMounted(true);
@@ -116,25 +132,28 @@ export function Sheet(props: SheetProps): ReactElement | null {
           shadow="sheet"
           maxH="90%"
           py={2}
+          gap={4}
           animatedStyle={panelStyle}
+          testID={props.testID ? `${props.testID}-panel` : 'sheet-panel'}
         >
-          <Box align="center" py={2}>
-            <Box w={40} h={5} radius="pill" bg="line" />
+          {/* The grab handle: 4 px below the top padding, ink2 at 45%. */}
+          <Box align="center" justify="end" h={9}>
+            <Box w={40} h={5} radius="pill" bg="ink2" opacity={GRAB_OPACITY} testID="sheet-grab" />
           </Box>
-          <Row align="center" px={5} gap={2}>
+          <Row align="center" px={4} gap={2}>
             <Box flex={1}>
               <Txt variant="heading">{props.title}</Txt>
             </Box>
-            <IconButton icon="close" label={t('common.close')} onPress={close} flat />
+            {props.closeButton === false ? null : (
+              <IconButton icon="close" label={t('common.close')} onPress={close} flat />
+            )}
           </Row>
-          <Scroll keyboardShouldPersistTaps="handled" px={5} py={3} contentGap={3}>
+          <Scroll keyboardShouldPersistTaps="handled" px={4} contentGap={3}>
             {props.children}
           </Scroll>
-          {props.footer ? (
-            <Box px={5} py={2}>
-              {props.footer}
-            </Box>
-          ) : null}
+          {props.footer ? <Box px={4}>{props.footer}</Box> : null}
+          {/* The rest of the bottom padding: py 8 and one gap are already below the last part. */}
+          <Box h={Math.max(0, bottomPad - TOP_PAD - PART_GAP)} testID="sheet-bottom" />
         </AnimatedBox>
       </KeyboardAvoidingView>
       {toastHost.node ? (

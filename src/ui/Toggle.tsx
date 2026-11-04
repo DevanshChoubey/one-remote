@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import type { ReactElement } from 'react';
 import { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useMotion, useTheme } from '@/theme';
-import { AnimatedBox, Row, Touchable, Txt } from './primitives';
+import { AnimatedBox, Box, Row, Touchable, Txt } from './primitives';
 import { mixColor } from './primitives/Touchable';
 
 export interface ToggleProps {
@@ -21,6 +21,8 @@ const TRACK_H = 32;
 const THUMB = 26;
 const THUMB_PRESSED = 32;
 const INSET = (TRACK_H - THUMB) / 2;
+/** The mock's `.tog.is-disabled`. */
+const DISABLED_OPACITY = 0.4;
 const TRAVEL = TRACK_W - THUMB - 2 * INSET; // 20
 
 /** The whole row is the control: one announcement, and tapping the label toggles it. */
@@ -67,10 +69,16 @@ export function Toggle(props: ToggleProps): ReactElement {
       checked={props.value}
       disabled={props.disabled}
       noDim={props.noDim}
+      disabledOpacity={DISABLED_OPACITY}
       pressScale={1}
     >
       <Row align="center" justify={props.hideLabel ? 'end' : 'between'} gap={3}>
-        {props.hideLabel ? null : <Txt variant="bodyBold">{props.label}</Txt>}
+        {props.hideLabel ? null : (
+          // Takes the room left of the switch, so a long label wraps instead of overflowing.
+          <Box flex={1}>
+            <Txt weight="semibold">{props.label}</Txt>
+          </Box>
+        )}
         <AnimatedBox
           testID="toggle-track"
           w={TRACK_W}
