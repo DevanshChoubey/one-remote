@@ -18,6 +18,7 @@ import {
   Txt,
 } from '@/ui';
 import { useHomeData } from '../shared/useHomeData';
+import { AlertsGroup } from './AlertsGroup';
 import { RoomsEditor } from './RoomsEditor';
 
 type Open = 'rooms' | 'privacy' | 'about';
@@ -125,6 +126,8 @@ export function SettingsScreen(): ReactElement {
               />
             </Box>
           </Group>
+
+          <AlertsGroup />
 
           <Group>
             {row('rooms', t('settings.rooms'), t('settings.roomsHint'))}
