@@ -40,14 +40,14 @@ export interface FoundAer {
 export interface AerService {
   /** false on Android below 12 (API 31). */
   supported(): boolean;
-  /** The cached reading, synchronously ({ deviceId } before the first read). */
+  /** The cached reading, synchronously ({ deviceId } before the first read). Returns the same object until the reading changes. */
   view(deviceId: string): AerView;
   subscribe(deviceId: string, cb: (v: AerView) => void): Unsubscribe;
   /** Lists nearby devices, first found first, once each, without those already added. */
   scan(onFound: (d: FoundAer) => void, timeoutMs: number): { stop(): void; done: Promise<void> };
   /** For a dispenser not added yet pass `target`; the session is keyed by the future device id. */
   blink(deviceId: string, target?: { bleId: string; timeZone: string }): Promise<void>;
-  /** Connects, sets the clock, reads, and only then writes `device` (kind 'aer', one aer link) to the home store. */
+  /** The device's room must already exist in the home store. Connects, sets the clock, reads, and only then writes `device` (kind 'aer', one aer link) to the home store. */
   add(device: Device): Promise<void>;
   refresh(deviceId: string): Promise<AerView>;
   sprayNow(deviceId: string): Promise<DeviceStatus>;

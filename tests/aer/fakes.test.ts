@@ -1,3 +1,4 @@
+import type { AerView } from '@/aer/types';
 import { AerError } from '@/aer/errors';
 import { createFakeAerService } from '@/aer/testing/fakeAerService';
 import { createFakeAlerts } from '@/aer/testing/fakeAlerts';
@@ -109,5 +110,34 @@ describe('memory dispenser store', () => {
     await store.remove('d1');
     expect(await store.list()).toEqual([]);
     expect(n).toBe(2);
+  });
+});
+
+describe('fake scan with a home store', () => {
+  it('skips dispensers already added', async () => {
+    const home = createMemoryStore();
+    await home.upsertRoom({ id: 'r', name: 'R', order: 0 });
+    await home.upsertDevice(aerDevice);
+    const aer = createFakeAerService({
+      home,
+      found: [
+        { bleId: 'AA:BB', name: 'Smart Matic', rssi: -40 },
+        { bleId: 'CC:DD', name: 'Smart Matic', rssi: -60 },
+      ],
+    });
+    const found: string[] = [];
+    await aer.scan((d) => found.push(d.bleId), 1000).done;
+    expect(found).toEqual(['CC:DD']);
+  });
+
+  it('notifies on forget and stamps a new reading on sprayNow', async () => {
+    const aer = createFakeAerService({ views: { d1: { deviceId: 'd1' } } });
+    const seen: AerView[] = [];
+    aer.subscribe('d1', (v) => seen.push(v));
+    await aer.sprayNow('d1');
+    expect(seen[0]?.status?.at).toEqual(expect.any(String));
+    await aer.forget('d1');
+    expect(seen[1]).toEqual({ deviceId: 'd1' });
+    expect(aer.view('d1')).toEqual({ deviceId: 'd1' });
   });
 });

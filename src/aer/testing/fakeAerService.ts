@@ -118,8 +118,14 @@ export function createFakeAerService(
       let stopped = false;
       const done = (async () => {
         await enter('scan');
+        const added = new Set(
+          ((await opts.home?.devices()) ?? []).flatMap((x) =>
+            x.links.flatMap((l) => (l.kind === 'aer' ? [l.bleId] : [])),
+          ),
+        );
         for (const d of opts.found ?? []) {
           if (stopped) return;
+          if (added.has(d.bleId)) continue;
           onFound(d);
         }
       })();
@@ -144,7 +150,7 @@ export function createFakeAerService(
     },
     async sprayNow(deviceId) {
       await enter('sprayNow', deviceId);
-      return statusOf(deviceId);
+      return writeStatus(deviceId, {});
     },
     async setAutoSpray(deviceId, interval: Interval | null) {
       await enter('setAutoSpray', deviceId, interval);
@@ -167,6 +173,8 @@ export function createFakeAerService(
       await enter('forget', deviceId);
       views.delete(deviceId);
       held.delete(deviceId);
+      publish({ deviceId });
+      views.delete(deviceId);
     },
     async closeAll() {
       await enter('closeAll');

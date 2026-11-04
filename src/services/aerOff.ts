@@ -12,7 +12,12 @@ export function createAerOff(): { aer: AerService; aerAlerts: Alerts } {
     supported: () => false,
     view: (deviceId) => ({ deviceId }),
     subscribe: () => () => {},
-    scan: () => ({ stop: () => {}, done: off() }),
+    scan: () => {
+      const done = off();
+      // A caller that only stops the scan must not leave an unhandled rejection.
+      done.catch(() => {});
+      return { stop: () => {}, done };
+    },
     blink: off,
     add: off,
     refresh: off,
@@ -22,7 +27,7 @@ export function createAerOff(): { aer: AerService; aerAlerts: Alerts } {
     saveSchedules: off,
     setTimeZone: off,
     forget: off,
-    closeAll: off,
+    closeAll: async () => {},
   };
   const aerAlerts: Alerts = {
     start: () => () => {},
