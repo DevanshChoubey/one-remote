@@ -11,6 +11,7 @@ import { device, makeServices, renderWith, room } from './helpers';
 jest.mock('@/screens/aer/openSettings', () => ({
   openNotificationSettings: jest.fn().mockResolvedValue(undefined),
   openBluetoothSettings: jest.fn().mockResolvedValue(undefined),
+  openAppSettings: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: jest.fn() }) }));
 

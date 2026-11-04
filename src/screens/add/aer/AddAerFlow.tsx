@@ -8,15 +8,17 @@ import { newId } from '../../shared/newId';
 import { NameRoomStep } from '../NameRoomStep';
 import { planNewDevice } from '../newDevice';
 import type { NamePick } from '../newDevice';
-import { openBluetoothSettings } from '../../aer/openSettings';
+import { openAppSettings, openBluetoothSettings } from '../../aer/openSettings';
 import { BlinkStep } from './BlinkStep';
 import type { BlinkTarget } from './BlinkStep';
 import { ScanStep } from './ScanStep';
 import { ZoneStep } from './ZoneStep';
 
 export interface AddAerFlowProps {
-  /** Opens the phone's Bluetooth (or this app's) settings (tests replace it). */
+  /** Opens the phone's Bluetooth settings, for Bluetooth off (tests replace it). */
   openBluetoothSettings?: () => void;
+  /** Opens this app's page in Settings, for a refused permission (tests replace it). */
+  openAppSettings?: () => void;
 }
 
 type Step =
@@ -27,8 +29,14 @@ type Step =
 
 const NOTHING = (): void => {};
 
+const logOpenFailure = (e: unknown): void => console.error('Could not open the settings', e);
+
 function openBluetooth(): void {
-  openBluetoothSettings().catch((e: unknown) => console.error('Could not open the settings', e));
+  openBluetoothSettings().catch(logOpenFailure);
+}
+
+function openApp(): void {
+  openAppSettings().catch(logOpenFailure);
 }
 
 /** Add an air freshener: find it nearby, blink it, then (E.3) name it and set its time zone. */
@@ -66,6 +74,7 @@ export function AddAerFlow(props: AddAerFlowProps): ReactElement {
         <ScanStep
           onBack={() => router.back()}
           openBluetoothSettings={props.openBluetoothSettings ?? openBluetooth}
+          openAppSettings={props.openAppSettings ?? openApp}
           onPick={(found) =>
             setStep({
               name: 'blink',

@@ -29,7 +29,7 @@ import type { IconName, StatusDotProps } from '@/ui';
 import { LinkLine } from '@/ui/appliance';
 import { LevelTile, SprayDisc } from '@/ui/aer';
 import { isStale } from './cardLine';
-import { openBluetoothSettings } from './openSettings';
+import { openAppSettings, openBluetoothSettings } from './openSettings';
 import { daysLabel, formatTime, formatWhen, PROBLEM_COPY } from './format';
 import { BATTERY_LOW_PERCENT, isCached, isLive, levels, REFILL_LOW_PERCENT } from './screenState';
 import type { AerScreenState } from './screenState';
@@ -37,12 +37,20 @@ import { useAerDevice } from './useAerDevice';
 
 export interface AerScreenProps {
   deviceId: string;
-  /** Opens the phone's Bluetooth or app settings (tests replace it). */
-  onOpenSettings?: () => void;
+  /** Opens the phone's Bluetooth settings, for Bluetooth off (tests replace it). */
+  onOpenBluetooth?: () => void;
+  /** Opens this app's page in Settings, for a refused permission (tests replace it). */
+  onOpenAppSettings?: () => void;
 }
 
+const logOpenFailure = (e: unknown): void => console.error('Could not open the settings', e);
+
 function openBluetooth(): void {
-  openBluetoothSettings().catch((e: unknown) => console.error('Could not open the settings', e));
+  openBluetoothSettings().catch(logOpenFailure);
+}
+
+function openApp(): void {
+  openAppSettings().catch(logOpenFailure);
 }
 
 const PROBLEM_OF: Partial<Record<AerScreenState, AerProblem>> = {
@@ -142,7 +150,12 @@ export function AerScreen(props: AerScreenProps): ReactElement {
   const dot = BAR_DOT[state];
   const name = useKnownDevice(deviceId)?.name;
   const link = linkOf(state);
-  const canOpenSettings = state === 'btoff' || state === 'denied';
+  const openSettings =
+    state === 'btoff'
+      ? (props.onOpenBluetooth ?? openBluetooth)
+      : state === 'denied'
+        ? (props.onOpenAppSettings ?? openApp)
+        : null;
 
   return (
     <Screen
@@ -176,12 +189,12 @@ export function AerScreen(props: AerScreenProps): ReactElement {
               testID="aer-banner"
             />
             <Row gap={2} wrap>
-              {canOpenSettings ? (
+              {openSettings ? (
                 <Button
                   label={t('aer.openSettings')}
                   variant="secondary"
                   size="small"
-                  onPress={props.onOpenSettings ?? openBluetooth}
+                  onPress={openSettings}
                 />
               ) : null}
               <Button label={t('aer.tryAgain')} size="small" onPress={() => void dev.retry()} />

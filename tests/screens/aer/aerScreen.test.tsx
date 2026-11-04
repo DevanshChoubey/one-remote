@@ -17,8 +17,10 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 );
 jest.mock('react-native-udp', () => ({ __esModule: true, default: { createSocket: jest.fn() } }));
 const mockOpenBluetooth = jest.fn(async () => undefined);
+const mockOpenApp = jest.fn(async () => undefined);
 jest.mock('@/screens/aer/openSettings', () => ({
   openBluetoothSettings: () => mockOpenBluetooth(),
+  openAppSettings: () => mockOpenApp(),
   openNotificationSettings: jest.fn(async () => undefined),
 }));
 
@@ -45,10 +47,13 @@ const sch = (from: number, to: number): Schedule => ({
   interval: 20,
 });
 
-function setup(view: AerView = reading(), onOpenSettings?: () => void) {
+function setup(
+  view: AerView = reading(),
+  openers: { onOpenBluetooth?: () => void; onOpenAppSettings?: () => void } = {},
+) {
   const aer: FakeAerService = createFakeAerService({ views: { a1: view } });
   const services = makeServices([], { aer });
-  const ui = <AerScreen deviceId="a1" onOpenSettings={onOpenSettings} />;
+  const ui = <AerScreen deviceId="a1" {...openers} />;
   return { aer, services, ui };
 }
 
@@ -116,22 +121,38 @@ describe('AerScreen', () => {
     expect(screen.getByTestId('aer-spray').props.accessibilityState?.disabled).toBeFalsy();
   });
 
-  it('Open Settings shows for Bluetooth off and calls the prop', async () => {
-    const onOpenSettings = jest.fn();
-    const { aer, services, ui } = setup(reading(), onOpenSettings);
+  it('Open Settings shows for Bluetooth off and calls the Bluetooth prop', async () => {
+    const onOpenBluetooth = jest.fn();
+    const onOpenAppSettings = jest.fn();
+    const { aer, services, ui } = setup(reading(), { onOpenBluetooth, onOpenAppSettings });
     aer.failNext('refresh', new AerError('bluetoothOff'));
     await renderWith(services, ui);
     await fireEvent.press(await screen.findByRole('button', { name: t('aer.openSettings') }));
-    expect(onOpenSettings).toHaveBeenCalledTimes(1);
+    expect(onOpenBluetooth).toHaveBeenCalledTimes(1);
+    expect(onOpenAppSettings).not.toHaveBeenCalled();
   });
 
   it('Open Settings with no prop opens the Bluetooth settings', async () => {
     mockOpenBluetooth.mockClear();
+    mockOpenApp.mockClear();
     const { aer, services, ui } = setup();
     aer.failNext('refresh', new AerError('bluetoothOff'));
     await renderWith(services, ui);
     await fireEvent.press(await screen.findByRole('button', { name: t('aer.openSettings') }));
     expect(mockOpenBluetooth).toHaveBeenCalledTimes(1);
+    expect(mockOpenApp).not.toHaveBeenCalled();
+  });
+
+  // Mock AER_PROB.denied: "Opens the app's page in Settings", where the permission is granted.
+  it("Open Settings for a refused permission opens the app's page in Settings", async () => {
+    mockOpenBluetooth.mockClear();
+    mockOpenApp.mockClear();
+    const { aer, services, ui } = setup();
+    aer.failNext('refresh', new AerError('permissionDenied'));
+    await renderWith(services, ui);
+    await fireEvent.press(await screen.findByRole('button', { name: t('aer.openSettings') }));
+    expect(mockOpenApp).toHaveBeenCalledTimes(1);
+    expect(mockOpenBluetooth).not.toHaveBeenCalled();
   });
 
   it('has no Open Settings for out of range', async () => {

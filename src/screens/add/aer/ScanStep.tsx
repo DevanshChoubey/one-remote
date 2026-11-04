@@ -20,7 +20,10 @@ export function signalLabel(rssi: number | null): string {
 export interface ScanStepProps {
   onPick: (found: FoundAer) => void;
   onBack: () => void;
+  /** For Bluetooth off. */
   openBluetoothSettings: () => void;
+  /** For a refused permission: this app's page in Settings. */
+  openAppSettings: () => void;
 }
 
 /** Lists the air fresheners in range as the scan finds them; the scan stops when the step is left. */
@@ -43,7 +46,10 @@ export function ScanStep(props: ScanStepProps): ReactElement {
           action={
             <Column gap={2}>
               {off || denied ? (
-                <Button label={t('aer.openSettings')} onPress={props.openBluetoothSettings} />
+                <Button
+                  label={t('aer.openSettings')}
+                  onPress={off ? props.openBluetoothSettings : props.openAppSettings}
+                />
               ) : null}
               <Button
                 label={t('aer.tryAgain')}

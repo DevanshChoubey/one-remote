@@ -9,6 +9,11 @@ export async function openBluetoothSettings(): Promise<void> {
   await Linking.openSettings();
 }
 
+/** This app's page in Settings, where a refused Bluetooth permission is granted. */
+export async function openAppSettings(): Promise<void> {
+  await Linking.openSettings();
+}
+
 /** This app's settings, where the phone's notification switch lives. */
 export async function openNotificationSettings(): Promise<void> {
   await Linking.openSettings();

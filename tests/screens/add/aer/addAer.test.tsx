@@ -19,8 +19,10 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 );
 
 const mockOpenBluetooth = jest.fn(async () => undefined);
+const mockOpenApp = jest.fn(async () => undefined);
 jest.mock('@/screens/aer/openSettings', () => ({
   openBluetoothSettings: () => mockOpenBluetooth(),
+  openAppSettings: () => mockOpenApp(),
   openNotificationSettings: jest.fn(async () => undefined),
 }));
 
@@ -102,11 +104,26 @@ describe('looking nearby', () => {
 
   it('Open Settings with no prop opens the Bluetooth settings', async () => {
     mockOpenBluetooth.mockClear();
+    mockOpenApp.mockClear();
     const aer = createFakeAerService({ found: FOUND });
     aer.failNext('scan', new AerError('bluetoothOff'));
     await renderWith(makeServices([], { aer }), <AddAerFlow />);
     await fireEvent.press(await screen.findByText(t('aer.openSettings')));
     expect(mockOpenBluetooth).toHaveBeenCalledTimes(1);
+    expect(mockOpenApp).not.toHaveBeenCalled();
+  });
+
+  // Mock S.addAer({state:'denied'}): "Opens the app's page in Settings".
+  it("Open Settings for a refused permission opens the app's page in Settings", async () => {
+    mockOpenBluetooth.mockClear();
+    mockOpenApp.mockClear();
+    const aer = createFakeAerService({ found: FOUND });
+    aer.failNext('scan', new AerError('permissionDenied'));
+    await renderWith(makeServices([], { aer }), <AddAerFlow />);
+    expect(await screen.findByText(t('aer.deniedTitle'))).toBeTruthy();
+    await fireEvent.press(screen.getByText(t('aer.openSettings')));
+    expect(mockOpenApp).toHaveBeenCalledTimes(1);
+    expect(mockOpenBluetooth).not.toHaveBeenCalled();
   });
 
   it('says Nearby devices is refused', async () => {
