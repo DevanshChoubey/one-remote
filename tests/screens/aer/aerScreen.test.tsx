@@ -138,6 +138,28 @@ describe('AerScreen', () => {
     expect(screen.queryByText(t('aer.probAway'))).toBeNull();
   });
 
+  it('a retry that fails differently clears the old banner and toasts', async () => {
+    const { aer, services, ui } = setup();
+    aer.failNext('refresh', new AerError('bluetoothOff'));
+    aer.failNext('refresh', new AerError('rejected'));
+    await renderWith(services, ui);
+    await screen.findByText(t('aer.probBtOff'));
+    await fireEvent.press(screen.getByRole('button', { name: t('aer.tryAgain') }));
+    expect(await screen.findByText(t('aer.probFailed'))).toBeTruthy();
+    expect(screen.queryByText(t('aer.probBtOff'))).toBeNull();
+    expect(screen.queryByRole('button', { name: t('aer.openSettings') })).toBeNull();
+  });
+
+  it('labels a reading with its time when the refresh failed', async () => {
+    const { aer, services, ui } = setup(reading({ ageMs: 30 * 60_000 }));
+    aer.failNext('refresh', new AerError('rejected'));
+    await renderWith(services, ui);
+    await screen.findByText(t('aer.probFailed'));
+    expect(screen.getAllByText('Last read 30 min ago')).toHaveLength(1);
+    expect(screen.getByText('Firmware 2.1.4 · Last read 30 min ago')).toBeTruthy();
+    expect(screen.queryByText('Read just now')).toBeNull();
+  });
+
   it('sprays and says so', async () => {
     const { aer, services, ui } = setup();
     await renderWith(services, ui);

@@ -7,6 +7,17 @@ export type AerScreenState =
 /** Below this refill percentage the dispenser is nearly out. */
 export const REFILL_LOW_PERCENT = 10;
 
+/** Below this battery percentage the level is drawn red. */
+export const BATTERY_LOW_PERCENT = 10;
+
+const LIVE: readonly AerScreenState[] = ['ready', 'spraying', 'low'];
+const CACHED: readonly AerScreenState[] = ['connecting', 'btoff', 'denied', 'away', 'busy'];
+
+/** The dispenser answered: Spray and the controls work. */
+export const isLive = (s: AerScreenState): boolean => LIVE.includes(s);
+/** The screen shows what it last read, dimmed. */
+export const isCached = (s: AerScreenState): boolean => CACHED.includes(s);
+
 /** True when the last reading says the batteries are too flat to spray. */
 export function isFlat(view: AerView): boolean {
   return view.status !== undefined && isBatteryTooLow(view.status.batteryMv);

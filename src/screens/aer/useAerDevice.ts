@@ -16,6 +16,8 @@ export interface AerDevice {
   view: AerView;
   state: AerScreenState;
   problem: AerProblem | null;
+  /** The last refresh in this visit succeeded, so the reading is what the dispenser said just now. */
+  read: boolean;
   spray(): Promise<void>;
   setAuto(interval: AerInterval | null): Promise<void>;
   retry(): Promise<void>;
@@ -31,6 +33,15 @@ export function useAerDevice(deviceId: string): AerDevice {
   const view = useAerView(deviceId);
   const [op, setOp] = useState<'connecting' | 'spraying' | null>('connecting');
   const [problem, setProblem] = useState<AerProblem | null>(null);
+  const [read, setRead] = useState(false);
+  // A different device starts over, connecting again (state adjusted during render, not in an effect).
+  const [forId, setForId] = useState(deviceId);
+  if (forId !== deviceId) {
+    setForId(deviceId);
+    setOp('connecting');
+    setRead(false);
+    setProblem(null);
+  }
   const alive = useRef(true);
   /** True while a call runs; a second press is ignored, not queued. */
   const running = useRef(false);
@@ -39,8 +50,13 @@ export function useAerDevice(deviceId: string): AerDevice {
     (e: unknown): void => {
       if (!alive.current) return;
       const p = aerProblem(e);
-      if (BANNER.includes(p)) setProblem(p);
-      else toast.show(problemCopy(e).line, { kind: 'error' });
+      // The newest failure replaces the old banner: a toast-only problem leaves none behind.
+      if (BANNER.includes(p)) {
+        setProblem(p);
+      } else {
+        setProblem(null);
+        toast.show(problemCopy(e).line, { kind: 'error' });
+      }
     },
     [toast],
   );
@@ -50,6 +66,7 @@ export function useAerDevice(deviceId: string): AerDevice {
       during: 'connecting' | 'spraying' | null,
       call: () => Promise<unknown>,
       onDone?: () => void,
+      isRead = false,
     ): Promise<void> => {
       if (running.current) return;
       running.current = true;
@@ -58,9 +75,11 @@ export function useAerDevice(deviceId: string): AerDevice {
         await call();
         if (alive.current) {
           setProblem(null);
+          if (isRead) setRead(true);
           onDone?.();
         }
       } catch (e) {
+        if (isRead && alive.current) setRead(false);
         fail(e);
       } finally {
         running.current = false;
@@ -71,21 +90,25 @@ export function useAerDevice(deviceId: string): AerDevice {
   );
 
   const retry = useCallback(
-    () => run('connecting', () => aer.refresh(deviceId)),
+    () => run('connecting', () => aer.refresh(deviceId), undefined, true),
     [aer, deviceId, run],
   );
 
   useEffect(() => {
     alive.current = true;
-    // `op` already starts as 'connecting', so the first read sets nothing before it runs.
     running.current = true;
     aer
       .refresh(deviceId)
       .then(
         () => {
-          if (alive.current) setProblem(null);
+          if (!alive.current) return;
+          setProblem(null);
+          setRead(true);
         },
-        (e: unknown) => fail(e),
+        (e: unknown) => {
+          if (alive.current) setRead(false);
+          fail(e);
+        },
       )
       .finally(() => {
         running.current = false;
@@ -115,5 +138,5 @@ export function useAerDevice(deviceId: string): AerDevice {
   if (state === 'flat' && problem !== 'flat' && !isFreshFlat(view, new Date())) {
     state = isRefillLow(view) ? 'low' : 'ready';
   }
-  return { view, state, problem, spray, setAuto, retry };
+  return { view, state, problem, read, spray, setAuto, retry };
 }

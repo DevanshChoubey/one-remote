@@ -3,7 +3,8 @@ import type { AerView } from '@/services';
 import { AER_FRESH_MS, formatNextSpray, formatWhen } from './format';
 import { isFlat, isRefillLow } from './screenState';
 
-function isStale(view: AerView, now: Date): boolean {
+/** No reading, or one older than `AER_FRESH_MS`. */
+export function isStale(view: AerView, now: Date): boolean {
   return !view.status || now.getTime() - new Date(view.status.at).getTime() > AER_FRESH_MS;
 }
 

@@ -27,8 +27,9 @@ import { useKnownDevice } from '@/screens/device';
 import type { IconName, StatusDotProps } from '@/ui';
 import { LinkLine } from '@/ui/appliance';
 import { LevelTile, SprayDisc } from '@/ui/aer';
-import { AER_FRESH_MS, daysLabel, formatTime, formatWhen, PROBLEM_COPY } from './format';
-import { levels, REFILL_LOW_PERCENT } from './screenState';
+import { isStale } from './cardLine';
+import { daysLabel, formatTime, formatWhen, PROBLEM_COPY } from './format';
+import { BATTERY_LOW_PERCENT, isCached, isLive, levels, REFILL_LOW_PERCENT } from './screenState';
 import type { AerScreenState } from './screenState';
 import { useAerDevice } from './useAerDevice';
 
@@ -38,8 +39,6 @@ export interface AerScreenProps {
   onOpenSettings?: () => void;
 }
 
-const LIVE: readonly AerScreenState[] = ['ready', 'spraying', 'low'];
-const CACHED: readonly AerScreenState[] = ['connecting', 'btoff', 'denied', 'away', 'busy'];
 const PROBLEM_OF: Partial<Record<AerScreenState, AerProblem>> = {
   btoff: 'btoff',
   denied: 'denied',
@@ -47,7 +46,7 @@ const PROBLEM_OF: Partial<Record<AerScreenState, AerProblem>> = {
   busy: 'busy',
   flat: 'flat',
 };
-const PROBLEM_ICON: Record<string, IconName> = {
+const PROBLEM_ICON: Partial<Record<AerProblem, IconName>> = {
   btoff: 'btoff',
   denied: 'btoff',
   away: 'bt',
@@ -69,19 +68,15 @@ const BAR_DOT: Partial<Record<AerScreenState, Pick<StatusDotProps, 'tone' | 'liv
   flat: { tone: 'err' },
 };
 
-function isStale(view: AerView, now: Date): boolean {
-  return !view.status || now.getTime() - new Date(view.status.at).getTime() > AER_FRESH_MS;
-}
-
-/** "Read just now" while the reading is fresh and the dispenser answered; else when it was read. */
-function readText(view: AerView, state: AerScreenState, now: Date): string {
-  if (view.status && (CACHED.includes(state) || isStale(view, now))) {
+/** "Read just now" only after a refresh this visit succeeded; otherwise when it was read. */
+function readText(view: AerView, state: AerScreenState, read: boolean, now: Date): string {
+  if (view.status && (isCached(state) || !read || isStale(view, now))) {
     return t('aer.lastRead', { when: formatWhen(view.status.at, now) });
   }
   return view.status ? t('aer.readNow') : t('aer.notRead');
 }
 
-function subtitleOf(view: AerView, state: AerScreenState, now: Date): string {
+function subtitleOf(view: AerView, state: AerScreenState, read: boolean, now: Date): string {
   switch (state) {
     case 'spraying':
       return t('aer.subSpraying');
@@ -94,7 +89,7 @@ function subtitleOf(view: AerView, state: AerScreenState, now: Date): string {
     case 'flat':
       return t(PROBLEM_COPY[PROBLEM_OF[state] ?? 'failed'].bar);
     default:
-      return readText(view, state, now);
+      return readText(view, state, read, now);
   }
 }
 
@@ -129,8 +124,8 @@ export function AerScreen(props: AerScreenProps): ReactElement {
   const dev = useAerDevice(deviceId);
   const { view, state } = dev;
   const now = new Date();
-  const live = LIVE.includes(state);
-  const cached = CACHED.includes(state);
+  const live = isLive(state);
+  const cached = isCached(state);
   const problem = PROBLEM_OF[state];
   const auto = view.status?.autoSpray ?? null;
   const list = view.schedules?.list ?? [];
@@ -150,7 +145,7 @@ export function AerScreen(props: AerScreenProps): ReactElement {
         <>
           {dot ? <StatusDot {...dot} /> : null}
           <Txt variant="caption" color="ink2" numberOfLines={1}>
-            {subtitleOf(view, state, now)}
+            {subtitleOf(view, state, dev.read, now)}
           </Txt>
         </>
       }
@@ -249,7 +244,7 @@ export function AerScreen(props: AerScreenProps): ReactElement {
               icon="battery"
               label={t('aer.battery')}
               percent={lv?.battery}
-              tone={lv !== null && lv.battery < REFILL_LOW_PERCENT ? 'danger' : 'accent'}
+              tone={lv !== null && lv.battery < BATTERY_LOW_PERCENT ? 'danger' : 'accent'}
               loading={loading}
               testID="aer-battery"
             />
@@ -267,7 +262,7 @@ export function AerScreen(props: AerScreenProps): ReactElement {
               <Txt variant="caption" color="ink2">
                 {t('aer.firmwareLine', {
                   version: view.status.firmware,
-                  read: readText(view, state, now),
+                  read: readText(view, state, dev.read, now),
                 })}
               </Txt>
             </Box>
