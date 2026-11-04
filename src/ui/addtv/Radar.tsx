@@ -11,11 +11,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useMotion, useTheme } from '@/theme';
 import { Icon } from '../Icon';
+import type { IconName } from '../Icon';
 import { Box } from '../primitives';
 
 export interface RadarProps {
   /** Rings ping while the app looks; at rest only the core shows. */
   searching: boolean;
+  /** The core's icon; the Wi-Fi mark by default. */
+  icon?: IconName;
 }
 
 const SIZE = 168;
@@ -82,7 +85,7 @@ export function Radar(props: RadarProps): ReactElement {
         justify="center"
         testID="radar-core"
       >
-        <Icon name="wifi" size={34} color="accentInk" />
+        <Icon name={props.icon ?? 'wifi'} size={34} color="accentInk" />
       </Box>
     </Box>
   );

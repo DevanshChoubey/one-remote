@@ -4,14 +4,17 @@ import { useMotion, useTheme } from '@/theme';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
 import { AnimatedBox, Box, Touchable } from './primitives';
+import { Spinner } from './Spinner';
 import { mixColor } from './primitives/Touchable';
 
 export interface IconButtonProps {
   icon: IconName;
   label: string;
   onPress: () => void;
-  /** `power` draws the icon in the danger ink. */
-  tone?: 'ink' | 'power';
+  /** `power` draws the icon in the danger ink; `accent` is a soft accent disc with an accent icon. */
+  tone?: 'ink' | 'power' | 'accent';
+  /** Shows a spinner in place of the icon and ignores presses (reports `busy`). */
+  busy?: boolean;
   /** No disc or ring: just the icon (sheet close, bar actions on a bare background). */
   flat?: boolean;
   expanded?: boolean;
@@ -20,6 +23,8 @@ export interface IconButtonProps {
   disabled?: boolean;
   testID?: string;
 }
+
+function noop(): void {}
 
 /** A 48 px round icon control. */
 export function IconButton(props: IconButtonProps): ReactElement {
@@ -35,19 +40,21 @@ export function IconButton(props: IconButtonProps): ReactElement {
     [clear, pressed],
   );
   const flat = !!props.flat;
+  const accent = props.tone === 'accent';
   return (
     <Touchable
-      onPress={props.onPress}
+      onPress={props.busy ? noop : props.onPress}
       accessibilityLabel={props.label}
       disabled={props.disabled}
       expanded={props.expanded}
       checked={props.checked}
+      busy={props.busy ? true : undefined}
       accessibilityRole={props.checked === undefined ? 'button' : 'switch'}
       testID={props.testID}
       radius="pill"
-      bg={flat ? undefined : 'surface'}
-      border={flat ? undefined : 'line'}
-      pressedBg={flat ? undefined : 'surface2'}
+      bg={flat ? undefined : accent ? 'accentSoft' : 'surface'}
+      border={flat || accent ? undefined : 'line'}
+      pressedBg={flat ? undefined : accent ? 'accentSoft' : 'surface2'}
       onPressIn={() => {
         press.set(withTiming(1, motion.timing('instant')));
       }}
@@ -67,7 +74,16 @@ export function IconButton(props: IconButtonProps): ReactElement {
             animatedStyle={tint}
           />
         ) : null}
-        <Icon name={props.icon} color={props.tone === 'power' ? 'dangerInk' : 'ink'} />
+        {props.busy ? (
+          <Box testID={props.testID ? `${props.testID}-spinner` : 'icon-button-spinner'}>
+            <Spinner color={accent ? 'accent' : 'ink'} />
+          </Box>
+        ) : (
+          <Icon
+            name={props.icon}
+            color={props.tone === 'power' ? 'dangerInk' : accent ? 'accent' : 'ink'}
+          />
+        )}
       </Box>
     </Touchable>
   );

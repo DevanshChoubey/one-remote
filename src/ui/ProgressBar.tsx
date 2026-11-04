@@ -14,6 +14,8 @@ export interface ProgressBarProps {
   /** 0 to 1. */
   value: number;
   label: string;
+  /** The fill colour: `warm` for low and `danger` for empty (mock `.stat.low`, `.stat.bad`). */
+  tone?: 'accent' | 'warm' | 'danger';
 }
 
 export function ProgressBar(props: ProgressBarProps): ReactElement {
@@ -40,7 +42,13 @@ export function ProgressBar(props: ProgressBarProps): ReactElement {
       accessibilityRole="progressbar"
       accessibilityValue={{ min: 0, max: 100, now: pct }}
     >
-      <AnimatedBox h={6} bg="accent" radius="pill" animatedStyle={fillStyle} />
+      <AnimatedBox
+        h={6}
+        bg={props.tone ?? 'accent'}
+        radius="pill"
+        animatedStyle={fillStyle}
+        testID="progress-fill"
+      />
     </Box>
   );
 }

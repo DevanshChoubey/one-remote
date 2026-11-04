@@ -32,8 +32,8 @@ function wrap(node: ReactElement, scheme: 'light' | 'dark' = 'light'): ReactElem
 }
 
 describe('shared component contracts', () => {
-  it('has 41 icons and every one renders', async () => {
-    expect(ICON_NAMES).toHaveLength(41);
+  it('has 49 icons and every one renders', async () => {
+    expect(ICON_NAMES).toHaveLength(49);
     for (const name of ICON_NAMES) {
       await render(wrap(<Icon name={name as IconName} testID={`icon-${name}`} />));
       expect(screen.getByTestId(`icon-${name}`)).toBeTruthy();

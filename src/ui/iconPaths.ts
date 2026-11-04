@@ -128,4 +128,43 @@ export const ICON_SHAPES = {
   ],
   play: [{ t: 'path', d: 'M7 4.5v15l12-7.5z' }],
   refresh: [{ t: 'path', d: 'M20 12a8 8 0 11-2.6-5.9M20 4v5h-5' }],
+  aer: [
+    { t: 'rect', x: 6.5, y: 2.5, w: 11, h: 19, rx: 3.5 },
+    { t: 'path', d: 'M10 6.5h4' },
+    { t: 'circle', cx: 12, cy: 14.5, r: 2.5 },
+  ],
+  spray: [
+    { t: 'rect', x: 2.5, y: 9.5, w: 7, h: 5, rx: 1.5 },
+    { t: 'path', d: 'M9.5 12h2' },
+    { t: 'circle', cx: 15, cy: 12, r: 0.9, filled: true },
+    { t: 'circle', cx: 18.5, cy: 12, r: 0.9, filled: true },
+    { t: 'circle', cx: 21, cy: 12, r: 0.9, filled: true },
+    { t: 'circle', cx: 15.5, cy: 8.5, r: 0.9, filled: true },
+    { t: 'circle', cx: 19, cy: 6.5, r: 0.9, filled: true },
+    { t: 'circle', cx: 15.5, cy: 15.5, r: 0.9, filled: true },
+    { t: 'circle', cx: 19, cy: 17.5, r: 0.9, filled: true },
+  ],
+  bt: [{ t: 'path', d: 'M7 7.5l10 9-5 4.5V3l5 4.5-10 9' }],
+  btoff: [
+    {
+      t: 'path',
+      d: 'M3 3l18 18M12 12v9l4.2-3.8M12 8V3l5 4.5-2.6 2.3M7 7.5l5 4.5-5 4.5',
+    },
+  ],
+  battery: [
+    { t: 'rect', x: 2.5, y: 7, w: 17, h: 10, rx: 2.5 },
+    { t: 'path', d: 'M22 10.5v3M6 10.5v3' },
+  ],
+  clock: [
+    { t: 'circle', cx: 12, cy: 12, r: 9 },
+    { t: 'path', d: 'M12 7v5l3.5 2' },
+  ],
+  globe: [
+    { t: 'circle', cx: 12, cy: 12, r: 9 },
+    {
+      t: 'path',
+      d: 'M3 12h18M12 3c2.6 2.5 3.8 5.5 3.8 9s-1.2 6.5-3.8 9c-2.6-2.5-3.8-5.5-3.8-9S9.4 5.5 12 3z',
+    },
+  ],
+  bell: [{ t: 'path', d: 'M6 16.5V11a6 6 0 0112 0v5.5l1.5 2h-15zM10 21h4' }],
 } as const satisfies Record<string, readonly IconShape[]>;
