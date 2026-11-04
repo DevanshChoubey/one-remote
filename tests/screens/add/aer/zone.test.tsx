@@ -106,6 +106,15 @@ describe('the home time zone when adding', () => {
     expect(screen.getAllByTestId(/^zone-.*(?<!-surface)$/)).toHaveLength(1);
   });
 
+  it('keeps a zone picked through search in the list after the search is cleared', async () => {
+    await toZone();
+    const search = screen.getByLabelText(t('aer.zoneSearch'));
+    await fireEvent.changeText(search, 'tokyo');
+    await fireEvent.press(screen.getByTestId('zone-Asia/Tokyo'));
+    await fireEvent.changeText(search, '');
+    expect(screen.getByTestId('zone-Asia/Tokyo').props.accessibilityState.selected).toBe(true);
+  });
+
   it('a failed add says why and keeps the step', async () => {
     const { aer, s } = await toZone();
     aer.failNext('add', new AerError('unreachable'));

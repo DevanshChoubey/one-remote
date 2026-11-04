@@ -60,8 +60,8 @@ export function ZoneStep(props: ZoneStepProps): ReactElement {
   }, [props.edit, props.deviceId, store, phone]);
 
   const rows = useMemo(
-    () => filterZones(zonesFirst(all, [saved ?? '', phone]), query).slice(0, MAX_ROWS),
-    [all, saved, phone, query],
+    () => filterZones(zonesFirst(all, [zone ?? '', saved ?? '', phone]), query).slice(0, MAX_ROWS),
+    [all, zone, saved, phone, query],
   );
 
   const finish = (): void => {
