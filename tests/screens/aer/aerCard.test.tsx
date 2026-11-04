@@ -7,7 +7,7 @@ import { cardLine } from '@/screens/aer/cardLine';
 import { AerCard } from '@/screens/home/AerCard';
 import type { HomeCard } from '@/screens/home/useHome';
 import { AerError } from '@/services';
-import type { AerView } from '@/services';
+import type { AerSchedule as Schedule, AerView } from '@/services';
 import { makeServices, renderWith } from '../helpers';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
@@ -35,6 +35,13 @@ const reading = (over: { mv?: number; sprays?: number; ageMs?: number } = {}): A
     spraysSinceRefill: over.sprays ?? 700,
     at: new Date(Date.now() - (over.ageMs ?? 0)).toISOString(),
   },
+});
+
+const daily = (from: number, to: number, endMin = 0): Schedule => ({
+  start: { h: from, m: 0 },
+  end: { h: to, m: endMin },
+  days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+  interval: 10,
 });
 
 function setup(view?: AerView) {
@@ -77,6 +84,50 @@ describe('AerCard', () => {
     expect(key.props.accessibilityState?.disabled).toBe(true);
     await fireEvent.press(key);
     expect(aer.calls).toEqual([]);
+  });
+
+  it('a stale flat reading shows when it was read and leaves Spray enabled', async () => {
+    const { aer, services, ui } = setup(reading({ mv: 2350, ageMs: 2 * 3_600_000 }));
+    await renderWith(services, ui);
+    expect(screen.getByText('Last read 2 h ago')).toBeTruthy();
+    expect(screen.queryByText(t('aer.cardFlat'))).toBeNull();
+    const key = screen.getByTestId('aer-spray-a1');
+    expect(key.props.accessibilityState?.disabled).toBeFalsy();
+    await fireEvent.press(key);
+    expect(aer.calls).toContainEqual({ op: 'sprayNow', deviceId: 'a1' });
+  });
+
+  it('says done for today once the last spray has passed', async () => {
+    const { services, ui } = setup({
+      ...reading(),
+      schedules: { list: [daily(6, 8)], at: new Date().toISOString() },
+    });
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'setTimeout', 'clearTimeout'] });
+    jest.setSystemTime(new Date('2026-11-04T10:00:00Z'));
+    try {
+      await renderWith(services, ui);
+      expect(screen.getByText(t('aer.doneToday'))).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("reads the schedule in the dispenser's home zone", async () => {
+    // 13:00 UTC is 6:30 pm in Kolkata: the 6:00 pm spray is still ahead in UTC only.
+    const now = new Date('2026-11-04T13:00:00Z');
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'setTimeout', 'clearTimeout'] });
+    jest.setSystemTime(now);
+    try {
+      const { services, ui } = setup({
+        ...reading(),
+        schedules: { list: [daily(18, 18, 20)], at: now.toISOString() },
+      });
+      await renderWith(services, ui);
+      expect(screen.getByText(t('aer.doneToday'))).toBeTruthy();
+      expect(screen.queryByText('Next spray 6:00 pm')).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('low refill reads as a warning', async () => {
@@ -160,6 +211,25 @@ describe('cardLine', () => {
       text: 'Next spray 6:00 pm',
       tone: 'ink2',
     });
+  });
+  it('reads the same schedule in the zone it is given', () => {
+    const view = {
+      ...withSchedule(),
+      schedules: { list: [daily(18, 18, 20)], at: now.toISOString() },
+    };
+    expect(cardLine(view, 'UTC', now).text).toBe('Next spray 6:00 pm');
+    // 10:00 UTC is 3:30 pm in Kolkata: still before 6:00 pm, so use a later clock for the split.
+    const late = new Date('2026-11-04T13:00:00Z');
+    const fresh = {
+      ...view,
+      status: { ...(view.status as NonNullable<AerView['status']>), at: late.toISOString() },
+    };
+    expect(cardLine(fresh, 'UTC', late).text).toBe('Next spray 6:00 pm');
+    expect(cardLine(fresh, 'Asia/Kolkata', late).text).toBe(t('aer.doneToday'));
+  });
+  it('a stale flat reading is just last read', () => {
+    const stale = reading({ mv: 2350, ageMs: 2 * 3_600_000 });
+    expect(cardLine(stale, 'UTC', new Date())).toEqual({ text: 'Last read 2 h ago', tone: 'ink2' });
   });
   it('flat beats low beats not read', () => {
     expect(cardLine(reading({ mv: 2350, sprays: 2100 }), 'UTC', now).tone).toBe('bad');

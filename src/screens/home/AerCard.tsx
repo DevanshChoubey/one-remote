@@ -17,10 +17,10 @@ import {
   useToast,
 } from '@/ui';
 import { mixColor } from '@/ui/primitives/Touchable';
-import { SentRing } from '@/ui/tv/SentRing';
-import { cardLine } from '@/screens/aer/cardLine';
+import { SentRing } from '@/ui/tv';
+import { cardLine, isFreshFlat } from '@/screens/aer/cardLine';
 import { problemCopy } from '@/screens/aer/format';
-import { isFlat, levels } from '@/screens/aer/screenState';
+import { levels } from '@/screens/aer/screenState';
 import { useAerView } from '@/screens/aer/useAerView';
 import type { HomeCard } from './useHome';
 
@@ -55,10 +55,12 @@ export function AerCard(props: AerCardProps): ReactElement {
 
   const link = device.links.find((l) => l.kind === 'aer');
   const zone = link?.kind === 'aer' ? link.timeZone : FALLBACK_ZONE;
-  const line = cardLine(view, zone, new Date());
+  // Computed at render, so the line refreshes whenever the view changes.
+  const now = new Date();
+  const line = cardLine(view, zone, now);
   const lv = levels(view);
   const levelsLine = lv ? t('aer.levels', { battery: lv.battery, refill: lv.refill }) : '';
-  const flat = isFlat(view);
+  const flat = isFreshFlat(view, now);
 
   const spray = (): void => {
     if (busy) return;
