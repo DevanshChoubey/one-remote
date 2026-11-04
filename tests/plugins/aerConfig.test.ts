@@ -9,7 +9,7 @@ type Compiled = {
     manifest: {
       'uses-permission'?: Node[];
       'uses-permission-sdk-23'?: Node[];
-      application?: { service?: Node[]; receiver?: Node[] }[];
+      application?: { service?: Node[]; receiver?: Node[]; provider?: Node[] }[];
     };
   } | null;
 };
@@ -117,6 +117,18 @@ describe('aer native config', () => {
       named(man()?.['uses-permission'], 'com.google.android.c2dm.permission.RECEIVE')[0]?.$[
         'tools:node'
       ],
+    ).toBe('remove');
+  });
+
+  it('removes the Firebase component discovery service and init provider', () => {
+    const app = man()?.application?.[0];
+    expect(
+      named(app?.service, 'com.google.firebase.components.ComponentDiscoveryService')[0]?.$[
+        'tools:node'
+      ],
+    ).toBe('remove');
+    expect(
+      named(app?.provider, 'com.google.firebase.provider.FirebaseInitProvider')[0]?.$['tools:node'],
     ).toBe('remove');
   });
 

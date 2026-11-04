@@ -9,7 +9,12 @@ type Manifest = {
   manifest: {
     $: Record<string, string>;
     'uses-permission'?: Node[];
-    application?: { $: Record<string, string>; service?: Node[]; receiver?: Node[] }[];
+    application?: {
+      $: Record<string, string>;
+      service?: Node[];
+      receiver?: Node[];
+      provider?: Node[];
+    }[];
   };
 };
 
@@ -33,7 +38,9 @@ describe('withNoPush', () => {
     expect(app?.service).toEqual([
       removed('expo.modules.notifications.service.ExpoFirebaseMessagingService'),
       removed('com.google.firebase.messaging.FirebaseMessagingService'),
+      removed('com.google.firebase.components.ComponentDiscoveryService'),
     ]);
+    expect(app?.provider).toEqual([removed('com.google.firebase.provider.FirebaseInitProvider')]);
     expect(app?.receiver).toEqual([removed('com.google.firebase.iid.FirebaseInstanceIdReceiver')]);
     expect(out.manifest['uses-permission']).toEqual([
       removed('com.google.android.c2dm.permission.RECEIVE'),
