@@ -225,8 +225,9 @@ export function createAlerts(deps: AlertsDeps): Alerts {
   return {
     start() {
       void sync({ mayAsk: false });
-      return store.subscribe(() => {
-        void sync({ mayAsk: true });
+      // Only a new reading may prompt for notifications ("Never at launch"); other writes sync quietly.
+      return store.subscribe(({ reading }) => {
+        void sync({ mayAsk: reading });
       });
     },
     sync,

@@ -2,7 +2,7 @@
 // channels live on the home device's aer link; what was read from the dispenser lives in a cache.
 import type { AerChannels, Device, Link, Unsubscribe } from '@/core';
 import type { AsyncStorageLike, HomeStore } from '@/store/types';
-import type { AerView, DispenserStore, SavedDispenser } from './types';
+import type { AerView, DispenserStore, DispenserStoreChange, SavedDispenser } from './types';
 
 export const AER_CACHE_KEY = 'one-remote/aer/v1'; // JSON Record<deviceId, Omit<AerView, 'deviceId'>>
 
@@ -44,7 +44,7 @@ const toViewOf = (id: string, e: CacheEntry | undefined): AerView => ({ deviceId
 
 export function createAerStore(deps: { home: HomeStore; storage: AsyncStorageLike }): AerStore {
   const { home, storage } = deps;
-  const subs = new Set<() => void>();
+  const subs = new Set<(change: DispenserStoreChange) => void>();
   const watchers = new Map<string, Set<(v: AerView) => void>>();
   const views = new Map<string, AerView>();
   const staged = new Map<string, Device>();
@@ -52,10 +52,10 @@ export function createAerStore(deps: { home: HomeStore; storage: AsyncStorageLik
   let loaded: Promise<void> | null = null;
   let tail: Promise<unknown> = Promise.resolve();
 
-  const notify = (): void => {
+  const notify = (change: DispenserStoreChange): void => {
     for (const cb of [...subs]) {
       try {
-        cb();
+        cb(change);
       } catch {
         // A faulty subscriber must not fail the write or starve the others.
       }
@@ -108,6 +108,13 @@ export function createAerStore(deps: { home: HomeStore; storage: AsyncStorageLik
     }
   };
 
+  /** Whether an entry carries a status or schedule list that the previous one did not. */
+  const newReading = (prev: CacheEntry | undefined, next: CacheEntry | undefined): boolean =>
+    next !== undefined &&
+    (next.status !== undefined || next.schedules !== undefined) &&
+    JSON.stringify([prev?.status, prev?.schedules]) !==
+      JSON.stringify([next.status, next.schedules]);
+
   /** Cache writes read-modify-write one key, so they run one at a time. */
   const mutate = (
     change: (c: Record<string, CacheEntry>) => Record<string, CacheEntry>,
@@ -117,11 +124,13 @@ export function createAerStore(deps: { home: HomeStore; storage: AsyncStorageLik
       const next = change({ ...cache });
       await storage.setItem(AER_CACHE_KEY, JSON.stringify(next));
       const ids = new Set([...Object.keys(cache), ...Object.keys(next)]);
+      const reading = [...ids].some((id) => newReading(cache[id], next[id]));
       cache = next;
       for (const id of ids) refreshView(id);
+      return reading;
     });
     tail = run.catch(() => undefined);
-    return run.then(notify);
+    return run.then((reading) => notify({ reading }));
   };
 
   const saved = (d: Device): SavedDispenser | null => {
@@ -154,7 +163,8 @@ export function createAerStore(deps: { home: HomeStore; storage: AsyncStorageLik
   const dropCache = (id: string): Promise<void> =>
     mutate((c) => Object.fromEntries(Object.entries(c).filter(([k]) => k !== id)));
 
-  home.subscribe(notify);
+  // A home write (a rename, another device, a host change) is never a reading.
+  home.subscribe(() => notify({ reading: false }));
 
   return {
     async load() {

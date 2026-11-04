@@ -1,13 +1,13 @@
 // From aer-remote src/store/memoryStore.ts (2026-11-04). Adapted: createMemoryStore renamed createMemoryDispenserStore, types from ../types.
-import type { DispenserStore, SavedDispenser } from '../types';
+import type { DispenserStore, DispenserStoreChange, SavedDispenser } from '../types';
 
 export function createMemoryDispenserStore(): DispenserStore {
   const items = new Map<string, SavedDispenser>();
-  const subs = new Set<() => void>();
-  const notify = (): void => {
+  const subs = new Set<(change: DispenserStoreChange) => void>();
+  const notify = (change: DispenserStoreChange): void => {
     for (const cb of [...subs]) {
       try {
-        cb();
+        cb(change);
       } catch {
         // A faulty subscriber must not fail the write or starve the others.
       }
@@ -22,12 +22,16 @@ export function createMemoryDispenserStore(): DispenserStore {
       return d ? structuredClone(d) : null;
     },
     async upsert(d) {
+      const prev = items.get(d.id);
+      const reading =
+        JSON.stringify([prev?.lastStatus, prev?.schedules]) !==
+        JSON.stringify([d.lastStatus, d.schedules]);
       items.set(d.id, structuredClone(d));
-      notify();
+      notify({ reading });
     },
     async remove(id) {
       items.delete(id);
-      notify();
+      notify({ reading: false });
     },
     subscribe(cb) {
       subs.add(cb);

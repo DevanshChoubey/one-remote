@@ -207,6 +207,23 @@ describe('alert engine', () => {
     stop();
   });
 
+  it('never asks after a store change that is not a reading', async () => {
+    const t = setup();
+    await t.store.upsert(dispenser({ spraysSinceRefill: 1900 }));
+    await t.store.upsert(dispenser({ spraysSinceRefill: 1900 }, 'other'));
+    const stop = t.alerts.start();
+    await settle();
+    // A rename keeps the reading, and a removal is not a reading either.
+    await t.store.upsert(dispenser({ spraysSinceRefill: 1900, name: 'Bedroom' }));
+    await t.store.remove('other');
+    await settle();
+    expect(t.scheduler.requestCount).toBe(0);
+    await t.store.upsert(dispenser({ spraysSinceRefill: 1901 }));
+    await settle();
+    expect(t.scheduler.requestCount).toBe(1);
+    stop();
+  });
+
   it('denied schedules nothing and does not ask again', async () => {
     const t = setup();
     t.scheduler.setPermission('denied');

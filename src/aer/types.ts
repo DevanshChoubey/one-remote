@@ -15,12 +15,17 @@ export interface SavedDispenser {
   schedules?: { list: Schedule[]; at: string };
 }
 
+/** What a store change was: `reading` when a new status or schedule list from a dispenser landed. */
+export interface DispenserStoreChange {
+  reading: boolean;
+}
+
 export interface DispenserStore {
   list(): Promise<SavedDispenser[]>;
   get(id: string): Promise<SavedDispenser | null>;
   upsert(d: SavedDispenser): Promise<void>;
   remove(id: string): Promise<void>;
-  subscribe(cb: () => void): () => void;
+  subscribe(cb: (change: DispenserStoreChange) => void): () => void;
 }
 
 /** What the app last read from one dispenser. Only `deviceId` is set before the first read. */

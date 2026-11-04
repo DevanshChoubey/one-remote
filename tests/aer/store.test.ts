@@ -207,6 +207,42 @@ describe('aer store', () => {
     expect(await store.bleIds()).toEqual(new Set(['ble-a1', 'ble-a2']));
   });
 
+  // The alert engine may ask for notifications only after a reading, never after another write.
+  it('tells subscribers whether a change is a new reading', async () => {
+    const { home, store } = await rig();
+    await home.upsertDevice(aerDevice());
+    const seen = jest.fn();
+    store.subscribe(seen);
+    await home.upsertDevice({
+      id: 'tv',
+      kind: 'tv',
+      name: 'TV',
+      roomId: 'r1',
+      order: 1,
+      links: [],
+    } as unknown as Device);
+    expect(seen).toHaveBeenCalled();
+    expect(seen.mock.calls.every(([c]) => c?.reading === false)).toBe(true);
+
+    seen.mockClear();
+    const cur = await store.get('d1');
+    if (!cur) throw new Error('missing');
+    await store.upsert({ ...cur, clockSet: true, lastStatus: status });
+    expect(seen).toHaveBeenLastCalledWith({ reading: true });
+
+    seen.mockClear();
+    const read = await store.get('d1');
+    if (!read) throw new Error('missing');
+    await store.upsert({ ...read, name: 'Bedroom' });
+    expect(seen).toHaveBeenCalled();
+    expect(seen.mock.calls.every(([c]) => c?.reading === false)).toBe(true);
+
+    seen.mockClear();
+    await store.remove('d1');
+    expect(seen).toHaveBeenCalled();
+    expect(seen.mock.calls.every(([c]) => c?.reading === false)).toBe(true);
+  });
+
   it('remove drops the device and its cached reading', async () => {
     const { home, storage, store } = await rig();
     await home.upsertDevice(aerDevice());
