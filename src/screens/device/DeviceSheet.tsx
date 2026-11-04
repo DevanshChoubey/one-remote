@@ -21,6 +21,7 @@ const LINK_LABEL: Record<Link['kind'], string> = {
   samsung: 'device.linkWifi',
   matter: 'device.linkMatter',
   ir: 'device.linkIr',
+  aer: 'device.linkBluetooth',
 };
 
 function linkDetail(link: Link): string | null {

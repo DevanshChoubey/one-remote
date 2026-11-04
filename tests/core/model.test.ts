@@ -1,4 +1,6 @@
+import type { Device } from '@/core';
 import { DeviceError, clampSetpoint, defaultAcState, isIdempotent } from '@/core';
+import { createMemoryStore } from '@/store/memoryStore';
 
 describe('core model', () => {
   it('treats key presses as non-idempotent', () => {
@@ -36,5 +38,20 @@ describe('core model', () => {
     expect(err.name).toBe('DeviceError');
     expect(err).toBeInstanceOf(Error);
     expect(err).toBeInstanceOf(DeviceError);
+  });
+
+  it('accepts an aer device with an aer link', async () => {
+    const aer: Device = {
+      id: 'aer1',
+      kind: 'aer',
+      name: 'Hall freshener',
+      roomId: 'r1',
+      order: 0,
+      links: [{ kind: 'aer', bleId: 'AA:BB', timeZone: 'Asia/Kolkata' }],
+    };
+    const store = createMemoryStore();
+    await store.upsertRoom({ id: 'r1', name: 'Hall', order: 0 });
+    await store.upsertDevice(aer);
+    expect(await store.devices()).toEqual([aer]);
   });
 });

@@ -16,6 +16,6 @@ module.exports = {
   // Every gate always applies: Jest fails if a gated folder goes missing, so a rename cannot
   // silently drop its gate.
   coverageThreshold: Object.fromEntries(
-    ['core', 'device', 'store', 'transport'].map((dir) => [`./src/${dir}/`, { lines: 80 }]),
+    ['core', 'device', 'store', 'transport', 'aer'].map((dir) => [`./src/${dir}/`, { lines: 80 }]),
   ),
 };

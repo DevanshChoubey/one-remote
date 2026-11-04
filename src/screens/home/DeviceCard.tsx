@@ -3,6 +3,7 @@ import { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reani
 import { t } from '@/i18n';
 import { useMotion, useTheme } from '@/theme';
 import { AnimatedBox, Box, Rise, Row, Spacer, Tile, Toggle, Touchable, Txt } from '@/ui';
+import type { DeviceKind } from '@/core';
 import type { IconName } from '@/ui';
 import { mixColor } from '@/ui/primitives/Touchable';
 import { cardSummary } from './summary';
@@ -17,7 +18,7 @@ export interface DeviceCardProps {
   onTogglePower: (id: string) => void;
 }
 
-const TILE: Record<'tv' | 'ac' | 'fan', IconName> = { tv: 'tv', ac: 'ac', fan: 'fan' };
+const TILE: Record<DeviceKind, IconName> = { tv: 'tv', ac: 'ac', fan: 'fan', aer: 'aer' };
 /** The mock's `.card:has(.opn:active)`: the whole card scales and darkens one step. */
 const PRESS_SCALE = 0.985;
 
