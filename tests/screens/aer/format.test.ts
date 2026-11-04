@@ -104,7 +104,7 @@ describe('problem copy', () => {
     'timeZone',
     'failed',
   ];
-  it('has a title and a sub for every problem', () => {
+  it('has a line and a bar for every problem', () => {
     expect(Object.keys(PROBLEM_COPY).sort()).toEqual([...all].sort());
     for (const p of all) {
       expect(t(PROBLEM_COPY[p].line).length).toBeGreaterThan(0);
