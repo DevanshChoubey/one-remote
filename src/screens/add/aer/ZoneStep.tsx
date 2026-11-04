@@ -59,10 +59,13 @@ export function ZoneStep(props: ZoneStepProps): ReactElement {
     );
   }, [props.edit, props.deviceId, store, phone]);
 
-  const rows = useMemo(
-    () => filterZones(zonesFirst(all, [zone ?? '', saved ?? '', phone]), query).slice(0, MAX_ROWS),
-    [all, zone, saved, phone, query],
-  );
+  // The saved and phone zones lead; a picked zone is added on top only when it would not show.
+  const rows = useMemo(() => {
+    const shown = filterZones(zonesFirst(all, [saved ?? '', phone]), query).slice(0, MAX_ROWS);
+    return zone !== null && !shown.includes(zone) && filterZones([zone], query).length > 0
+      ? [zone, ...shown]
+      : shown;
+  }, [all, zone, saved, phone, query]);
 
   const finish = (): void => {
     if (zone === null || busy) return;

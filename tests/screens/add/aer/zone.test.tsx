@@ -115,6 +115,18 @@ describe('the home time zone when adding', () => {
     expect(screen.getByTestId('zone-Asia/Tokyo').props.accessibilityState.selected).toBe(true);
   });
 
+  it('keeps the rows still when a visible row is picked', async () => {
+    await toZone();
+    const order = (): (string | undefined)[] =>
+      screen.getAllByTestId(/^zone-.*(?<!-surface)$/).map((n) => n.props.testID);
+    const before = order();
+    const second = before[1];
+    expect(second).toBeDefined();
+    await fireEvent.press(screen.getByTestId(second ?? ''));
+    expect(order()).toEqual(before);
+    expect(screen.getByTestId(second ?? '').props.accessibilityState.selected).toBe(true);
+  });
+
   it('a failed add says why and keeps the step', async () => {
     const { aer, s } = await toZone();
     aer.failNext('add', new AerError('unreachable'));
