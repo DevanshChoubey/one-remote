@@ -73,6 +73,33 @@ describe('createServices aer wiring', () => {
   });
 });
 
+describe('createServices dev-only aerDispensers', () => {
+  const build = () =>
+    createServices({
+      store: createMemoryStore(),
+      secrets: createMemorySecretStore(),
+      prefs: createMemoryPreferenceStore(),
+      drivers: [],
+      bleTransport: createFakeTransport({}),
+      aerScheduler: createFakeScheduler(() => new Date()),
+    });
+
+  it('exposes the readings store in dev', () => {
+    expect(build().aerDispensers).toBeDefined();
+  });
+
+  it('leaves it undefined in a release build', () => {
+    const g = globalThis as unknown as { __DEV__: boolean };
+    const was = g.__DEV__;
+    g.__DEV__ = false;
+    try {
+      expect(build().aerDispensers).toBeUndefined();
+    } finally {
+      g.__DEV__ = was;
+    }
+  });
+});
+
 describe('startAfter', () => {
   const alertsWith = (start: jest.Mock) => ({ ...createFakeAlerts(), start });
 

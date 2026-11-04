@@ -337,6 +337,7 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
     // aer lane
     aer,
     aerAlerts,
-    aerDispensers: aerParts.dispenserStore,
+    // Dev only (the spike writes readings through it); release builds leave it out.
+    aerDispensers: __DEV__ ? aerParts.dispenserStore : undefined,
   };
 }

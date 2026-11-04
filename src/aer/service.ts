@@ -104,7 +104,7 @@ export function createAer(deps: AerDeps): {
     aerStore,
     async start() {
       await aerStore.load();
-      // Wave 2 starts the alerts engine here, after the cache is loaded.
+      // createServices starts the alerts engine only after this resolves (see startAfter).
     },
   };
 }

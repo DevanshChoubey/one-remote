@@ -1476,7 +1476,7 @@ fign('sheet', { title: 'Settings, no rooms', cap: 'Rooms are created when a devi
 fign('sheet', { title: 'Settings, Privacy open', cap: 'The privacy promise opens in place.', screen: () => S.settings({ open: 'privacy' }) });
 fign('sheet', { title: 'Settings, About open', cap: 'Licences and the LGPL source offer.', screen: () => S.settings({ open: 'about' }) });
 
-/* air freshener (own sections). All new, all proposed copy. */
+/* air freshener (own sections). All new copy. */
 const aerF = (sec, def) => fign(sec, def);
 const aerSid = dev => { dev._sid = 'aer1'; };
 aerF('aer', { title: 'Air freshener, try it', cap: 'Home with the air freshener in the living room. Tap Spray on its card, or open it: Spray now, Auto spray and its intervals, a schedule to edit (tap days and intervals, then Save), and the link line for Device settings.', screen: () => S.home(), replay: true,
@@ -1760,7 +1760,7 @@ const INDEX = [
     ['Settings', 'Privacy open', 'settings.privacyBody', 'sheet|Settings, Privacy open', 'no'],
     ['Settings', 'About and licences open', 'settings.licenseApp…licenseSourceOffer', 'sheet|Settings, About open', 'no'],
   ]],
-  ['Air freshener (proposed: Godrej aer Smart Matic over Bluetooth, from Aer Remote)', [
+  ['Air freshener (Godrej aer Smart Matic over Bluetooth, from Aer Remote)', [
     ['Home card', 'Next spray, battery, refill, Spray key', 'proposed aer card · home.nextSpray, common.battery, refill', 'aer|Home card', 'no'],
     ['Home card', 'Sprayed from the card', 'aer.sprayed', 'aer|Home card, sprayed', 'no'],
     ['Home card', 'Cached: last read N ago', 'home.lastChecked', 'aer|Home card, last read 2 h ago', 'no'],

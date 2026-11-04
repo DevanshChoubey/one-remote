@@ -6,7 +6,10 @@ import type { Device } from '@/core';
 import { Button, Column, Screen, Txt } from '@/ui';
 import { useServices } from '@/services';
 
-/** Under 10% of the 2200-spray can left: the engine plans refillLow and refillOut. */
+/**
+ * Nearly empty (0% left after rounding): the engine plans refillLow and refillOut, but only refillOut
+ * (the severe one) reaches the phone; refillLow folds into it. Use about 2000 to see refillLow alone.
+ */
 const NEARLY_EMPTY_SPRAYS = 2190;
 
 /** The saved dispenser (or one built from `device` when never read) with a nearly empty can read at `now`. */
