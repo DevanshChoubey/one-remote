@@ -5,17 +5,22 @@ import { useServices } from '@/services';
 import { Banner, Box, Column, OptionCard, Screen, Spacer, Txt } from '@/ui';
 import type { IconName } from '@/ui';
 
-const KINDS: readonly { key: string; icon: IconName; href: '/add/tv' | '/add/ac' | '/add/fan' }[] =
-  [
-    { key: 'add.kindTv', icon: 'tv', href: '/add/tv' },
-    { key: 'add.kindAc', icon: 'ac', href: '/add/ac' },
-    { key: 'add.kindFan', icon: 'fan', href: '/add/fan' },
-  ];
+const KINDS: readonly {
+  key: string;
+  icon: IconName;
+  href: '/add/tv' | '/add/ac' | '/add/fan' | '/add/aer';
+}[] = [
+  { key: 'add.kindTv', icon: 'tv', href: '/add/tv' },
+  { key: 'add.kindAc', icon: 'ac', href: '/add/ac' },
+  { key: 'add.kindFan', icon: 'fan', href: '/add/fan' },
+  { key: 'add.kindAer', icon: 'aer', href: '/add/aer' },
+];
 
 /** Step one of every add flow: what is it? The lane plans own the screens each kind opens. */
 export function KindPicker(props: { onBack?: () => void }): ReactElement {
   const router = useRouter();
-  const { drivers } = useServices();
+  const { drivers, aer } = useServices();
+  const aerSupported = aer.supported();
   const canIr = drivers.some((d) => d.kind === 'ir' && d.available());
   return (
     <Screen
@@ -34,6 +39,8 @@ export function KindPicker(props: { onBack?: () => void }): ReactElement {
             index={i}
             icon={k.icon}
             title={t(k.key)}
+            disabled={k.href === '/add/aer' && !aerSupported}
+            subtitle={k.href === '/add/aer' && !aerSupported ? t('add.needsAndroid12') : undefined}
             onPress={() => router.push(k.href)}
           />
         ))}
