@@ -49,6 +49,7 @@ const SERVICE_MODULES = [
   'androidtv',
   'samsung',
   'matter',
+  'gree',
   'voice',
   'aer',
 ];
@@ -64,6 +65,7 @@ const DOMAIN_FOLDERS = [
   'androidtv',
   'samsung',
   'matter',
+  'gree',
   'voice',
   'aer',
   'services',
@@ -77,6 +79,7 @@ const PURE_FOLDERS = [
   'androidtv',
   'samsung',
   'matter',
+  'gree',
   'aer',
 ];
 
@@ -347,7 +350,7 @@ module.exports = [
                 '@react-native-async-storage/*',
               ],
               message:
-                'src/core, src/device, src/ir, src/tv, src/webos, src/androidtv, src/samsung, src/matter and src/aer (except src/matter/native) must stay free of React Native and Expo.',
+                'src/core, src/device, src/ir, src/tv, src/webos, src/androidtv, src/samsung, src/matter, src/gree and src/aer (except src/matter/native) must stay free of React Native and Expo.',
             },
           ],
         },
