@@ -22,10 +22,12 @@ const LINK_LABEL: Record<Link['kind'], string> = {
   matter: 'device.linkMatter',
   ir: 'device.linkIr',
   aer: 'device.linkBluetooth',
+  gree: 'device.linkWifi',
 };
 
 function linkDetail(link: Link): string | null {
   if (link.kind === 'aer') return t('aer.linkSub');
+  if (link.kind === 'gree') return link.host;
   return isTvLink(link) ? link.host : null;
 }
 
