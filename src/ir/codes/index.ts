@@ -8,6 +8,7 @@ import { LG_REMOTES } from './lg';
 import { LG_TV_REMOTE } from './lgTv';
 import { PANASONIC_REMOTES } from './panasonic';
 import { SAMSUNG_REMOTES } from './samsung';
+import { WHIRLPOOL_REMOTES } from './whirlpool';
 
 // A brand is listed only once its codes have tests. AC brands are in alphabetical order, the order
 // the brand picker shows. The LG TV remote is not a listed brand: the TV lane uses 'lg-tv/nec'
@@ -19,6 +20,7 @@ const BRANDS: BrandInfo[] = [
   { id: 'lg', name: 'LG', kind: 'ac', matter: false },
   { id: 'panasonic', name: 'Panasonic', kind: 'ac', matter: true },
   { id: 'samsung', name: 'Samsung', kind: 'ac', matter: false },
+  { id: 'whirlpool', name: 'Whirlpool', kind: 'ac', matter: false },
   { id: 'atomberg', name: 'Atomberg', kind: 'fan', matter: false },
 ];
 
@@ -30,6 +32,7 @@ export const defaultCatalogue: Catalogue = createCatalogue(
     ...LG_REMOTES,
     ...PANASONIC_REMOTES,
     ...SAMSUNG_REMOTES,
+    ...WHIRLPOOL_REMOTES,
     ...ATOMBERG_REMOTES,
     LG_TV_REMOTE,
   ],

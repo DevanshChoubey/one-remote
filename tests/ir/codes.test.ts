@@ -15,6 +15,7 @@ describe('default catalogue', () => {
       'LG',
       'Panasonic',
       'Samsung',
+      'Whirlpool',
     ]);
     expect(defaultCatalogue.brands('fan').map((b) => b.name)).toEqual(['Atomberg']);
   });

@@ -17,6 +17,7 @@ The source actually read was IRremoteESP8266 master at commit `1e2f0f3` (version
 | `daikinAc.ts`    | `src/ir_Daikin.cpp`, `src/ir_Daikin.h`, `src/IRac.cpp` (IRac::daikin, daikin216)                                                         |
 | `hitachiAc.ts`   | `src/ir_Hitachi.cpp`, `src/ir_Hitachi.h`, `src/IRutils.cpp` (invertBytePairs), `src/IRac.cpp` (IRac::hitachi, hitachi424, handleToggles) |
 | `lgAc.ts`        | `src/ir_LG.cpp`, `src/ir_LG.h`, `src/IRac.cpp` (IRac::lg)                                                                                |
+| `whirlpoolAc.ts` | `src/ir_Whirlpool.cpp`, `src/ir_Whirlpool.h`, `src/IRac.cpp` (IRac::whirlpool, handleToggles)                                            |
 | `samsungAc.ts`   | `src/ir_Samsung.cpp`, `src/ir_Samsung.h`, `src/IRac.cpp` (IRac::samsung)                                                                 |
 
 The Panasonic release notes list only documentation changes since v2.8.6. Each file states its

@@ -32,6 +32,9 @@ This section is the only part shown to users.
     a real Indian unit.
   - Samsung (`samsungAc.ts`, SAMSUNG_AC): the AR-series protocol the library lists for several
     AR09/AR12 models. Not yet checked on a real Indian unit.
+  - Whirlpool (`whirlpoolAc.ts`, WHIRLPOOL_AC): remotes DG11J1-3A / DG11J1-04 and DG11J1-91, as
+    listed by the library. Power is a toggle bit, so the app must know the real power state. Not yet
+    checked on a real Indian unit.
 - **Atomberg fan codes** (`atomberg.ts`): Flipper-IRDB (https://github.com/Lucaslhm/Flipper-IRDB),
   `Fans/Atomberg/Atomberg_fan.ir`, CC0-1.0. NECext address 00 F3, rewritten as clean NEC frames.
 - **LG TV codes** (`lgTv.ts`) and the NEC format (`../nec.ts`): our own code. NEC is a public
