@@ -3,6 +3,7 @@ import { ATOMBERG_REMOTES } from './atomberg';
 import { CARRIER_REMOTES } from './carrier';
 import { createCatalogue, type Catalogue } from '../catalogue';
 import { DAIKIN_REMOTES } from './daikin';
+import { HAIER_REMOTES } from './haier';
 import { HITACHI_REMOTES } from './hitachi';
 import { LG_REMOTES } from './lg';
 import { LG_TV_REMOTE } from './lgTv';
@@ -16,6 +17,7 @@ import { WHIRLPOOL_REMOTES } from './whirlpool';
 const BRANDS: BrandInfo[] = [
   { id: 'carrier', name: 'Carrier', kind: 'ac', matter: false },
   { id: 'daikin', name: 'Daikin', kind: 'ac', matter: false },
+  { id: 'haier', name: 'Haier', kind: 'ac', matter: false },
   { id: 'hitachi', name: 'Hitachi', kind: 'ac', matter: false },
   { id: 'lg', name: 'LG', kind: 'ac', matter: false },
   { id: 'panasonic', name: 'Panasonic', kind: 'ac', matter: true },
@@ -28,6 +30,7 @@ export const defaultCatalogue: Catalogue = createCatalogue(
   [
     ...CARRIER_REMOTES,
     ...DAIKIN_REMOTES,
+    ...HAIER_REMOTES,
     ...HITACHI_REMOTES,
     ...LG_REMOTES,
     ...PANASONIC_REMOTES,

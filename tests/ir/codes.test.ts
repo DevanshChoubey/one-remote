@@ -11,6 +11,7 @@ describe('default catalogue', () => {
     expect(defaultCatalogue.brands('ac').map((b) => b.name)).toEqual([
       'Carrier',
       'Daikin',
+      'Haier',
       'Hitachi',
       'LG',
       'Panasonic',

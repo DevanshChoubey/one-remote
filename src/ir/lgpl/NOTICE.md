@@ -15,6 +15,7 @@ The source actually read was IRremoteESP8266 master at commit `1e2f0f3` (version
 | `irsend.ts`      | `src/IRsend.cpp` (sendData, sendGeneric), `test/IRsend_test.h`                                                                           |
 | `carrierAc.ts`   | `src/ir_Carrier.cpp`, `src/ir_Carrier.h`, `src/IRac.cpp` (IRac::carrier64)                                                               |
 | `daikinAc.ts`    | `src/ir_Daikin.cpp`, `src/ir_Daikin.h`, `src/IRac.cpp` (IRac::daikin, daikin216)                                                         |
+| `haierAc.ts`     | `src/ir_Haier.cpp`, `src/ir_Haier.h`, `src/IRac.cpp` (IRac::haier, haierYrwo2, haier176)                                                 |
 | `hitachiAc.ts`   | `src/ir_Hitachi.cpp`, `src/ir_Hitachi.h`, `src/IRutils.cpp` (invertBytePairs), `src/IRac.cpp` (IRac::hitachi, hitachi424, handleToggles) |
 | `lgAc.ts`        | `src/ir_LG.cpp`, `src/ir_LG.h`, `src/IRac.cpp` (IRac::lg)                                                                                |
 | `whirlpoolAc.ts` | `src/ir_Whirlpool.cpp`, `src/ir_Whirlpool.h`, `src/IRac.cpp` (IRac::whirlpool, handleToggles)                                            |
