@@ -51,6 +51,8 @@ const SERVICE_MODULES = [
   'matter',
   'voice',
   'aer',
+  // miraie lane
+  'miraie',
 ];
 // `services` is the composition root (useServices); it is layered like a domain module but is not pure.
 const DOMAIN_FOLDERS = [
@@ -66,6 +68,8 @@ const DOMAIN_FOLDERS = [
   'matter',
   'voice',
   'aer',
+  // miraie lane
+  'miraie',
   'services',
 ];
 const PURE_FOLDERS = [
@@ -78,6 +82,8 @@ const PURE_FOLDERS = [
   'samsung',
   'matter',
   'aer',
+  // miraie lane
+  'miraie',
 ];
 
 const NETWORK_MESSAGE =
@@ -102,13 +108,17 @@ const socketImports = {
     'node:dgram',
     'react-native-udp',
     'react-native-udp/**',
+    // TLS to the opt-in MirAIe cloud broker only (src/transport/cloudTls.ts).
+    'react-native-tcp-socket',
+    'react-native-tcp-socket/**',
     // The local lan-socket native module (WebSockets with per-socket certificate pinning).
     'lan-socket',
     'lan-socket/**',
     '**/modules/lan-socket',
     '**/modules/lan-socket/**',
   ],
-  message: 'Raw sockets (dgram, react-native-udp, lan-socket) are allowed only in src/transport.',
+  message:
+    'Raw sockets (dgram, react-native-udp, react-native-tcp-socket, lan-socket) are allowed only in src/transport.',
 };
 
 // The mic-pcm native module holds no network code, but only src/voice may reach the microphone.
@@ -138,7 +148,7 @@ const fetchImports = {
 // no-restricted-imports does not see require() or import(). esquery regexes cannot hold a `/`,
 // so `.` stands in for it.
 const SOCKET_MODULE =
-  '/^(node:)?dgram$|^react-native-udp($|.)|^lan-socket($|.)|(^|.)modules.lan-socket($|.)/';
+  '/^(node:)?dgram$|^react-native-udp($|.)|^react-native-tcp-socket($|.)|^lan-socket($|.)|(^|.)modules.lan-socket($|.)/';
 const FETCH_MODULE = '/^expo.fetch($|.)/';
 
 function bannedLoads(moduleRegex, message) {
@@ -264,6 +274,14 @@ module.exports = [
       'no-restricted-globals': ['error', ...bannedGlobals(['fetch', 'XMLHttpRequest'])],
       'no-restricted-properties': ['error', ...bannedProperties(['fetch', 'XMLHttpRequest'])],
       'no-restricted-syntax': ['error', ...fetchLoads, ...templateLoads, ...nativeSocketLoads],
+    },
+  },
+  // The single cloud exception: the opt-in MirAIe connection may call fetch, in this one file only.
+  // It still reaches only the MirAIe hosts, and only while the opt-in is on (see the file).
+  {
+    files: ['src/transport/cloud.ts'],
+    rules: {
+      'no-restricted-globals': ['error', ...bannedGlobals(['XMLHttpRequest'])],
     },
   },
   // The lan-socket module itself loads its native half (and nothing else on the network).
