@@ -11,6 +11,7 @@ import home from './en/home';
 import ir from './en/ir';
 import irBackup from './en/irBackup';
 import matter from './en/matter';
+import miraie from './en/miraie';
 import settings from './en/settings';
 import tv from './en/tv';
 
@@ -22,6 +23,7 @@ const namespaces: Record<string, Record<string, string>> = {
   irBackup,
   ir,
   matter,
+  miraie,
   aer,
   aerAlerts,
   home,

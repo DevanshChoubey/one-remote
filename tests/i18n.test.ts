@@ -14,6 +14,7 @@ import home from '@/i18n/en/home';
 import ir from '@/i18n/en/ir';
 import irBackup from '@/i18n/en/irBackup';
 import matter from '@/i18n/en/matter';
+import miraie from '@/i18n/en/miraie';
 import settings from '@/i18n/en/settings';
 import tv from '@/i18n/en/tv';
 
@@ -31,6 +32,7 @@ const NAMESPACES: Record<string, Record<string, string>> = {
   irBackup,
   ir,
   matter,
+  miraie,
   aer,
   aerAlerts,
 };

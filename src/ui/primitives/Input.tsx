@@ -16,7 +16,9 @@ export interface InputProps {
   autoCapitalize?: 'none' | 'characters';
   maxLength?: number;
   invalid?: boolean;
-  keyboardType?: 'default' | 'numeric' | 'decimal-pad';
+  keyboardType?: 'default' | 'numeric' | 'decimal-pad' | 'phone-pad';
+  /** A password: hidden, never autocorrected or suggested. */
+  secure?: boolean;
   editable?: boolean;
   autoFocus?: boolean;
   testID?: string;
@@ -60,6 +62,10 @@ export function Input(props: InputProps): ReactElement {
       autoCapitalize={props.autoCapitalize}
       maxLength={props.maxLength}
       keyboardType={props.keyboardType}
+      secureTextEntry={props.secure}
+      autoCorrect={props.secure ? false : undefined}
+      textContentType={props.secure ? 'password' : undefined}
+      autoComplete={props.secure ? 'password' : undefined}
       editable={props.editable}
       autoFocus={props.autoFocus}
       testID={props.testID}

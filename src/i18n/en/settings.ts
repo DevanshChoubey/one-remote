@@ -20,6 +20,7 @@ export default {
   failed: "That didn't save. Try again.",
   privacy: 'Privacy',
   privacyHint: 'Home network and Bluetooth only',
+  privacyHintCloud: 'Home network, Bluetooth, and MirAIe (on)',
   privacyBody:
     'One Remote talks only to devices on your home network, and to the air freshener over Bluetooth in the room. It has no account, no ads and no analytics, and nothing is sent to a server.',
   alerts: 'Alerts',
