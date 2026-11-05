@@ -50,6 +50,13 @@ describe.each(impls)('PreferenceStore (%s)', (_n, make) => {
 });
 
 describe('asyncStorage preference store', () => {
+  it('keeps the MirAIe cloud opt-in off by default, and remembers turning it on', async () => {
+    const storage = memStorage();
+    expect((await createAsyncStoragePreferenceStore(storage).get()).miraieCloud).toBe(false);
+    await createAsyncStoragePreferenceStore(storage).set({ miraieCloud: true });
+    expect((await createAsyncStoragePreferenceStore(storage).get()).miraieCloud).toBe(true);
+  });
+
   it('persists across instances and merges over defaults', async () => {
     const storage = memStorage();
     await createAsyncStoragePreferenceStore(storage).set({ theme: 'light' });
@@ -70,6 +77,7 @@ describe('asyncStorage preference store', () => {
         'one-remote/prefs/v1': JSON.stringify({
           theme: 'neon',
           haptics: 'yes',
+          miraieCloud: 'on',
           tvPad: { a: 'x', b: 'dpad' },
         }),
       }),

@@ -11,6 +11,8 @@ export interface Preferences {
   haptics: boolean;
   tvPad: Record<string, 'touchpad' | 'dpad'>;
   lastSent: Record<string, LastSent>;
+  /** The opt-in MirAIe cloud connection (Panasonic India Wi-Fi ACs). Off unless the user turns it on. */
+  miraieCloud: boolean;
 }
 
 export const defaultPreferences: Preferences = {
@@ -19,6 +21,7 @@ export const defaultPreferences: Preferences = {
   haptics: true,
   tvPad: {},
   lastSent: {},
+  miraieCloud: false,
 };
 
 export interface PreferenceStore {
@@ -70,6 +73,7 @@ function sanitize(v: unknown): Partial<Preferences> {
   if (v.theme === 'system' || v.theme === 'light' || v.theme === 'dark') out.theme = v.theme;
   if (typeof v.volumeKeys === 'boolean') out.volumeKeys = v.volumeKeys;
   if (typeof v.haptics === 'boolean') out.haptics = v.haptics;
+  if (typeof v.miraieCloud === 'boolean') out.miraieCloud = v.miraieCloud;
   if (isRecord(v.tvPad)) {
     const pad: Preferences['tvPad'] = {};
     for (const [k, mode] of Object.entries(v.tvPad)) {
