@@ -73,14 +73,22 @@ Every command is one small JSON object: the base fields plus one setting **[3]**
 - Mode: `acmd: "cool" | "dry" | "fan" | "auto"` (`"heat"` exists on heat pumps) **[3]**.
 - Set point: `actmp` as a string with one decimal, e.g. `"24.0"` **[2: K, P]**. Range 16 to 30
   **[1: H]**, 0.5 steps **[1]**; the app sends whole degrees.
-- Fan: `acfs: "auto" | "quiet" | "low" | "medium" | "high"` **[2: P, H]**. The app maps 1, 2, 3 to
-  low, medium, high and reads `quiet` as 1.
+- Fan: `acfs: "auto" | "quiet" | "low" | "medium" | "high"` **[2: P, H]**. The app offers 1, 2, 3
+  for this link and maps them to low, medium, high; it reads `quiet` as 1. The app's fan has five
+  levels (`AcFan` 1..5, for 5-speed IR remotes): 4 and 5 are sent as `high`, the nearest **[app
+  choice]**, and a `high` read back after the app set 4 or 5 keeps that level.
 - Vertical swing: `acvs`, a number 0 to 5, 0 = auto (swinging), 1 to 5 fixed vane positions
   **[2: P, B]**. H sends `"0"` for on and `"3"` for off **[1]**. **Swing off = 3 is a guess
   [?]**: the AC may need another position. Reading: `acvs` 0 (number or string) is swing on.
-- Horizontal swing `achs` exists **[2]**; the app leaves it alone.
+  The app maps `AcState.swingV` straight onto it (`auto` = 0, 1..5 = 1..5) and reads it back the
+  same way. That 1 is the top position and 5 the bottom, as in the app's `AcSwingV`, is **[?]**.
+  When only `swing` changed (and `swingV` disagrees), `swing` decides: on = 0, off = 3.
+- Horizontal swing `achs` exists **[2]**, but its values are not documented; the app leaves it
+  alone and does not offer `swingH` on this link.
 - Not used by the app: `acng` (nanoe), `acpm` (powerful), `acem` (economy), `acec` (clean), `cnv`
-  (Converti7), `acdc` (display) **[2]**.
+  (Converti7), `acdc` (display) **[2]**. Their on/off values are not confirmed, so this link does
+  not offer `AcState`'s `powerful`, `quiet` or `ion`; the AC screen hides them, and the IR backup
+  (lane A's Panasonic encoder) still carries them when the AC is driven over IR.
 
 ## Status payloads
 
@@ -95,7 +103,7 @@ Every command is one small JSON object: the base fields plus one setting **[3]**
 
 ## What is unconfirmed, in short
 
-1. Swing-off value (3).
+1. Swing-off value (3), and which end of `acvs` 1..5 is the top.
 2. `<root>/status` vs `<root>/state`; the app listens to both.
 3. `connectionStatus` payload.
 4. Whether a status is complete or partial.

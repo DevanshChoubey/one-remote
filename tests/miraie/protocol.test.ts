@@ -118,9 +118,29 @@ describe('miraie protocol', () => {
         [1, 'low'],
         [2, 'medium'],
         [3, 'high'],
+        [4, 'high'],
+        [5, 'high'],
       ] as const) {
         expect(parsed(controlMessages({ ...on, fan }, on))[0]).toMatchObject({ acfs: word });
       }
+      // 4 and 5 are both "high": nothing to send between them.
+      expect(controlMessages({ ...on, fan: 5 }, { ...on, fan: 4 })).toEqual([]);
+    });
+
+    it('sends the vertical vane: auto swings, 1..5 fixed, swing alone still works', () => {
+      expect(parsed(controlMessages({ ...on, swing: false, swingV: 1 }, on))[0]).toMatchObject({
+        acvs: 1,
+      });
+      expect(
+        parsed(controlMessages({ ...on, swingV: 'auto' }, { ...on, swing: false, swingV: 4 }))[0],
+      ).toMatchObject({ acvs: 0 });
+      // Only `swing` flipped, `swingV` left behind: swing decides.
+      expect(
+        parsed(
+          controlMessages({ ...on, swing: false, swingV: 'auto' }, { ...on, swingV: 'auto' }),
+        )[0],
+      ).toMatchObject({ acvs: 3 });
+      expect(controlMessages({ ...on, swingV: 'auto' }, on)).toEqual([]);
     });
   });
 
@@ -131,7 +151,15 @@ describe('miraie protocol', () => {
         defaultAcState(),
       );
       expect(s).toEqual({
-        state: { power: true, mode: 'dry', setpoint: 26, fan: 2, swing: false, sleep: false },
+        state: {
+          power: true,
+          mode: 'dry',
+          setpoint: 26,
+          fan: 2,
+          swing: false,
+          swingV: 3,
+          sleep: false,
+        },
         roomTemp: 28.5,
         online: true,
       });
@@ -142,6 +170,10 @@ describe('miraie protocol', () => {
       expect(s?.state).toEqual({ ...on, setpoint: 20 });
       expect(applyStatus('{"acvs":0}', { ...on, swing: false })?.state.swing).toBe(true);
       expect(applyStatus('{"acfs":"quiet"}', on)?.state.fan).toBe(1);
+      // High after the app set 5 keeps 5; the vane reads back as a position.
+      expect(applyStatus('{"acfs":"high"}', { ...on, fan: 5 })?.state.fan).toBe(5);
+      expect(applyStatus('{"acvs":"2"}', on)?.state).toMatchObject({ swing: false, swingV: 2 });
+      expect(applyStatus('{"acvs":"9"}', on)?.state).toEqual(on);
       expect(applyStatus('[1]', on)).toBeNull();
       expect(applyStatus('not json', on)).toBeNull();
     });

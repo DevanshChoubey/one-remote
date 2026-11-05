@@ -57,6 +57,46 @@ describe('nextAc', () => {
       mode: 'dry',
     });
   });
+
+  it('turns Quiet off when Powerful goes on, and the other way round', () => {
+    expect(nextAc({ ...on, quiet: true }, { powerful: true }, {})).toMatchObject({
+      powerful: true,
+      quiet: false,
+    });
+    expect(nextAc({ ...on, powerful: true }, { quiet: true }, {})).toMatchObject({
+      powerful: false,
+      quiet: true,
+    });
+    expect(nextAc({ ...on, powerful: true }, { powerful: false }, {})).toMatchObject({
+      powerful: false,
+    });
+  });
+
+  it('keeps the old swing flag in step with a vertical position', () => {
+    expect(nextAc({ ...on, swing: true }, { swingV: 2 }, {})).toMatchObject({
+      swing: false,
+      swingV: 2,
+    });
+    expect(nextAc({ ...on, swing: false, swingV: 4 }, { swingV: 'auto' }, {})).toMatchObject({
+      swing: true,
+      swingV: 'auto',
+    });
+  });
+
+  it('moves a known vertical position with the Swing chip', () => {
+    expect(nextAc({ ...on, swing: false, swingV: 4 }, { swing: true }, {})).toMatchObject({
+      swing: true,
+      swingV: 'auto',
+    });
+    expect(nextAc({ ...on, swing: true, swingV: 'auto' }, { swing: false }, {})).toMatchObject({
+      swing: false,
+      swingV: 3,
+    });
+  });
+
+  it('adds no new fields to a state that has none', () => {
+    expect(nextAc(on, { swing: true }, {})).toEqual({ ...on, swing: true });
+  });
 });
 
 jest.mock('@react-native-async-storage/async-storage', () =>

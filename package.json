@@ -20,6 +20,7 @@
     "@matter/node": "0.18.0",
     "@matter/protocol": "0.18.0",
     "@matter/types": "0.18.0",
+    "@noble/ciphers": "2.4.0",
     "@noble/hashes": "1.8.0",
     "@project-chip/matter.js": "0.18.0",
     "@react-native-async-storage/async-storage": "2.2.0",

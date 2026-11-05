@@ -38,6 +38,9 @@ const CAPABILITIES: Capabilities = {
   acFan: ['auto', 1, 2, 3],
   setpoint: { min: 16, max: 30 },
   swing: true,
+  // acvs 1..5 are fixed vane positions [2 sources]; horizontal, powerful, quiet and nanoe are not
+  // offered (their MirAIe values are not confirmed).
+  swingV: true,
   // MirAIe has no sleep key we can confirm; the screen hides it for this link.
   sleep: false,
 };

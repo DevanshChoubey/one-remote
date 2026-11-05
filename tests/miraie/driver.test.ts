@@ -137,10 +137,13 @@ describe('miraie driver', () => {
     await flush();
     await new Promise((r) => setTimeout(r, 0));
     await flush();
-    expect(got[0]).toEqual({ kind: 'ac', state: cool24, roomTemp: 27.5 });
+    expect(got[0]).toEqual({ kind: 'ac', state: { ...cool24, swingV: 'auto' }, roomTemp: 27.5 });
     cloud.broker.send(`${topicOf(account, 'dev1')}/status`, '{"actmp":"26.0","acfs":"low"}');
     await flush();
-    expect(got.at(-1)).toEqual({ kind: 'ac', state: { ...cool24, setpoint: 26, fan: 1 } });
+    expect(got.at(-1)).toEqual({
+      kind: 'ac',
+      state: { ...cool24, swingV: 'auto', setpoint: 26, fan: 1 },
+    });
     // What it reported is the base for the next send.
     cloud.broker.published.length = 0;
     await driver.send(device, link, { kind: 'ac.set', state: { ...cool24, setpoint: 26, fan: 1 } });

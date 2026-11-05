@@ -2,7 +2,7 @@
  * MirAIe's HTTPS endpoints, MQTT broker and JSON fields, as written up in
  * `docs/protocol/miraie-cloud.md` (which says how sure each fact is). Pure mapping only.
  */
-import type { AcFan, AcMode, AcState, MiraieAc } from '@/core';
+import type { AcFan, AcMode, AcState, AcSwingV, MiraieAc } from '@/core';
 
 export const MIRAIE_AUTH_HOST = 'auth.miraie.in';
 export const MIRAIE_APP_HOST = 'app.miraie.in';
@@ -132,8 +132,33 @@ export function parseCategory(body: string): string | null {
 
 // ---- commands ----
 
-const FAN_OUT: Record<string, string> = { auto: 'auto', '1': 'low', '2': 'medium', '3': 'high' };
+// MirAIe has three speeds (plus auto and quiet); the app offers 1..3. Levels 4 and 5 (a state
+// that came from elsewhere, e.g. a 5-speed IR remote) go to the nearest, high.
+const FAN_OUT: Record<string, string> = {
+  auto: 'auto',
+  '1': 'low',
+  '2': 'medium',
+  '3': 'high',
+  '4': 'high',
+  '5': 'high',
+};
 const FAN_IN: Record<string, AcFan> = { auto: 'auto', quiet: 1, low: 1, medium: 2, high: 3 };
+
+const fanOut = (f: AcFan): string => FAN_OUT[String(f)] ?? 'auto';
+
+/**
+ * The `acvs` value: 0 swings, 1..5 a fixed vane. Without `swingV`, or when it disagrees with
+ * `swing` (a caller that only flipped `swing`), `swing` decides.
+ */
+const vaneOut = (s: AcState): number => {
+  const v =
+    s.swingV !== undefined && (s.swingV === 'auto') === s.swing
+      ? s.swingV
+      : s.swing
+        ? 'auto'
+        : SWING_OFF_POSITION;
+  return v === 'auto' ? 0 : v;
+};
 const MODES: readonly AcMode[] = ['cool', 'dry', 'fan', 'auto'];
 
 const base = (): Record<string, unknown> => ({ ki: 1, cnt: 'an', sid: '1' });
@@ -153,10 +178,8 @@ export function controlMessages(next: AcState, last: AcState | null): string[] {
   if (turningOn || last.mode !== next.mode) out.push(msg('acmd', next.mode));
   const setpoint = Math.min(SETPOINT_MAX, Math.max(SETPOINT_MIN, Math.round(next.setpoint)));
   if (!last || last.setpoint !== setpoint) out.push(msg('actmp', setpoint.toFixed(1)));
-  if (!last || last.fan !== next.fan) out.push(msg('acfs', FAN_OUT[String(next.fan)] ?? 'auto'));
-  if (!last || last.swing !== next.swing) {
-    out.push(msg('acvs', next.swing ? 0 : SWING_OFF_POSITION));
-  }
+  if (!last || fanOut(last.fan) !== fanOut(next.fan)) out.push(msg('acfs', fanOut(next.fan)));
+  if (!last || vaneOut(last) !== vaneOut(next)) out.push(msg('acvs', vaneOut(next)));
   return out;
 }
 
@@ -198,9 +221,14 @@ export function applyStatus(text: string, last: AcState): StatusUpdate | null {
   if (Number.isFinite(setpoint) && setpoint >= 10 && setpoint <= 35)
     state.setpoint = Math.round(setpoint);
   const fan = str(v.acfs)?.toLowerCase();
-  if (fan && fan in FAN_IN) state.fan = FAN_IN[fan] ?? state.fan;
+  // Keep the level the app last set when MirAIe reports the same speed (4 and 5 read back as high).
+  if (fan && fan in FAN_IN && fanOut(last.fan) !== fan) state.fan = FAN_IN[fan] ?? state.fan;
   const vs = str(v.acvs);
-  if (vs !== undefined && /^\d+$/.test(vs)) state.swing = Number(vs) === 0;
+  if (vs !== undefined && /^[0-5]$/.test(vs)) {
+    const n = Number(vs);
+    state.swing = n === 0;
+    state.swingV = n === 0 ? 'auto' : (n as AcSwingV);
+  }
   const room = Number(str(v.rmtmp));
   // Firmware 3.02+ packs rmtmp differently (unconfirmed): show nothing rather than a wrong number.
   const roomTemp = Number.isFinite(room) && room > 0 && room <= 60 ? room : undefined;

@@ -66,7 +66,7 @@ describe('createServices', () => {
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
-  it('has the lanes drivers by default (webos, androidtv, samsung, ir, matter, miraie)', () => {
+  it('has the lanes drivers by default (webos, androidtv, samsung, ir, matter, gree, miraie)', () => {
     const s = createServices({
       store: createMemoryStore(),
       secrets: createMemorySecretStore(),
@@ -78,6 +78,7 @@ describe('createServices', () => {
       'samsung',
       'ir',
       'matter',
+      'gree',
       'miraie',
     ]);
   });

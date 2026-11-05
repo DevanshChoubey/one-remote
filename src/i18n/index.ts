@@ -7,6 +7,7 @@ import addTv from './en/addTv';
 import common from './en/common';
 import device from './en/device';
 import fan from './en/fan';
+import gree from './en/gree';
 import home from './en/home';
 import ir from './en/ir';
 import irBackup from './en/irBackup';
@@ -24,6 +25,7 @@ const namespaces: Record<string, Record<string, string>> = {
   ir,
   matter,
   miraie,
+  gree,
   aer,
   aerAlerts,
   home,

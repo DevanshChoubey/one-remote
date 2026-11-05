@@ -21,6 +21,7 @@ function brandBadge(b: BrandInfo, cloud: boolean): { badge?: BadgeProps } {
   if (b.matter && cloud) return { badge: { label: t('miraie.brandBadge'), tone: 'accent' } };
   if (cloud) return { badge: { label: t('miraie.brandBadgeCloud'), tone: 'accent' } };
   if (b.matter) return { badge: { label: t('addAppliance.brandMatter'), tone: 'accent' } };
+  if (b.wifi) return { badge: { label: t('gree.brandWifi'), tone: 'accent' } };
   return {};
 }
 

@@ -24,8 +24,23 @@ export function acView(v: DeviceView): AcView {
   return { state: defaultAcState(), source: 'none', caps: v.capabilities };
 }
 
-/** The full state after a press; the setpoint is kept within what the AC takes. */
+/**
+ * The full state after a press. The setpoint is kept within what the AC takes, Powerful and Quiet
+ * never stay on together, and the old `swing` flag follows a vertical position (auto is swing on).
+ */
 export function nextAc(s: AcState, change: Partial<AcState>, caps: Capabilities): AcState {
-  const merged = { ...s, ...change };
-  return { ...merged, setpoint: clampSetpoint(merged.setpoint, caps) };
+  const merged: AcState = {
+    ...s,
+    ...change,
+    setpoint: clampSetpoint(change.setpoint ?? s.setpoint, caps),
+  };
+  if (change.powerful === true) merged.quiet = false;
+  if (change.quiet === true) merged.powerful = false;
+  if (change.swingV !== undefined) {
+    merged.swing = change.swingV === 'auto';
+  } else if (change.swing !== undefined && s.swingV !== undefined) {
+    // The Swing chip: on is auto; off leaves a fixed position where it was, or the middle.
+    merged.swingV = change.swing ? 'auto' : s.swingV === 'auto' ? 3 : s.swingV;
+  }
+  return merged;
 }

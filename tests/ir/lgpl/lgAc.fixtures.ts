@@ -1,0 +1,16 @@
+// Reference vectors for the LG AC encoder (LGPL-2.1, see src/ir/lgpl/LICENSE).
+// Copied from IRremoteESP8266 test/ir_LG_test.cpp (master at 1e2f0f3, version 2.9.0):
+// TestSendLG.SendDataOnly (sendLG(0x4B4AE51), 28 bits) and TestSendLG2.SendDataOnly
+// (sendLG2(0x880094D)). Timing strings keep upstream's duty cycle marker.
+
+/** ir_LG_test.cpp line 20. */
+export const LG_SEND_DATA_ONLY =
+  'f38000d50m8500s4250m550s550m550s1600m550s550m550s550m550s1600m550s550m550s1600m550s1600m55' +
+  '0s550m550s1600m550s550m550s550m550s1600m550s550m550s1600m550s550m550s1600m550s1600m550s160' +
+  '0m550s550m550s550m550s1600m550s550m550s1600m550s550m550s550m550s550m550s1600m550s50300';
+
+/** ir_LG_test.cpp line 372. */
+export const LG2_SEND_DATA_ONLY =
+  'f38000d33m3200s9900m480s1600m480s550m480s550m480s550m480s1600m480s550m480s550m480s550m480s' +
+  '550m480s550m480s550m480s550m480s550m480s550m480s550m480s550m480s1600m480s550m480s550m480s1' +
+  '600m480s550m480s1600m480s550m480s550m480s1600m480s1600m480s550m480s1600m480s57230';
