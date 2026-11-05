@@ -4,7 +4,9 @@ Everything in this folder (`src/ir/lgpl/`) is licensed under the GNU Lesser Gene
 version 2.1. The full text is in `LICENSE` next to this file.
 
 It is derived from **IRremoteESP8266 v2.8.6**, Copyright 2009 Ken Shirriff, Copyright 2015 Kristian
-Lauszus, Copyright 2016, 2017 sillyfrog, Copyright 2015 Mark Szabo, Copyright 2017-2021 David Conran and contributors.
+Lauszus, Copyright 2015 Mark Szabo, Copyright 2015 Darryl Smith, Copyright 2015 cheaplin, Copyright
+2016, 2017 sillyfrog, Copyright 2017 bwze, Copyright 2017 Ville Skyttä (scop), Copyright bakrus,
+Copyright 2020 manj9501, Copyright 2016-2022 David Conran (crankyoldgit) and contributors.
 Source: https://github.com/crankyoldgit/IRremoteESP8266
 
 The source actually read was IRremoteESP8266 master at commit `1e2f0f3` (version 2.9.0, 2026-01-03).
