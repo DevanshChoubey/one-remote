@@ -9,16 +9,20 @@ describe('default catalogue', () => {
 
   it('lists the AC brands in alphabetical order, and Atomberg for fans', () => {
     expect(defaultCatalogue.brands('ac').map((b) => b.name)).toEqual([
+      'Blue Star',
       'Carrier',
       'Daikin',
+      'Godrej',
       'Gree',
       'Haier',
       'Hitachi',
       'LG',
+      'Lloyd',
       'Midea',
       'Mitsubishi Heavy',
       'Panasonic',
       'Samsung',
+      'Voltas',
       'Whirlpool',
     ]);
     expect(defaultCatalogue.brands('fan').map((b) => b.name)).toEqual(['Atomberg']);
@@ -43,6 +47,23 @@ describe('default catalogue', () => {
     ]);
     expect(carrier.slice(0, 2).every((r) => r.label.includes('a guess, unconfirmed'))).toBe(true);
     expect(carrier[2]?.label).not.toContain('guess');
+  });
+
+  it('labels every Blue Star, Godrej and Lloyd remote, and the OEM Voltas ones, as guesses', () => {
+    for (const id of ['blue-star', 'godrej', 'lloyd']) {
+      const remotes = defaultCatalogue.remotes(id);
+      expect(remotes.map((r) => r.id.split('/')[1])).toEqual(['coolix', 'midea', 'gree-yaw1f']);
+      expect(remotes.every((r) => r.label.includes('a guess, unconfirmed'))).toBe(true);
+    }
+    const voltas = defaultCatalogue.remotes('voltas');
+    expect(voltas.map((r) => r.id)).toEqual([
+      'voltas-ac/122lzf',
+      'voltas-ac/coolix',
+      'voltas-ac/midea',
+      'voltas-ac/gree-yaw1f',
+    ]);
+    expect(voltas[0]?.label).not.toContain('guess');
+    expect(voltas.slice(1).every((r) => r.label.includes('a guess, unconfirmed'))).toBe(true);
   });
 
   it('has one Atomberg remote, built from clean NEC frames', () => {

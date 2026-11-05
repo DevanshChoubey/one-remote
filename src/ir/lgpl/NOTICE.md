@@ -22,6 +22,7 @@ The source actually read was IRremoteESP8266 master at commit `1e2f0f3` (version
 | `lgAc.ts`              | `src/ir_LG.cpp`, `src/ir_LG.h`, `src/IRac.cpp` (IRac::lg)                                                                                |
 | `mideaAc.ts`           | `src/ir_Midea.cpp`, `src/ir_Midea.h`, `src/IRac.cpp` (IRac::midea, handleToggles)                                                        |
 | `mitsubishiHeavyAc.ts` | `src/ir_MitsubishiHeavy.cpp`, `src/ir_MitsubishiHeavy.h`, `src/IRac.cpp` (IRac::mitsubishiHeavy152, mitsubishiHeavy88)                   |
+| `voltasAc.ts`          | `src/ir_Voltas.cpp`, `src/ir_Voltas.h`, `src/IRac.cpp` (IRac::voltas)                                                                    |
 | `whirlpoolAc.ts`       | `src/ir_Whirlpool.cpp`, `src/ir_Whirlpool.h`, `src/IRac.cpp` (IRac::whirlpool, handleToggles)                                            |
 | `samsungAc.ts`         | `src/ir_Samsung.cpp`, `src/ir_Samsung.h`, `src/IRac.cpp` (IRac::samsung)                                                                 |
 
