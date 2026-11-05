@@ -7,6 +7,7 @@ import { HAIER_REMOTES } from './haier';
 import { HITACHI_REMOTES } from './hitachi';
 import { LG_REMOTES } from './lg';
 import { LG_TV_REMOTE } from './lgTv';
+import { MITSUBISHI_HEAVY_REMOTES } from './mitsubishiHeavy';
 import { PANASONIC_REMOTES } from './panasonic';
 import { SAMSUNG_REMOTES } from './samsung';
 import { WHIRLPOOL_REMOTES } from './whirlpool';
@@ -20,6 +21,7 @@ const BRANDS: BrandInfo[] = [
   { id: 'haier', name: 'Haier', kind: 'ac', matter: false },
   { id: 'hitachi', name: 'Hitachi', kind: 'ac', matter: false },
   { id: 'lg', name: 'LG', kind: 'ac', matter: false },
+  { id: 'mitsubishi-heavy', name: 'Mitsubishi Heavy', kind: 'ac', matter: false },
   { id: 'panasonic', name: 'Panasonic', kind: 'ac', matter: true },
   { id: 'samsung', name: 'Samsung', kind: 'ac', matter: false },
   { id: 'whirlpool', name: 'Whirlpool', kind: 'ac', matter: false },
@@ -33,6 +35,7 @@ export const defaultCatalogue: Catalogue = createCatalogue(
     ...HAIER_REMOTES,
     ...HITACHI_REMOTES,
     ...LG_REMOTES,
+    ...MITSUBISHI_HEAVY_REMOTES,
     ...PANASONIC_REMOTES,
     ...SAMSUNG_REMOTES,
     ...WHIRLPOOL_REMOTES,

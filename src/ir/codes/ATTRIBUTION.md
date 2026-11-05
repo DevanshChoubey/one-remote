@@ -33,6 +33,10 @@ This section is the only part shown to users.
   - LG (`lgAc.ts`, LG2 and LG): remotes AKB74955603 (absolute swing codes), AKB75215403 (no swing
     message) and the older 6711A20083V (swing toggle), as listed by the library. Not yet checked on
     a real Indian unit.
+  - Mitsubishi Heavy (`mitsubishiHeavyAc.ts`, MITSUBISHI_HEAVY_152 and MITSUBISHI_HEAVY_88): the
+    RLA502A700B remote (SRKxxZM-S, SRKxxZMXA-S) and the RKX502A001C remote (SRKxxZJ-S), as listed
+    by the library. The 152-bit timing is checked against a real capture from the library's
+    tests. Not yet checked on a real Indian unit.
   - Samsung (`samsungAc.ts`, SAMSUNG_AC): the AR-series protocol the library lists for several
     AR09/AR12 models. Not yet checked on a real Indian unit.
   - Whirlpool (`whirlpoolAc.ts`, WHIRLPOOL_AC): remotes DG11J1-3A / DG11J1-04 and DG11J1-91, as

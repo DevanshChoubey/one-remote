@@ -14,6 +14,7 @@ describe('default catalogue', () => {
       'Haier',
       'Hitachi',
       'LG',
+      'Mitsubishi Heavy',
       'Panasonic',
       'Samsung',
       'Whirlpool',

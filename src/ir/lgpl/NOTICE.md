@@ -9,17 +9,18 @@ Source: https://github.com/crankyoldgit/IRremoteESP8266
 
 The source actually read was IRremoteESP8266 master at commit `1e2f0f3` (version 2.9.0, 2026-01-03).
 
-| File here        | Upstream files                                                                                                                           |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `panasonicAc.ts` | `src/ir_Panasonic.cpp`, `src/ir_Panasonic.h`                                                                                             |
-| `irsend.ts`      | `src/IRsend.cpp` (sendData, sendGeneric), `test/IRsend_test.h`                                                                           |
-| `carrierAc.ts`   | `src/ir_Carrier.cpp`, `src/ir_Carrier.h`, `src/IRac.cpp` (IRac::carrier64)                                                               |
-| `daikinAc.ts`    | `src/ir_Daikin.cpp`, `src/ir_Daikin.h`, `src/IRac.cpp` (IRac::daikin, daikin216)                                                         |
-| `haierAc.ts`     | `src/ir_Haier.cpp`, `src/ir_Haier.h`, `src/IRac.cpp` (IRac::haier, haierYrwo2, haier176)                                                 |
-| `hitachiAc.ts`   | `src/ir_Hitachi.cpp`, `src/ir_Hitachi.h`, `src/IRutils.cpp` (invertBytePairs), `src/IRac.cpp` (IRac::hitachi, hitachi424, handleToggles) |
-| `lgAc.ts`        | `src/ir_LG.cpp`, `src/ir_LG.h`, `src/IRac.cpp` (IRac::lg)                                                                                |
-| `whirlpoolAc.ts` | `src/ir_Whirlpool.cpp`, `src/ir_Whirlpool.h`, `src/IRac.cpp` (IRac::whirlpool, handleToggles)                                            |
-| `samsungAc.ts`   | `src/ir_Samsung.cpp`, `src/ir_Samsung.h`, `src/IRac.cpp` (IRac::samsung)                                                                 |
+| File here              | Upstream files                                                                                                                           |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `panasonicAc.ts`       | `src/ir_Panasonic.cpp`, `src/ir_Panasonic.h`                                                                                             |
+| `irsend.ts`            | `src/IRsend.cpp` (sendData, sendGeneric), `test/IRsend_test.h`                                                                           |
+| `carrierAc.ts`         | `src/ir_Carrier.cpp`, `src/ir_Carrier.h`, `src/IRac.cpp` (IRac::carrier64)                                                               |
+| `daikinAc.ts`          | `src/ir_Daikin.cpp`, `src/ir_Daikin.h`, `src/IRac.cpp` (IRac::daikin, daikin216)                                                         |
+| `haierAc.ts`           | `src/ir_Haier.cpp`, `src/ir_Haier.h`, `src/IRac.cpp` (IRac::haier, haierYrwo2, haier176)                                                 |
+| `hitachiAc.ts`         | `src/ir_Hitachi.cpp`, `src/ir_Hitachi.h`, `src/IRutils.cpp` (invertBytePairs), `src/IRac.cpp` (IRac::hitachi, hitachi424, handleToggles) |
+| `lgAc.ts`              | `src/ir_LG.cpp`, `src/ir_LG.h`, `src/IRac.cpp` (IRac::lg)                                                                                |
+| `mitsubishiHeavyAc.ts` | `src/ir_MitsubishiHeavy.cpp`, `src/ir_MitsubishiHeavy.h`, `src/IRac.cpp` (IRac::mitsubishiHeavy152, mitsubishiHeavy88)                   |
+| `whirlpoolAc.ts`       | `src/ir_Whirlpool.cpp`, `src/ir_Whirlpool.h`, `src/IRac.cpp` (IRac::whirlpool, handleToggles)                                            |
+| `samsungAc.ts`         | `src/ir_Samsung.cpp`, `src/ir_Samsung.h`, `src/IRac.cpp` (IRac::samsung)                                                                 |
 
 The Panasonic release notes list only documentation changes since v2.8.6. Each file states its
 upstream copyright and the changes made. The test vectors in `tests/ir/lgpl/` are copied from the
