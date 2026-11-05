@@ -21,9 +21,18 @@ This section is the only part shown to users.
   - Carrier (`carrierAc.ts`, CARRIER_AC64): the one Carrier protocol the library builds from settings
     (cool and fan only). CARRIER_AC, CARRIER_AC40, CARRIER_AC84 and CARRIER_AC128 are not ported.
     Not yet checked on a real Indian unit.
+  - Coolix (`coolixAc.ts`, COOLIX) and Midea (`mideaAc.ts`, MIDEA): Midea's two protocols, used by
+    the Midea remotes the library lists (RG52D / RG57A7 / RG51 for Coolix, RG57A6 / RG66B6 / RG57H4
+    for the 48-bit one). Swing (both) and sleep (Coolix) are separate toggle messages, sent when
+    the setting differs from the last sent state. Also offered for Carrier as guesses, since
+    Carrier's Indian ACs come from its Midea joint venture: unconfirmed on a real remote. Not yet
+    checked on a real Indian unit.
   - Daikin (`daikinAc.ts`, DAIKIN and DAIKIN216): DAIKIN for the ARC433 / ARC466 / ARC443 remotes
     (FTXM-M and M series), DAIKIN216 for ARC433B69 / ARC484A4, as listed by the library. DAIKIN2
     and the newer DAIKIN312 are not ported. Not yet checked on a real Indian unit.
+  - Gree (`greeAc.ts`, GREE): the YAW1F and YBOFB remote types, as listed by the library. Fan 1, 2
+    and 3 are Gree's own three speeds rather than the library's mapping, which sends low and medium
+    alike. Not yet checked on a real Indian unit.
   - Haier (`haierAc.ts`, HAIER_AC_YRW02, HAIER_AC176 and HAIER_AC): the YR-W02 and V9014557 M47 8D
     remotes (the 14-byte and 22-byte forms of one protocol) and the older HSU07-HEA03 remote, as
     listed by the library. HAIER_AC160 is not ported. Not yet checked on a real Indian unit.

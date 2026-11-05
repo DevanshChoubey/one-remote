@@ -11,9 +11,11 @@ describe('default catalogue', () => {
     expect(defaultCatalogue.brands('ac').map((b) => b.name)).toEqual([
       'Carrier',
       'Daikin',
+      'Gree',
       'Haier',
       'Hitachi',
       'LG',
+      'Midea',
       'Mitsubishi Heavy',
       'Panasonic',
       'Samsung',
@@ -30,6 +32,17 @@ describe('default catalogue', () => {
       'panasonic-ac/lke',
       'panasonic-ac/rkr',
     ]);
+  });
+
+  it('tries the Midea code sets first for Carrier, labelled as guesses', () => {
+    const carrier = defaultCatalogue.remotes('carrier');
+    expect(carrier.map((r) => r.id)).toEqual([
+      'carrier-ac/coolix',
+      'carrier-ac/midea',
+      'carrier-ac/ac64',
+    ]);
+    expect(carrier.slice(0, 2).every((r) => r.label.includes('a guess, unconfirmed'))).toBe(true);
+    expect(carrier[2]?.label).not.toContain('guess');
   });
 
   it('has one Atomberg remote, built from clean NEC frames', () => {
