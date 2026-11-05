@@ -84,6 +84,8 @@ const FAN: Record<AcFan, number> = {
   1: kPanasonicAcFanLow,
   2: kPanasonicAcFanMed,
   3: kPanasonicAcFanHigh,
+  4: kPanasonicAcFanHigh,
+  5: kPanasonicAcFanHigh,
 };
 
 /** IRPanasonicAc::calcChecksum: sum of bytes 0..25 plus kPanasonicAcChecksumInit. */
