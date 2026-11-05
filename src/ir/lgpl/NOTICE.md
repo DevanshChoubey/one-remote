@@ -4,17 +4,18 @@ Everything in this folder (`src/ir/lgpl/`) is licensed under the GNU Lesser Gene
 version 2.1. The full text is in `LICENSE` next to this file.
 
 It is derived from **IRremoteESP8266 v2.8.6**, Copyright 2009 Ken Shirriff, Copyright 2015 Kristian
-Lauszus, Copyright 2015 Mark Szabo, Copyright 2017-2021 David Conran and contributors.
+Lauszus, Copyright 2016, 2017 sillyfrog, Copyright 2015 Mark Szabo, Copyright 2017-2021 David Conran and contributors.
 Source: https://github.com/crankyoldgit/IRremoteESP8266
 
 The source actually read was IRremoteESP8266 master at commit `1e2f0f3` (version 2.9.0, 2026-01-03).
 
-| File here        | Upstream files                                                           |
-| ---------------- | ------------------------------------------------------------------------ |
-| `panasonicAc.ts` | `src/ir_Panasonic.cpp`, `src/ir_Panasonic.h`                             |
-| `irsend.ts`      | `src/IRsend.cpp` (sendData, sendGeneric), `test/IRsend_test.h`           |
-| `lgAc.ts`        | `src/ir_LG.cpp`, `src/ir_LG.h`, `src/IRac.cpp` (IRac::lg)                |
-| `samsungAc.ts`   | `src/ir_Samsung.cpp`, `src/ir_Samsung.h`, `src/IRac.cpp` (IRac::samsung) |
+| File here        | Upstream files                                                                   |
+| ---------------- | -------------------------------------------------------------------------------- |
+| `panasonicAc.ts` | `src/ir_Panasonic.cpp`, `src/ir_Panasonic.h`                                     |
+| `irsend.ts`      | `src/IRsend.cpp` (sendData, sendGeneric), `test/IRsend_test.h`                   |
+| `daikinAc.ts`    | `src/ir_Daikin.cpp`, `src/ir_Daikin.h`, `src/IRac.cpp` (IRac::daikin, daikin216) |
+| `lgAc.ts`        | `src/ir_LG.cpp`, `src/ir_LG.h`, `src/IRac.cpp` (IRac::lg)                        |
+| `samsungAc.ts`   | `src/ir_Samsung.cpp`, `src/ir_Samsung.h`, `src/IRac.cpp` (IRac::samsung)         |
 
 The Panasonic release notes list only documentation changes since v2.8.6. Each file states its
 upstream copyright and the changes made. The test vectors in `tests/ir/lgpl/` are copied from the
