@@ -18,6 +18,9 @@ This section is the only part shown to users.
   upstream files): derived from IRremoteESP8266 v2.8.6, LGPL-2.1, read at master `1e2f0f3`. Each
   file's header names its upstream files, copyright and changes. Test vectors in `tests/ir/lgpl/` are
   copied from the upstream `test/ir_*_test.cpp` files.
+  - LG (`lgAc.ts`, LG2 and LG): remotes AKB74955603 (absolute swing codes), AKB75215403 (no swing
+    message) and the older 6711A20083V (swing toggle), as listed by the library. Not yet checked on
+    a real Indian unit.
   - Samsung (`samsungAc.ts`, SAMSUNG_AC): the AR-series protocol the library lists for several
     AR09/AR12 models. Not yet checked on a real Indian unit.
 - **Atomberg fan codes** (`atomberg.ts`): Flipper-IRDB (https://github.com/Lucaslhm/Flipper-IRDB),

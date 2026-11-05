@@ -1,6 +1,7 @@
 import type { BrandInfo } from '@/core';
 import { ATOMBERG_REMOTES } from './atomberg';
 import { createCatalogue, type Catalogue } from '../catalogue';
+import { LG_REMOTES } from './lg';
 import { LG_TV_REMOTE } from './lgTv';
 import { PANASONIC_REMOTES } from './panasonic';
 import { SAMSUNG_REMOTES } from './samsung';
@@ -9,12 +10,13 @@ import { SAMSUNG_REMOTES } from './samsung';
 // the brand picker shows. The LG TV remote is not a listed brand: the TV lane uses 'lg-tv/nec'
 // directly.
 const BRANDS: BrandInfo[] = [
+  { id: 'lg', name: 'LG', kind: 'ac', matter: false },
   { id: 'panasonic', name: 'Panasonic', kind: 'ac', matter: true },
   { id: 'samsung', name: 'Samsung', kind: 'ac', matter: false },
   { id: 'atomberg', name: 'Atomberg', kind: 'fan', matter: false },
 ];
 
 export const defaultCatalogue: Catalogue = createCatalogue(
-  [...PANASONIC_REMOTES, ...SAMSUNG_REMOTES, ...ATOMBERG_REMOTES, LG_TV_REMOTE],
+  [...LG_REMOTES, ...PANASONIC_REMOTES, ...SAMSUNG_REMOTES, ...ATOMBERG_REMOTES, LG_TV_REMOTE],
   BRANDS,
 );

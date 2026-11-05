@@ -4,9 +4,9 @@
  * Licence: GNU Lesser General Public License, version 2.1 (see ./LICENSE).
  *
  * Derived from IRremoteESP8266 v2.8.6, src/ir_Samsung.cpp and src/ir_Samsung.h, and the
- * IRac::samsung mapping in src/IRac.cpp, Copyright 2009 Ken Shirriff, Copyright 2017, 2018-2021
- * David Conran and contributors. The source actually read was master at commit 1e2f0f3
- * (version 2.9.0, 2026-01-03).
+ * IRac::samsung mapping in src/IRac.cpp, Copyright 2009 Ken Shirriff, Copyright 2017-2021 David
+ * Conran and contributors. The source actually read was master at commit 1e2f0f3 (version 2.9.0,
+ * 2026-01-03).
  *
  * Changes made for One Remote:
  *  - Ported from C++ to TypeScript as one pure function. Kept: IRSamsungAc::stateReset, setPower,

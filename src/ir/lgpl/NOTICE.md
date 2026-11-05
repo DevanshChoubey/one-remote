@@ -13,6 +13,7 @@ The source actually read was IRremoteESP8266 master at commit `1e2f0f3` (version
 | ---------------- | ------------------------------------------------------------------------ |
 | `panasonicAc.ts` | `src/ir_Panasonic.cpp`, `src/ir_Panasonic.h`                             |
 | `irsend.ts`      | `src/IRsend.cpp` (sendData, sendGeneric), `test/IRsend_test.h`           |
+| `lgAc.ts`        | `src/ir_LG.cpp`, `src/ir_LG.h`, `src/IRac.cpp` (IRac::lg)                |
 | `samsungAc.ts`   | `src/ir_Samsung.cpp`, `src/ir_Samsung.h`, `src/IRac.cpp` (IRac::samsung) |
 
 The Panasonic release notes list only documentation changes since v2.8.6. Each file states its

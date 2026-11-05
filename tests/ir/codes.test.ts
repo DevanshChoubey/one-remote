@@ -8,7 +8,11 @@ describe('default catalogue', () => {
   const atomberg = defaultCatalogue.remotes('atomberg');
 
   it('lists the AC brands in alphabetical order, and Atomberg for fans', () => {
-    expect(defaultCatalogue.brands('ac').map((b) => b.name)).toEqual(['Panasonic', 'Samsung']);
+    expect(defaultCatalogue.brands('ac').map((b) => b.name)).toEqual([
+      'LG',
+      'Panasonic',
+      'Samsung',
+    ]);
     expect(defaultCatalogue.brands('fan').map((b) => b.name)).toEqual(['Atomberg']);
   });
 
