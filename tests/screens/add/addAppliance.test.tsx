@@ -181,7 +181,7 @@ describe('Add fan', () => {
     const { s, sendTest } = await setup({ hasIr: true });
     await renderWith(s, <AddApplianceFlow kind="fan" />);
     await fireEvent.press(await screen.findByLabelText('Atomberg'));
-    expect(await screen.findByText('Atomberg · try 1 of 2')).toBeTruthy();
+    expect(await screen.findByText('Atomberg · try 1 of 1')).toBeTruthy();
     expect(screen.getByText(t('addAppliance.pointFan'))).toBeTruthy();
     await press(t('addAppliance.test'));
     await waitFor(() => expect(sendTest).toHaveBeenCalledWith(expect.any(String), 'fanSpeed3'));

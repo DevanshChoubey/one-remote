@@ -79,8 +79,22 @@ describe('ir driver', () => {
     ];
     const sigOf = (k: FanKey): IrSignal => ({ freqHz: 38000, pattern: [KEYS.indexOf(k) + 1, 1] });
     const fullKeys = Object.fromEntries(KEYS.map((k) => [k, sigOf(k)])) as Record<FanKey, IrSignal>;
+    // A remote missing speed3, the light and the timer keys.
+    const partialKeys: Partial<Record<FanKey, IrSignal>> = Object.fromEntries(
+      (['off', 'speed1', 'speed2', 'speed4', 'speed5', 'boost'] as const).map((k) => [k, sigOf(k)]),
+    );
     const catalogue = createCatalogue(
-      [{ id: 'test/full', kind: 'fan', brandId: 'test', label: 'Full', caps: {}, keys: fullKeys }],
+      [
+        { id: 'test/full', kind: 'fan', brandId: 'test', label: 'Full', caps: {}, keys: fullKeys },
+        {
+          id: 'test/partial',
+          kind: 'fan',
+          brandId: 'test',
+          label: 'Part',
+          caps: {},
+          keys: partialKeys,
+        },
+      ],
       [],
     );
     const names = (e: { sent: IrSignal[] }): FanKey[] =>
@@ -300,9 +314,8 @@ describe('ir driver', () => {
 
     it('rejects unsupported before transmitting anything when a needed key is missing', async () => {
       const emitter = createFakeEmitter();
-      const driver = createIrDriver({ emitter, gapMs: 0 });
-      const [d, l] = dev('fan', 'atomberg-fan/1160');
-      // 1160 has no speed3 (see ATTRIBUTION.md).
+      const driver = createIrDriver({ emitter, catalogue, gapMs: 0 });
+      const [d, l] = dev('fan', 'test/partial');
       await expect(driver.send(d, l, fan({ speed: 3 }))).rejects.toMatchObject({
         code: 'unsupported',
       });
@@ -327,8 +340,8 @@ describe('ir driver', () => {
 
     it('still sends a supported change on the same remote', async () => {
       const emitter = createFakeEmitter();
-      const driver = createIrDriver({ emitter, gapMs: 0 });
-      const [d, l] = dev('fan', 'atomberg-fan/1160');
+      const driver = createIrDriver({ emitter, catalogue, gapMs: 0 });
+      const [d, l] = dev('fan', 'test/partial');
       driver.seedFan(d.id, known({ speed: 4 }));
       await driver.send(d, l, fan({ speed: 5, boost: true }));
       expect(emitter.sent).toHaveLength(2);
@@ -337,7 +350,7 @@ describe('ir driver', () => {
     it('sends nothing when the keys are empty', async () => {
       const emitter = createFakeEmitter();
       const driver = createIrDriver({ emitter, gapMs: 0 });
-      const [d, l] = dev('fan', 'atomberg-fan/1170');
+      const [d, l] = dev('fan', 'atomberg-fan/nec');
       await driver.send(d, l, fan());
       await driver.send(d, l, fan());
       expect(emitter.sent).toHaveLength(1);
@@ -365,7 +378,7 @@ describe('ir driver', () => {
       const [a, al] = dev('ac', 'panasonic-ac/dke');
       expect(driver.supports(a, al, ac())).toBe(true);
       expect(driver.supports(a, al, fan())).toBe(false);
-      const [f, fl] = dev('fan', 'atomberg-fan/1170');
+      const [f, fl] = dev('fan', 'atomberg-fan/nec');
       expect(driver.supports(f, fl, fan())).toBe(true);
     });
 

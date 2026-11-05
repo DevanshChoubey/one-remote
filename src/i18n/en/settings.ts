@@ -36,7 +36,7 @@ export default {
   licenseOss:
     'Built with Expo, React Native and other open-source libraries, each under its own licence.',
   licenseEncoders: 'IR encoders: IRremoteESP8266, LGPL-2.1',
-  licenseFanCodes: 'Fan IR codes: MIT licence',
+  licenseFanCodes: 'Fan IR codes: Flipper-IRDB, public domain (CC0)',
   licenseSourceOffer:
     'The source of the LGPL IR encoder is available on request for at least three years: devanshc13@gmail.com.',
 } as const;

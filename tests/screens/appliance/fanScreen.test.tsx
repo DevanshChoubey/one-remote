@@ -265,7 +265,7 @@ describe('FanScreen quick taps and restarts', () => {
     const emitter = createFakeEmitter();
     const s = await servicesWith(
       [createIrDriver({ emitter, gapMs: 0 })],
-      [fanDevice({ links: [{ kind: 'ir', remoteId: 'atomberg-fan/1170' }] })],
+      [fanDevice({ links: [{ kind: 'ir', remoteId: 'atomberg-fan/nec' }] })],
     );
     await s.prefs.set({ lastSent: { d1: { kind: 'fan', state: { ...on, speed: 4 } } } });
     await renderWith(s, <FanScreen deviceId="d1" />);
@@ -290,7 +290,7 @@ describe('FanScreen seeding', () => {
     const emitter = createFakeEmitter();
     const s = await servicesWith(
       [createIrDriver({ emitter, gapMs: 0 })],
-      [fanDevice({ links: [{ kind: 'ir', remoteId: 'atomberg-fan/1170' }] })],
+      [fanDevice({ links: [{ kind: 'ir', remoteId: 'atomberg-fan/nec' }] })],
     );
     const seed = jest.spyOn(s.ir, 'seedFan');
     await s.hub.send('d1', { kind: 'fan.set', state: { ...on, speed: 5 } });

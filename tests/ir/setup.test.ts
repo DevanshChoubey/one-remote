@@ -30,31 +30,28 @@ describe('createIrSetup', () => {
 
   it('transmits a fan key for fanSpeed3', async () => {
     const emitter = createFakeEmitter();
-    await createIrSetup({ emitter }).sendTest('atomberg-fan/1170', 'fanSpeed3');
+    await createIrSetup({ emitter }).sendTest('atomberg-fan/nec', 'fanSpeed3');
     expect(emitter.sent).toHaveLength(1);
   });
 
-  it('lists the Atomberg candidates with 1170 first', () => {
+  it('lists the one Atomberg candidate', () => {
     const setup = createIrSetup({ emitter: createFakeEmitter() });
-    expect(setup.candidates('atomberg').map((c) => c.remoteId)).toEqual([
-      'atomberg-fan/1170',
-      'atomberg-fan/1160',
-    ]);
+    expect(setup.candidates('atomberg').map((c) => c.remoteId)).toEqual(['atomberg-fan/nec']);
   });
 
   it('brandOf resolves remotes and returns undefined for unknown ids', () => {
     const setup = createIrSetup({ emitter: createFakeEmitter() });
-    expect(setup.brandOf('atomberg-fan/1160')?.name).toBe('Atomberg');
+    expect(setup.brandOf('atomberg-fan/nec')?.name).toBe('Atomberg');
     expect(setup.brandOf('panasonic-ac/rkr')?.name).toBe('Panasonic');
     expect(setup.brandOf('nope')).toBeUndefined();
   });
 
-  it('testPlan follows the catalogue; fans without a light fall back to speed 1', () => {
+  it('testPlan follows the catalogue; a fan with a light confirms with the light', () => {
     const setup = createIrSetup({ emitter: createFakeEmitter() });
     expect(setup.testPlan('panasonic-ac/dke')).toEqual({ first: 'acOnCool24', confirm: 'acUp25' });
-    expect(setup.testPlan('atomberg-fan/1160')).toEqual({
+    expect(setup.testPlan('atomberg-fan/nec')).toEqual({
       first: 'fanSpeed3',
-      confirm: 'fanSpeed1',
+      confirm: 'fanLight',
     });
   });
 
@@ -62,10 +59,7 @@ describe('createIrSetup', () => {
     const emitter = createFakeEmitter();
     const setup = createIrSetup({ emitter });
     await expect(setup.sendTest('nope', 'acUp25')).rejects.toMatchObject({ code: 'unsupported' });
-    await expect(setup.sendTest('atomberg-fan/1160', 'fanSpeed3')).rejects.toMatchObject({
-      code: 'unsupported',
-    });
-    await expect(setup.sendTest('atomberg-fan/1170', 'fanLight')).rejects.toMatchObject({
+    await expect(setup.sendTest('panasonic-ac/dke', 'fanLight')).rejects.toMatchObject({
       code: 'unsupported',
     });
     await expect(setup.sendTest('panasonic-ac/dke', 'fanSpeed3')).rejects.toMatchObject({
