@@ -8,3 +8,5 @@ export * from './tvSetup';
 // ir lane
 export * from './irSetup';
 // matter lane
+// gree lane
+export * from './greeSetup';

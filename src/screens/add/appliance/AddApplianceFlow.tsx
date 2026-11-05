@@ -12,7 +12,15 @@ import { BrandStep } from './BrandStep';
 import { IrTestStep } from './IrTestStep';
 import { NoCodesStep } from './NoCodesStep';
 import { NoIrStep } from './NoIrStep';
-import { afterBrand, afterMatter, afterMatterSkipped, suggestedName } from './flow';
+import { GreeStep } from './GreeStep';
+import {
+  afterBrand,
+  afterGree,
+  afterMatter,
+  afterMatterSkipped,
+  suggestedName,
+  withGreeBrand,
+} from './flow';
 import type { FlowEnv, FlowStep } from './flow';
 
 export interface MatterStepProps {
@@ -74,14 +82,21 @@ interface FlowProps extends AddApplianceFlowProps {
 
 function Flow(props: FlowProps): ReactElement {
   const router = useRouter();
-  const { ir, drivers, store } = useServices();
+  const { ir, drivers, store, gree } = useServices();
   const [history, setHistory] = useState<FlowStep[]>([props.initial]);
-  const [matterLink, setMatterLink] = useState<Extract<Link, { kind: 'matter' }> | null>(null);
+  // The Wi-Fi link (Matter or Gree) an IR backup is added to.
+  const [primaryLink, setPrimaryLink] = useState<Link | null>(null);
   const [failed, setFailed] = useState(false);
   const step = history[history.length - 1] ?? props.initial;
   const { kind, device } = props;
 
-  const brands = ir.brands(kind);
+  // IR backup mode never binds a Wi-Fi unit.
+  const greeAvailable =
+    !device &&
+    kind === 'ac' &&
+    gree.available() &&
+    drivers.some((d) => d.kind === 'gree' && d.available());
+  const brands = kind === 'ac' ? withGreeBrand(ir.brands(kind), greeAvailable) : ir.brands(kind);
   const brandOf = (id: string): BrandInfo | undefined => brands.find((b) => b.id === id);
   const env: FlowEnv = {
     kind,
@@ -91,6 +106,7 @@ function Flow(props: FlowProps): ReactElement {
       !device &&
       props.renderMatterStep !== undefined &&
       drivers.some((d) => d.kind === 'matter' && d.available()),
+    greeAvailable,
     hasIrCodes: (id) => ir.candidates(id).length > 0,
     brandName: (id) => brandOf(id)?.name ?? id,
   };
@@ -179,16 +195,27 @@ function Flow(props: FlowProps): ReactElement {
           {props.renderMatterStep?.({
             brandId: step.brandId,
             onLink: (link) => {
-              setMatterLink(link);
+              setPrimaryLink(link);
               setCommissioned({ link, brandId: step.brandId });
             },
             onDone: (link) => {
-              setMatterLink(link);
+              setPrimaryLink(link);
               go(afterMatter(step.brandId, link, env));
             },
             onSkip: () => go(afterMatterSkipped(step.brandId, env)),
           })}
         </>
+      );
+    case 'gree':
+      return (
+        <GreeStep
+          onBack={back}
+          onSkip={() => go(afterMatterSkipped(step.brandId, env))}
+          onDone={(link) => {
+            setPrimaryLink(link);
+            go(afterGree(step.brandId, link, env));
+          }}
+        />
       );
     case 'irTest': {
       const { brandId, backup } = step;
@@ -202,29 +229,29 @@ function Flow(props: FlowProps): ReactElement {
             {...(failed ? { error: t('addAppliance.saveFailed') } : {})}
             // Skip: after a Matter pairing it names the device; otherwise there are no codes to save.
             onSkip={() =>
-              backup && matterLink
-                ? go(named([matterLink], brandId))
+              backup && primaryLink
+                ? go(named([primaryLink], brandId))
                 : go({ name: 'noCodes', brandId, backup })
             }
             onResult={(result) => {
               if (result === 'none') return go({ name: 'noCodes', brandId, backup });
               if (device) return saveIr(result);
               const ir1: Link = { kind: 'ir', remoteId: result };
-              return go(named(backup && matterLink ? [matterLink, ir1] : [ir1], brandId));
+              return go(named(backup && primaryLink ? [primaryLink, ir1] : [ir1], brandId));
             }}
           />
         </>
       );
     }
     case 'noCodes': {
-      const carriesOn = step.backup && matterLink !== null;
+      const carriesOn = step.backup && primaryLink !== null;
       return (
         <NoCodesStep
           kind={kind}
           carriesOn={carriesOn}
           onBack={back}
           onContinue={() => {
-            if (carriesOn && matterLink) return go(named([matterLink], step.brandId));
+            if (carriesOn && primaryLink) return go(named([primaryLink], step.brandId));
             if (device) return router.back();
             return home();
           }}

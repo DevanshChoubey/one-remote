@@ -7,6 +7,8 @@ export interface BrandInfo {
   name: string;
   kind: 'ac' | 'fan';
   matter: boolean;
+  /** Also controllable over the home Wi-Fi: which local protocol. */
+  wifi?: 'gree';
 }
 
 export interface IrCandidate {

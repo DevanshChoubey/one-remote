@@ -1,5 +1,5 @@
 export type DeviceKind = 'tv' | 'ac' | 'fan' | 'aer';
-export type LinkKind = 'webos' | 'androidtv' | 'samsung' | 'matter' | 'ir' | 'aer';
+export type LinkKind = 'webos' | 'androidtv' | 'samsung' | 'matter' | 'ir' | 'aer' | 'gree';
 
 /** The GATT characteristic UUIDs of an air freshener. Missing means the defaults. */
 export interface AerChannels {
@@ -14,7 +14,10 @@ export type Link =
   | { kind: 'samsung'; host: string; mac?: string; tokenRef: string; pinSha256: string }
   | { kind: 'matter'; nodeId: string }
   | { kind: 'ir'; remoteId: string } // catalogue id, e.g. 'panasonic-ac/dke'
-  | { kind: 'aer'; bleId: string; timeZone: string; channels?: AerChannels };
+  | { kind: 'aer'; bleId: string; timeZone: string; channels?: AerChannels }
+  // A Gree Wi-Fi unit on the home network. `key` is what any phone on the LAN gets from the unit's
+  // own bind (no account, no cloud), so it is kept on the link; `cipher` is its firmware generation.
+  | { kind: 'gree'; mac: string; host: string; key: string; cipher: 'ecb' | 'gcm' };
 
 export interface Room {
   id: string;

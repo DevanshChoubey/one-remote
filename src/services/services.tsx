@@ -3,6 +3,7 @@ import type { ReactElement, ReactNode } from 'react';
 import type { Alerts } from '@/aer/alerts/types';
 import type { AerService, DispenserStore } from '@/aer/types';
 import type { LinkDriver, TvSetup } from '@/core';
+import type { GreeSetup } from '@/core/greeSetup';
 import type { IrSetup } from '@/core/irSetup';
 import type { MatterSetup } from '@/core/matterSetup';
 import type { BrandSetup } from '@/tv/brands';
@@ -37,6 +38,8 @@ export interface Services {
   ir: IrSetup;
   // matter lane
   matter: MatterSetup;
+  // gree lane
+  gree: GreeSetup;
   // aer lane
   aer: AerService;
   aerAlerts: Alerts;

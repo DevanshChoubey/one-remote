@@ -66,13 +66,20 @@ describe('createServices', () => {
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
-  it('has the lanes drivers by default (webos, androidtv, samsung, ir, matter so far)', () => {
+  it('has the lanes drivers by default (webos, androidtv, samsung, ir, matter, gree so far)', () => {
     const s = createServices({
       store: createMemoryStore(),
       secrets: createMemorySecretStore(),
       prefs: createMemoryPreferenceStore(),
     });
-    expect(s.drivers.map((x) => x.kind)).toEqual(['webos', 'androidtv', 'samsung', 'ir', 'matter']);
+    expect(s.drivers.map((x) => x.kind)).toEqual([
+      'webos',
+      'androidtv',
+      'samsung',
+      'ir',
+      'matter',
+      'gree',
+    ]);
   });
 });
 
