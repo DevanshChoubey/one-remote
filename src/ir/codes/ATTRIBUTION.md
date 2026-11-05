@@ -18,6 +18,9 @@ This section is the only part shown to users.
   upstream files): derived from IRremoteESP8266 v2.8.6, LGPL-2.1, read at master `1e2f0f3`. Each
   file's header names its upstream files, copyright and changes. Test vectors in `tests/ir/lgpl/` are
   copied from the upstream `test/ir_*_test.cpp` files.
+  - Carrier (`carrierAc.ts`, CARRIER_AC64): the one Carrier protocol the library builds from settings
+    (cool and fan only). CARRIER_AC, CARRIER_AC40, CARRIER_AC84 and CARRIER_AC128 are not ported.
+    Not yet checked on a real Indian unit.
   - Daikin (`daikinAc.ts`, DAIKIN and DAIKIN216): DAIKIN for the ARC433 / ARC466 / ARC443 remotes
     (FTXM-M and M series), DAIKIN216 for ARC433B69 / ARC484A4, as listed by the library. DAIKIN2
     and the newer DAIKIN312 are not ported. Not yet checked on a real Indian unit.

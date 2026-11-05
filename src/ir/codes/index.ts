@@ -1,5 +1,6 @@
 import type { BrandInfo } from '@/core';
 import { ATOMBERG_REMOTES } from './atomberg';
+import { CARRIER_REMOTES } from './carrier';
 import { createCatalogue, type Catalogue } from '../catalogue';
 import { DAIKIN_REMOTES } from './daikin';
 import { HITACHI_REMOTES } from './hitachi';
@@ -12,6 +13,7 @@ import { SAMSUNG_REMOTES } from './samsung';
 // the brand picker shows. The LG TV remote is not a listed brand: the TV lane uses 'lg-tv/nec'
 // directly.
 const BRANDS: BrandInfo[] = [
+  { id: 'carrier', name: 'Carrier', kind: 'ac', matter: false },
   { id: 'daikin', name: 'Daikin', kind: 'ac', matter: false },
   { id: 'hitachi', name: 'Hitachi', kind: 'ac', matter: false },
   { id: 'lg', name: 'LG', kind: 'ac', matter: false },
@@ -22,6 +24,7 @@ const BRANDS: BrandInfo[] = [
 
 export const defaultCatalogue: Catalogue = createCatalogue(
   [
+    ...CARRIER_REMOTES,
     ...DAIKIN_REMOTES,
     ...HITACHI_REMOTES,
     ...LG_REMOTES,
