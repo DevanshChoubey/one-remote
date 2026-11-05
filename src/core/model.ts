@@ -1,5 +1,5 @@
 export type DeviceKind = 'tv' | 'ac' | 'fan' | 'aer';
-export type LinkKind = 'webos' | 'androidtv' | 'samsung' | 'matter' | 'ir' | 'aer';
+export type LinkKind = 'webos' | 'androidtv' | 'samsung' | 'matter' | 'ir' | 'aer' | 'miraie';
 
 /** The GATT characteristic UUIDs of an air freshener. Missing means the defaults. */
 export interface AerChannels {
@@ -14,7 +14,10 @@ export type Link =
   | { kind: 'samsung'; host: string; mac?: string; tokenRef: string; pinSha256: string }
   | { kind: 'matter'; nodeId: string }
   | { kind: 'ir'; remoteId: string } // catalogue id, e.g. 'panasonic-ac/dke'
-  | { kind: 'aer'; bleId: string; timeZone: string; channels?: AerChannels };
+  | { kind: 'aer'; bleId: string; timeZone: string; channels?: AerChannels }
+  // The one opt-in cloud link: a Panasonic MirAIe AC reached through Panasonic's MQTT broker.
+  // `topic` is the device's topic root from the account's home list (`<root>/control` etc.).
+  | { kind: 'miraie'; deviceId: string; homeId: string; topic: string };
 
 export interface Room {
   id: string;

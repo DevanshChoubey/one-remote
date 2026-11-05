@@ -22,6 +22,7 @@ const LINK_LABEL: Record<Link['kind'], string> = {
   matter: 'device.linkMatter',
   ir: 'device.linkIr',
   aer: 'device.linkBluetooth',
+  miraie: 'device.linkMiraie',
 };
 
 function linkDetail(link: Link): string | null {

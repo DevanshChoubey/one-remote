@@ -12,6 +12,7 @@ export default {
   linkMatter: 'Matter',
   linkIr: 'IR',
   linkBluetooth: 'Bluetooth',
+  linkMiraie: 'MirAIe (cloud)',
   main: 'main',
   backup: 'backup',
   remove: 'Remove device',
