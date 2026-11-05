@@ -10,7 +10,7 @@
     "ios": {
       "bundleIdentifier": "com.devanshchoubey.oneremote",
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "One Remote finds and controls your TV on your home Wi-Fi.",
+        "NSLocalNetworkUsageDescription": "One Remote finds and controls your TV and AC on your home Wi-Fi.",
         "NSBonjourServices": ["_androidtvremote2._tcp"],
         "NSMicrophoneUsageDescription": "One Remote uses the microphone while you hold the mic button, to talk to your TV."
       }
