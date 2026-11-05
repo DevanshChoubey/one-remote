@@ -1,0 +1,94 @@
+{
+  "expo": {
+    "name": "One Remote",
+    "slug": "one-remote",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "oneremote",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "com.devanshchoubey.oneremote",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "One Remote finds and controls your TV on your home Wi-Fi.",
+        "NSBonjourServices": ["_androidtvremote2._tcp"],
+        "NSMicrophoneUsageDescription": "One Remote uses the microphone while you hold the mic button, to talk to your TV."
+      }
+    },
+    "android": {
+      "package": "com.devanshchoubey.oneremote",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#eef0f3",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76,
+          "dark": {
+            "backgroundColor": "#0d0f12"
+          }
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Scan the Matter code on your AC",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      "./plugins/withVolumeKeys.js",
+      "./plugins/withLanCleartext.js",
+      "./plugins/withNoGoogleTelemetry.js",
+      "./plugins/withReleaseSigning.js",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "One Remote uses the microphone while you hold the mic button, to talk to your TV.",
+          "speechRecognitionPermission": "One Remote turns your speech into text on this phone, to type it on your TV."
+        }
+      ],
+      "./plugins/withNoPush.js",
+      "./plugins/withNoLocation.js",
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": [],
+          "neverForLocation": true,
+          "bluetoothAlwaysPermission": "One Remote uses Bluetooth to find and control your air freshener in the room."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#2f6df6"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

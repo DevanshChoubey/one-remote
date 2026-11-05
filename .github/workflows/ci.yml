@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run test --coverage
+      - run: bunx expo-doctor
+
+  # Every push to main that passes verify goes to the Play internal testing track (testers only).
+  # Closed testing and production stay a manual promotion in Play Console.
+  # Setup (secrets, service account): docs/store/google-play.md, "Automatic internal releases".
+  release-internal:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: play-internal
+      cancel-in-progress: false
+    env:
+      UPLOAD_KEYSTORE_BASE64: ${{ secrets.ONE_REMOTE_UPLOAD_KEYSTORE_BASE64 }}
+      ONE_REMOTE_UPLOAD_STORE_PASSWORD: ${{ secrets.ONE_REMOTE_UPLOAD_STORE_PASSWORD }}
+      ONE_REMOTE_UPLOAD_KEY_ALIAS: ${{ secrets.ONE_REMOTE_UPLOAD_KEY_ALIAS }}
+      ONE_REMOTE_UPLOAD_KEY_PASSWORD: ${{ secrets.ONE_REMOTE_UPLOAD_KEY_PASSWORD }}
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - name: Check the release secrets
+        id: secrets
+        run: |
+          missing=""
+          for name in UPLOAD_KEYSTORE_BASE64 ONE_REMOTE_UPLOAD_STORE_PASSWORD ONE_REMOTE_UPLOAD_KEY_ALIAS ONE_REMOTE_UPLOAD_KEY_PASSWORD PLAY_SERVICE_ACCOUNT_JSON; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::warning::Not releasing to Play: missing secrets:$missing"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.secrets.outputs.ready == 'true'
+        uses: actions/checkout@v4
+      - if: steps.secrets.outputs.ready == 'true'
+        uses: oven-sh/setup-bun@v2
+      - if: steps.secrets.outputs.ready == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - if: steps.secrets.outputs.ready == 'true'
+        run: bun install --frozen-lockfile
+
+      # Play needs a higher versionCode on every upload. Release 1 was uploaded by hand, so CI
+      # starts at 2 and counts up with the workflow run number.
+      - name: Set the versionCode
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          version_code=$(( GITHUB_RUN_NUMBER + 1 ))
+          jq --argjson vc "$version_code" '.expo.android.versionCode = $vc' app.json > app.json.tmp
+          mv app.json.tmp app.json
+          echo "versionCode $version_code"
+
+      - name: Build the signed bundle
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          export ONE_REMOTE_UPLOAD_STORE_FILE="$RUNNER_TEMP/upload.jks"
+          echo "$UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$ONE_REMOTE_UPLOAD_STORE_FILE"
+          bunx expo prebuild -p android --clean
+          cd android && ./gradlew bundleRelease --no-daemon
+
+      # The same forbidden list as "Release manifest check" in docs/store/google-play.md.
+      - name: Check the release manifest
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          manifest=android/app/build/intermediates/merged_manifests/release/processReleaseManifest/AndroidManifest.xml
+          grep -q BLUETOOTH_SCAN "$manifest"
+          if grep -E 'ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|SCHEDULE_EXACT_ALARM|USE_EXACT_ALARM|c2dm.permission.RECEIVE|FirebaseMessagingService|FirebaseInstanceIdReceiver|TransportBackendDiscovery|com\.google\.firebase\.components\.ComponentDiscoveryService|com\.google\.firebase\.provider\.FirebaseInitProvider' "$manifest"; then
+            echo "::error::The release manifest has a forbidden permission or component"
+            exit 1
+          fi
+
+      - name: Upload to internal testing
+        if: steps.secrets.outputs.ready == 'true'
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.devanshchoubey.oneremote
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+
+      - name: Remove the keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.jks"

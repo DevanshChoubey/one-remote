@@ -1,0 +1,8 @@
+{
+  "name": "mic-pcm",
+  "version": "0.1.0",
+  "description": "Microphone capture as 16-bit PCM chunks",
+  "main": "index.ts",
+  "private": true,
+  "license": "MIT"
+}
