@@ -1,5 +1,10 @@
 import type { BrandInfo, Link } from '@/core';
-import { afterBrand, afterMatter } from '@/screens/add/appliance/flow';
+import {
+  afterBrand,
+  afterMatter,
+  canOfferIrBackup,
+  offersMiraie,
+} from '@/screens/add/appliance/flow';
 import type { FlowEnv } from '@/screens/add/appliance/flow';
 
 const panasonic: BrandInfo = { id: 'panasonic', name: 'Panasonic', kind: 'ac', matter: true };
@@ -68,5 +73,38 @@ describe('afterMatter', () => {
     expect(afterMatter('panasonic', matterLink, env({ hasIrCodes: () => false })).name).toBe(
       'name',
     );
+  });
+});
+
+// miraie lane
+describe('afterBrand with the MirAIe opt-in', () => {
+  it('asks how a Panasonic AC connects only when MirAIe is on', () => {
+    expect(afterBrand(panasonic, env({ miraieOn: true }))).toEqual({
+      name: 'connectVia',
+      brandId: 'panasonic',
+    });
+    expect(afterBrand(panasonic, env({ miraieOn: false, matterAvailable: true })).name).toBe(
+      'matter',
+    );
+  });
+
+  it('never offers MirAIe for fans or other brands', () => {
+    expect(offersMiraie('panasonic', env({ kind: 'fan', miraieOn: true }))).toBe(false);
+    expect(afterBrand(atomberg, env({ kind: 'fan', miraieOn: true })).name).toBe('irTest');
+  });
+
+  it('offers an IR backup after MirAIe only where IR can send', () => {
+    const cloud: Link = { kind: 'miraie', deviceId: 'd1', homeId: 'h1', topic: 'u/h1/d1' };
+    expect(afterMatter('panasonic', cloud, env())).toEqual({
+      name: 'irTest',
+      brandId: 'panasonic',
+      backup: true,
+    });
+    expect(canOfferIrBackup('panasonic', env({ irAvailable: false }))).toBe(false);
+    expect(afterMatter('panasonic', cloud, env({ irAvailable: false }))).toEqual({
+      name: 'name',
+      links: [cloud],
+      suggestedName: expect.any(String),
+    });
   });
 });

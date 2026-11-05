@@ -7,12 +7,22 @@ import { useServices } from '@/services';
 import { Screen, Txt } from '@/ui';
 import { newId } from '../../shared/newId';
 import { useHomeData } from '../../shared/useHomeData';
+import { useMiraieStatus } from '../../settings/MiraieSection';
 import { NameRoomStep } from '../NameRoomStep';
 import { BrandStep } from './BrandStep';
+import { ConnectViaStep } from './ConnectViaStep';
 import { IrTestStep } from './IrTestStep';
+import { MiraieStep } from './MiraieStep';
 import { NoCodesStep } from './NoCodesStep';
 import { NoIrStep } from './NoIrStep';
-import { afterBrand, afterMatter, afterMatterSkipped, suggestedName } from './flow';
+import {
+  afterBrand,
+  afterMatter,
+  afterMatterSkipped,
+  canOfferIrBackup,
+  offersMiraie,
+  suggestedName,
+} from './flow';
 import type { FlowEnv, FlowStep } from './flow';
 
 export interface MatterStepProps {
@@ -77,6 +87,10 @@ function Flow(props: FlowProps): ReactElement {
   const { ir, drivers, store } = useServices();
   const [history, setHistory] = useState<FlowStep[]>([props.initial]);
   const [matterLink, setMatterLink] = useState<Extract<Link, { kind: 'matter' }> | null>(null);
+  // miraie lane: the MirAIe AC picked; like a Matter link, the IR test may add a backup to it.
+  const [miraieLink, setMiraieLink] = useState<Extract<Link, { kind: 'miraie' }> | null>(null);
+  const primary: Link | null = matterLink ?? miraieLink;
+  const miraieOn = useMiraieStatus().enabled;
   const [failed, setFailed] = useState(false);
   const step = history[history.length - 1] ?? props.initial;
   const { kind, device } = props;
@@ -93,6 +107,8 @@ function Flow(props: FlowProps): ReactElement {
       drivers.some((d) => d.kind === 'matter' && d.available()),
     hasIrCodes: (id) => ir.candidates(id).length > 0,
     brandName: (id) => brandOf(id)?.name ?? id,
+    // IR backup mode never offers the cloud either.
+    miraieOn: !device && miraieOn,
   };
 
   // A commissioned device is in the fabric already: if the flow is left before it is named, it is
@@ -169,6 +185,7 @@ function Flow(props: FlowProps): ReactElement {
         <BrandStep
           brands={brands}
           kind={kind}
+          cloudBrands={brands.filter((b) => offersMiraie(b.id, env)).map((b) => b.id)}
           onPick={(b) => go(afterBrand(b, env))}
           onBack={back}
         />
@@ -183,6 +200,7 @@ function Flow(props: FlowProps): ReactElement {
               setCommissioned({ link, brandId: step.brandId });
             },
             onDone: (link) => {
+              setMiraieLink(null);
               setMatterLink(link);
               go(afterMatter(step.brandId, link, env));
             },
@@ -190,6 +208,32 @@ function Flow(props: FlowProps): ReactElement {
           })}
         </>
       );
+    case 'connectVia': {
+      const brand = brandOf(step.brandId);
+      return (
+        <ConnectViaStep
+          matter={(brand?.matter ?? false) && env.matterAvailable}
+          onMatter={() => go({ name: 'matter', brandId: step.brandId })}
+          onMiraie={() => go({ name: 'miraie', brandId: step.brandId })}
+          onIr={() => go(afterMatterSkipped(step.brandId, env))}
+          onBack={back}
+        />
+      );
+    }
+    case 'miraie': {
+      const { brandId } = step;
+      return (
+        <MiraieStep
+          canBackup={canOfferIrBackup(brandId, env)}
+          onBack={back}
+          onDone={(link, backup) => {
+            setMatterLink(null);
+            setMiraieLink(link);
+            go(backup ? afterMatter(brandId, link, env) : named([link], brandId));
+          }}
+        />
+      );
+    }
     case 'irTest': {
       const { brandId, backup } = step;
       return (
@@ -200,31 +244,31 @@ function Flow(props: FlowProps): ReactElement {
             candidates={ir.candidates(brandId)}
             onBack={back}
             {...(failed ? { error: t('addAppliance.saveFailed') } : {})}
-            // Skip: after a Matter pairing it names the device; otherwise there are no codes to save.
+            // Skip: after a Matter pairing or a MirAIe pick it names the device; otherwise there are no codes to save.
             onSkip={() =>
-              backup && matterLink
-                ? go(named([matterLink], brandId))
+              backup && primary
+                ? go(named([primary], brandId))
                 : go({ name: 'noCodes', brandId, backup })
             }
             onResult={(result) => {
               if (result === 'none') return go({ name: 'noCodes', brandId, backup });
               if (device) return saveIr(result);
               const ir1: Link = { kind: 'ir', remoteId: result };
-              return go(named(backup && matterLink ? [matterLink, ir1] : [ir1], brandId));
+              return go(named(backup && primary ? [primary, ir1] : [ir1], brandId));
             }}
           />
         </>
       );
     }
     case 'noCodes': {
-      const carriesOn = step.backup && matterLink !== null;
+      const carriesOn = step.backup && primary !== null;
       return (
         <NoCodesStep
           kind={kind}
           carriesOn={carriesOn}
           onBack={back}
           onContinue={() => {
-            if (carriesOn && matterLink) return go(named([matterLink], step.brandId));
+            if (carriesOn && primary) return go(named([primary], step.brandId));
             if (device) return router.back();
             return home();
           }}

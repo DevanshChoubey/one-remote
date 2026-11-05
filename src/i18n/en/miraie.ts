@@ -51,6 +51,8 @@ export default {
   tryAgain: 'Try again',
   openSettings: 'Open Settings',
   added: 'Added',
+  brandBadge: 'Matter · MirAIe',
+  brandBadgeCloud: 'MirAIe',
   next: 'Next',
   backupTitle: 'Add an IR backup?',
   backupSub: 'Recommended',
