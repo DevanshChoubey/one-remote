@@ -3,19 +3,37 @@
 Everything in this folder (`src/ir/lgpl/`) is licensed under the GNU Lesser General Public License,
 version 2.1. The full text is in `LICENSE` next to this file.
 
-It is derived from **IRremoteESP8266 v2.8.6** (`src/ir_Panasonic.cpp` and `src/ir_Panasonic.h`),
-Copyright 2015 Kristian Lauszus, Copyright 2017, 2018 David Conran and contributors.
+It is derived from **IRremoteESP8266 v2.8.6**, Copyright 2009 Ken Shirriff, Copyright 2015 Kristian
+Lauszus, Copyright 2015 Mark Szabo, Copyright 2015 Darryl Smith, Copyright 2015 cheaplin, Copyright
+2016, 2017 sillyfrog, Copyright 2017 bwze, Copyright 2017 Ville Skyttä (scop), Copyright bakrus,
+Copyright 2020 manj9501, Copyright 2016-2022 David Conran (crankyoldgit) and contributors.
 Source: https://github.com/crankyoldgit/IRremoteESP8266
 
 The source actually read was IRremoteESP8266 master at commit `1e2f0f3` (version 2.9.0, 2026-01-03).
-Its release notes list only documentation changes for Panasonic since v2.8.6.
 
-Ported so far: the full-state encoder (`panasonicAc.ts`): model, power, mode, temperature, fan (all
-five speeds), vertical and horizontal swing, Quiet, Powerful and the ion filter, plus the sender.
-Test vectors in `tests/ir/lgpl/` are copied from upstream `test/ir_Panasonic_test.cpp` and are under
-the same licence.
+| File here              | Upstream files                                                                                                                           |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `panasonicAc.ts`       | `src/ir_Panasonic.cpp`, `src/ir_Panasonic.h`                                                                                             |
+| `irsend.ts`            | `src/IRsend.cpp` (sendData, sendGeneric), `test/IRsend_test.h`                                                                           |
+| `carrierAc.ts`         | `src/ir_Carrier.cpp`, `src/ir_Carrier.h`, `src/IRac.cpp` (IRac::carrier64)                                                               |
+| `coolixAc.ts`          | `src/ir_Coolix.cpp`, `src/ir_Coolix.h`, `src/IRac.cpp` (IRac::coolix, handleToggles)                                                     |
+| `daikinAc.ts`          | `src/ir_Daikin.cpp`, `src/ir_Daikin.h`, `src/IRac.cpp` (IRac::daikin, daikin216)                                                         |
+| `greeAc.ts`            | `src/ir_Gree.cpp`, `src/ir_Gree.h`, `src/ir_Kelvinator.cpp` (calcBlockChecksum), `src/IRac.cpp` (IRac::gree)                             |
+| `haierAc.ts`           | `src/ir_Haier.cpp`, `src/ir_Haier.h`, `src/IRac.cpp` (IRac::haier, haierYrwo2, haier176)                                                 |
+| `hitachiAc.ts`         | `src/ir_Hitachi.cpp`, `src/ir_Hitachi.h`, `src/IRutils.cpp` (invertBytePairs), `src/IRac.cpp` (IRac::hitachi, hitachi424, handleToggles) |
+| `lgAc.ts`              | `src/ir_LG.cpp`, `src/ir_LG.h`, `src/IRac.cpp` (IRac::lg)                                                                                |
+| `mideaAc.ts`           | `src/ir_Midea.cpp`, `src/ir_Midea.h`, `src/IRac.cpp` (IRac::midea, handleToggles)                                                        |
+| `mitsubishiHeavyAc.ts` | `src/ir_MitsubishiHeavy.cpp`, `src/ir_MitsubishiHeavy.h`, `src/IRac.cpp` (IRac::mitsubishiHeavy152, mitsubishiHeavy88)                   |
+| `voltasAc.ts`          | `src/ir_Voltas.cpp`, `src/ir_Voltas.h`, `src/IRac.cpp` (IRac::voltas)                                                                    |
+| `whirlpoolAc.ts`       | `src/ir_Whirlpool.cpp`, `src/ir_Whirlpool.h`, `src/IRac.cpp` (IRac::whirlpool, handleToggles)                                            |
+| `samsungAc.ts`         | `src/ir_Samsung.cpp`, `src/ir_Samsung.h`, `src/IRac.cpp` (IRac::samsung)                                                                 |
 
-Each file states the changes made. The rest of One Remote is not covered by this licence.
+The Panasonic port covers model, power, mode, temperature, all five fan speeds, vertical and
+horizontal swing, Quiet, Powerful and the ion filter. The Panasonic release notes list only
+documentation changes since v2.8.6. Each file states its
+upstream copyright and the changes made. The test vectors in `tests/ir/lgpl/` are copied from the
+matching upstream `test/ir_*_test.cpp` files and are under the same licence. The rest of One Remote is
+not covered by this licence.
 
 ## Offer of source
 

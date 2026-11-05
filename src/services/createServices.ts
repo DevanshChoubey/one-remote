@@ -4,7 +4,7 @@ import type { Alerts, AlertScheduler } from '@/aer/alerts';
 import { createAer } from '@/aer/service';
 import type { AerService } from '@/aer/types';
 import { isTvLink, tvLinkOf, tvLinkRef } from '@/core';
-import type { Device, FanState, LinkDriver, TvLink, TvSetup } from '@/core';
+import type { AcState, Device, FanState, LinkDriver, TvLink, TvSetup } from '@/core';
 import { DeviceHub } from '@/device/hub';
 import { createIrDriver } from '@/ir/driver';
 import type { IrEmitter } from '@/ir/emitter';
@@ -113,12 +113,13 @@ interface LaneContext {
   greeClient: GreeClient;
 }
 
-/** The IR driver's `seedFan`, when `d` has one (tests may pass plain fakes). */
-function seedOf(d: LinkDriver): ((id: string, s: FanState) => void) | undefined {
-  const seed = (d as { seedFan?: unknown }).seedFan;
-  return typeof seed === 'function'
-    ? (seed.bind(d) as (id: string, s: FanState) => void)
-    : undefined;
+/** The IR driver's `seedFan` or `seedAc`, when `d` has one (tests may pass plain fakes). */
+function seedOf<S>(
+  d: LinkDriver,
+  name: 'seedFan' | 'seedAc',
+): ((id: string, s: S) => void) | undefined {
+  const seed = (d as { seedFan?: unknown; seedAc?: unknown })[name];
+  return typeof seed === 'function' ? (seed.bind(d) as (id: string, s: S) => void) : undefined;
 }
 
 /** The real drivers, one per line, each just under its lane's slot comment. */
@@ -348,7 +349,10 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
       createIrSetup({
         emitter: irEmitter,
         seedFan: (id, state) => {
-          for (const d of drivers) if (d.kind === 'ir' && 'seedFan' in d) seedOf(d)?.(id, state);
+          for (const d of drivers) if (d.kind === 'ir') seedOf<FanState>(d, 'seedFan')?.(id, state);
+        },
+        seedAc: (id, state) => {
+          for (const d of drivers) if (d.kind === 'ir') seedOf<AcState>(d, 'seedAc')?.(id, state);
         },
       }),
     // matter lane

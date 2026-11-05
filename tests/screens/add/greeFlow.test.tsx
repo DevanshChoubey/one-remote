@@ -69,6 +69,9 @@ describe('Add a Gree Wi-Fi AC', () => {
     await fireEvent.press(await screen.findByLabelText('Gree'));
     expect(screen.getByText(t('gree.findTitle'))).toBeTruthy();
     await fireEvent.press(await screen.findByLabelText('Hall, 192.168.1.40'));
+    // Gree has IR codes too, so an IR backup is offered first (as after Matter); skip it.
+    expect(await screen.findByText(/^Gree · try 1 of \d+$/)).toBeTruthy();
+    await press(t('addAppliance.skip'));
     expect(await screen.findByDisplayValue('Gree AC')).toBeTruthy();
     await press(t('common.done'));
     await waitFor(async () =>
@@ -98,8 +101,8 @@ describe('Add a Gree Wi-Fi AC', () => {
     // A unit with no name shows the generic one.
     expect(await screen.findByLabelText(`${t('gree.unitName')}, 192.168.1.40`)).toBeTruthy();
     await press(t('gree.useIr'));
-    // No Gree IR codes in the catalogue yet: the no-codes screen.
-    expect(await screen.findByText(t('addAppliance.noCodesAc'))).toBeTruthy();
+    // The catalogue has Gree IR codes: the IR test starts.
+    expect(await screen.findByText(/^Gree · try 1 of \d+$/)).toBeTruthy();
   });
 
   it('says to join the Wi-Fi when the phone is off it', async () => {
@@ -121,11 +124,12 @@ describe('Add a Gree Wi-Fi AC', () => {
     expect(screen.getByLabelText('Hall, 192.168.1.40')).toBeTruthy();
   });
 
-  it('is not offered without the Gree driver, nor for fans', async () => {
+  it('without the Gree driver, Gree is an IR brand only', async () => {
     const { s } = await setup({ gree: false });
     await renderWith(s, <AddApplianceFlow kind="ac" />);
-    expect(await screen.findByLabelText('Panasonic')).toBeTruthy();
-    expect(screen.queryByLabelText('Gree')).toBeNull();
+    await fireEvent.press(await screen.findByLabelText('Gree'));
+    expect(await screen.findByText(/^Gree · try 1 of \d+$/)).toBeTruthy();
+    expect(screen.queryByText(t('gree.findTitle'))).toBeNull();
   });
 });
 

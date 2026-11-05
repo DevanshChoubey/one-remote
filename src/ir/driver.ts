@@ -1,6 +1,15 @@
 import { DeviceError } from '@/core';
-import type { Capabilities, Command, Device, FanSpeed, FanState, Link, LinkDriver } from '@/core';
-import type { Catalogue, FanKey, Remote } from './catalogue';
+import type {
+  AcState,
+  Capabilities,
+  Command,
+  Device,
+  FanSpeed,
+  FanState,
+  Link,
+  LinkDriver,
+} from '@/core';
+import { acFrames, type Catalogue, type FanKey, type Remote } from './catalogue';
 import { defaultCatalogue } from './codes';
 import type { IrEmitter, IrSignal } from './emitter';
 import { fanKeys } from './fanKeys';
@@ -78,6 +87,10 @@ const wait = (ms: number): Promise<void> =>
  * fallbacks. The driver keeps no live state (no `observe`); the hub keeps what was last sent. It
  * remembers what each fan actually reached, key by key, only so it can tell which toggle keys
  * changed. An unknown toggle is taken as off; if that guess is wrong the user presses again.
+ * It does the same for each AC: the last state sent is handed to the remote's `encode` as `prev`,
+ * so toggle-style protocols (a swing or power toggle) know whether to send the toggle frame. An
+ * AC change may be several frames; they go out like a fan's keys, `gapMs` apart. When only some
+ * of them went out, the AC's state is unknown and is forgotten.
  *
  * Sends are serialised with one chain, because the emitter is one piece of hardware shared by
  * every device. A fan command with several keys is spaced `gapMs` apart, so a long sequence (five
@@ -98,10 +111,15 @@ export function createIrDriver(o: {
   emitter: IrEmitter;
   catalogue?: Catalogue;
   gapMs?: number;
-}): LinkDriver & { kind: 'ir'; seedFan(deviceId: string, state: FanState): void } {
+}): LinkDriver & {
+  kind: 'ir';
+  seedFan(deviceId: string, state: FanState): void;
+  seedAc(deviceId: string, state: AcState): void;
+} {
   const catalogue = o.catalogue ?? defaultCatalogue;
   const gapMs = o.gapMs ?? DEFAULT_GAP_MS;
   const lastFan = new Map<string, FanState>();
+  const lastAc = new Map<string, AcState>();
   let chain: Promise<unknown> = Promise.resolve();
 
   const remoteOf = (link: Link): Remote | undefined =>
@@ -112,6 +130,28 @@ export function createIrDriver(o: {
       await o.emitter.transmit(s);
     } catch (e) {
       throw e instanceof DeviceError ? e : new DeviceError('notSent');
+    }
+  };
+
+  /**
+   * Sends frames in order, `gapMs` apart, checking `abort` before each. Nothing sent: the first
+   * error as is (`timeout` when aborted). Some sent: `partiallySent`.
+   */
+  const series = async (
+    frames: IrSignal[],
+    abort: AbortSignal | undefined,
+    onSent?: (i: number) => void,
+  ): Promise<void> => {
+    for (const [i, frame] of frames.entries()) {
+      try {
+        if (i > 0) await wait(gapMs);
+        if (abort?.aborted) throw new DeviceError(i === 0 ? 'timeout' : 'partiallySent');
+        await transmit(frame);
+      } catch (e) {
+        if (i === 0 || (e instanceof DeviceError && e.code === 'partiallySent')) throw e;
+        throw new DeviceError('partiallySent');
+      }
+      onSent?.(i);
     }
   };
 
@@ -130,31 +170,33 @@ export function createIrDriver(o: {
     if (!o.emitter.hasEmitter()) throw new DeviceError('noIrEmitter');
     const r = remoteOf(link);
     if (!r) return unsupported();
-    if (cmd.kind === 'ac.set' && r.kind === 'ac') return transmit(r.encode(cmd.state));
+    if (cmd.kind === 'ac.set' && r.kind === 'ac') {
+      const frames = acFrames(r, cmd.state, lastAc.get(device.id));
+      try {
+        await series(frames, signal);
+      } catch (e) {
+        // Some frames may have gone out (a toggle among them): what the AC holds is unknown now.
+        if (e instanceof DeviceError && e.code === 'partiallySent') lastAc.delete(device.id);
+        throw e;
+      }
+      lastAc.set(device.id, cmd.state);
+      return;
+    }
     if (cmd.kind === 'fan.set' && r.kind === 'fan') {
       // Work out every key the change needs, then refuse before sending anything if the remote
       // lacks one: a press must never succeed while doing nothing, or be half-sent.
       const todo = fanKeys(lastFan.get(device.id), cmd.state, ALL_FAN_KEYS);
       const signals: IrSignal[] = [];
       for (const key of todo) {
-        const signal = r.keys[key];
-        if (!signal) return unsupported();
-        signals.push(signal);
+        const frame = r.keys[key];
+        if (!frame) return unsupported();
+        signals.push(frame);
       }
-      if (signals.length === 0) return;
       let mem = lastFan.get(device.id);
-      for (const [i, key] of todo.entries()) {
-        try {
-          if (i > 0) await wait(gapMs);
-          if (signal?.aborted) throw new DeviceError(i === 0 ? 'timeout' : 'partiallySent');
-          await transmit(signals[i] as IrSignal);
-        } catch (e) {
-          if (i === 0 || (e instanceof DeviceError && e.code === 'partiallySent')) throw e;
-          throw new DeviceError('partiallySent');
-        }
-        mem = applyKey(mem, key);
+      await series(signals, signal, (i) => {
+        mem = applyKey(mem, todo[i] as FanKey);
         if (mem) lastFan.set(device.id, mem);
-      }
+      });
       return;
     }
     if (r.kind === 'tv') {
@@ -196,6 +238,9 @@ export function createIrDriver(o: {
     },
     seedFan(deviceId: string, state: FanState): void {
       lastFan.set(deviceId, state);
+    },
+    seedAc(deviceId: string, state: AcState): void {
+      lastAc.set(deviceId, state);
     },
     send(device: Device, link: Link, cmd: Command, signal?: AbortSignal): Promise<void> {
       const run = chain.then(() => sendNow(device, link, cmd, signal));
