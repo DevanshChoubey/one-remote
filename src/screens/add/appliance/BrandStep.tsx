@@ -31,7 +31,9 @@ export function BrandStep(props: BrandStepProps): ReactElement {
             index={i}
             {...(b.matter
               ? { badge: { label: t('addAppliance.brandMatter'), tone: 'accent' } }
-              : {})}
+              : b.wifi
+                ? { badge: { label: t('gree.brandWifi'), tone: 'accent' } }
+                : {})}
             onPress={() => props.onPick(b)}
             accessibilityLabel={b.name}
           />
