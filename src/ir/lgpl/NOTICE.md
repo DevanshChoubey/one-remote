@@ -9,13 +9,14 @@ Source: https://github.com/crankyoldgit/IRremoteESP8266
 
 The source actually read was IRremoteESP8266 master at commit `1e2f0f3` (version 2.9.0, 2026-01-03).
 
-| File here        | Upstream files                                                                   |
-| ---------------- | -------------------------------------------------------------------------------- |
-| `panasonicAc.ts` | `src/ir_Panasonic.cpp`, `src/ir_Panasonic.h`                                     |
-| `irsend.ts`      | `src/IRsend.cpp` (sendData, sendGeneric), `test/IRsend_test.h`                   |
-| `daikinAc.ts`    | `src/ir_Daikin.cpp`, `src/ir_Daikin.h`, `src/IRac.cpp` (IRac::daikin, daikin216) |
-| `lgAc.ts`        | `src/ir_LG.cpp`, `src/ir_LG.h`, `src/IRac.cpp` (IRac::lg)                        |
-| `samsungAc.ts`   | `src/ir_Samsung.cpp`, `src/ir_Samsung.h`, `src/IRac.cpp` (IRac::samsung)         |
+| File here        | Upstream files                                                                                                                           |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `panasonicAc.ts` | `src/ir_Panasonic.cpp`, `src/ir_Panasonic.h`                                                                                             |
+| `irsend.ts`      | `src/IRsend.cpp` (sendData, sendGeneric), `test/IRsend_test.h`                                                                           |
+| `daikinAc.ts`    | `src/ir_Daikin.cpp`, `src/ir_Daikin.h`, `src/IRac.cpp` (IRac::daikin, daikin216)                                                         |
+| `hitachiAc.ts`   | `src/ir_Hitachi.cpp`, `src/ir_Hitachi.h`, `src/IRutils.cpp` (invertBytePairs), `src/IRac.cpp` (IRac::hitachi, hitachi424, handleToggles) |
+| `lgAc.ts`        | `src/ir_LG.cpp`, `src/ir_LG.h`, `src/IRac.cpp` (IRac::lg)                                                                                |
+| `samsungAc.ts`   | `src/ir_Samsung.cpp`, `src/ir_Samsung.h`, `src/IRac.cpp` (IRac::samsung)                                                                 |
 
 The Panasonic release notes list only documentation changes since v2.8.6. Each file states its
 upstream copyright and the changes made. The test vectors in `tests/ir/lgpl/` are copied from the

@@ -10,6 +10,7 @@ describe('default catalogue', () => {
   it('lists the AC brands in alphabetical order, and Atomberg for fans', () => {
     expect(defaultCatalogue.brands('ac').map((b) => b.name)).toEqual([
       'Daikin',
+      'Hitachi',
       'LG',
       'Panasonic',
       'Samsung',

@@ -21,6 +21,9 @@ This section is the only part shown to users.
   - Daikin (`daikinAc.ts`, DAIKIN and DAIKIN216): DAIKIN for the ARC433 / ARC466 / ARC443 remotes
     (FTXM-M and M series), DAIKIN216 for ARC433B69 / ARC484A4, as listed by the library. DAIKIN2
     and the newer DAIKIN312 are not ported. Not yet checked on a real Indian unit.
+  - Hitachi (`hitachiAc.ts`, HITACHI_AC424 and HITACHI_AC): the RAR-8P2 remote (RAS-AJ series) and
+    the older RAS-35THA6 remote, as listed by the library. HITACHI_AC1 (listed for the KAZE-312KSDP)
+    and the other Hitachi protocols are not ported. Not yet checked on a real Indian unit.
   - LG (`lgAc.ts`, LG2 and LG): remotes AKB74955603 (absolute swing codes), AKB75215403 (no swing
     message) and the older 6711A20083V (swing toggle), as listed by the library. Not yet checked on
     a real Indian unit.
