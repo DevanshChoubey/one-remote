@@ -14,6 +14,12 @@ This section is the only part shown to users.
   and `src/ir_Panasonic.h`, LGPL-2.1, Copyright 2015 Kristian Lauszus and 2017, 2018 David Conran and
   contributors. The source actually read was master at commit `1e2f0f3` (version 2.9.0, 2026-01-03);
   its release notes list only documentation changes for Panasonic since v2.8.6.
+- **Other AC encoders** (`../lgpl/`, one file per protocol; the table in `../lgpl/NOTICE.md` lists the
+  upstream files): derived from IRremoteESP8266 v2.8.6, LGPL-2.1, read at master `1e2f0f3`. Each
+  file's header names its upstream files, copyright and changes. Test vectors in `tests/ir/lgpl/` are
+  copied from the upstream `test/ir_*_test.cpp` files.
+  - Samsung (`samsungAc.ts`, SAMSUNG_AC): the AR-series protocol the library lists for several
+    AR09/AR12 models. Not yet checked on a real Indian unit.
 - **Atomberg fan codes** (`atomberg.ts`): Flipper-IRDB (https://github.com/Lucaslhm/Flipper-IRDB),
   `Fans/Atomberg/Atomberg_fan.ir`, CC0-1.0. NECext address 00 F3, rewritten as clean NEC frames.
 - **LG TV codes** (`lgTv.ts`) and the NEC format (`../nec.ts`): our own code. NEC is a public

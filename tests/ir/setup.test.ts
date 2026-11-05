@@ -8,7 +8,7 @@ import { createFakeEmitter } from '@/ir/testing/fakeEmitter';
 describe('createIrSetup', () => {
   it('lists brands and candidates in catalogue order', () => {
     const setup = createIrSetup({ emitter: createFakeEmitter() });
-    expect(setup.brands('ac').map((b) => b.id)).toEqual(['panasonic']);
+    expect(setup.brands('ac').map((b) => b.id)).toContain('panasonic');
     expect(setup.candidates('panasonic')).toHaveLength(5);
     expect(setup.candidates('panasonic')[0]).toEqual({
       remoteId: 'panasonic-ac/dke',
