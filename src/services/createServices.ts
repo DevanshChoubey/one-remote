@@ -13,6 +13,13 @@ import { createNativeMatterController } from '@/matter/native/controller';
 import { createMatterSetup } from '@/matter/native/setup';
 import { createMatterDriver } from '@/matter/driver';
 import type { MatterController } from '@/matter/controller';
+import { createMiraieApi } from '@/miraie/api';
+import { createMiraieDriver } from '@/miraie/driver';
+import { createMiraieSession } from '@/miraie/session';
+import type { MiraieApi } from '@/miraie/api';
+import type { MiraieSession } from '@/miraie/session';
+import { createCloudNet, platformFetch } from '@/transport/cloud';
+import { dialTls } from '@/transport/cloudTls';
 import { createNativeIrEmitter } from '@/transport/irEmitter';
 import { createAsyncStorageStore } from '@/store/asyncStorageStore';
 import { createAsyncStoragePreferenceStore } from '@/store/preferences';
@@ -104,6 +111,7 @@ interface LaneContext {
   tvTransport: TvTransport;
   irEmitter: IrEmitter;
   matterController: MatterController;
+  miraie: { session: MiraieSession; api: MiraieApi };
 }
 
 /** The IR driver's `seedFan`, when `d` has one (tests may pass plain fakes). */
@@ -139,6 +147,8 @@ function laneDrivers(ctx: LaneContext): LinkDriver[] {
     createIrDriver({ emitter: ctx.irEmitter }),
     // matter lane
     createMatterDriver({ controller: ctx.matterController, enabled: true }),
+    // miraie lane
+    createMiraieDriver(ctx.miraie),
   ];
 }
 
@@ -238,6 +248,31 @@ export function startAfter(load: () => Promise<void>, alerts: Alerts): Alerts {
 }
 
 /**
+ * The opt-in MirAIe cloud connection. The transport is open only while `session.netAllowed()`
+ * (on in Settings, or signing in), and reaches only the MirAIe hosts.
+ */
+function createMiraie(
+  secrets: Services['secrets'],
+  prefs: Services['prefs'],
+): { session: MiraieSession; api: MiraieApi } {
+  let session: MiraieSession | undefined;
+  const net = createCloudNet({
+    enabled: () => session?.netAllowed() ?? false,
+    dial: dialTls,
+    fetch: platformFetch,
+  });
+  const api = createMiraieApi({ net });
+  session = createMiraieSession({
+    api,
+    net,
+    secrets,
+    loadOptIn: async () => (await prefs.get()).miraieCloud,
+    saveOptIn: (on) => prefs.set({ miraieCloud: on }),
+  });
+  return { session, api };
+}
+
+/**
  * `tvTransport` replaces the real TV network, `bleTransport` the real Bluetooth and
  * `aerScheduler` the real local notifications (tests pass fakes).
  */
@@ -263,10 +298,15 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
   const matterController = createNativeMatterController();
   const store = deps.store ?? createAsyncStorageStore(AsyncStorage);
   const secrets = deps.secrets ?? createSecureSecretStore();
-  const drivers =
-    deps.drivers ?? laneDrivers({ store, secrets, tvTransport, irEmitter, matterController });
-  const hub = deps.hub ?? new DeviceHub({ drivers });
   const prefs = deps.prefs ?? createAsyncStoragePreferenceStore(AsyncStorage);
+  // miraie lane
+  const miraie = createMiraie(secrets, prefs);
+  const drivers =
+    deps.drivers ??
+    laneDrivers({ store, secrets, tvTransport, irEmitter, matterController, miraie });
+  const hub = deps.hub ?? new DeviceHub({ drivers });
+  // Signing in or out of MirAIe changes which links can send: let the hub look again.
+  miraie.session.subscribe(() => hub.refresh());
   syncHub(hub, store);
   const tvBrands = [
     createWebosBrand({ transport: tvTransport, secrets }),
@@ -334,6 +374,8 @@ export function createServices(deps: CreateServicesDeps = {}): Services {
       }),
     // matter lane
     matter: deps.matter ?? createMatterSetup(matterController),
+    // miraie lane
+    miraie: deps.miraie ?? miraie.session,
     // aer lane
     aer,
     aerAlerts,

@@ -1,5 +1,15 @@
-import TcpSocket from 'react-native-tcp-socket';
+import type TcpSocketModule from 'react-native-tcp-socket';
 import type { RawTls, TlsDialer } from './cloud';
+
+/**
+ * Loaded on the first MirAIe connect, not at app start: nothing of this library runs (it sets up a
+ * native event emitter on import) unless the user turned the cloud connection on.
+ */
+function tcpSocket(): typeof TcpSocketModule {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const m = require('react-native-tcp-socket') as { default: typeof TcpSocketModule };
+  return m.default;
+}
 
 /**
  * TLS over `react-native-tcp-socket`, for the MirAIe broker only (`cloud.ts` checks the host,
@@ -10,7 +20,7 @@ import type { RawTls, TlsDialer } from './cloud';
 export const dialTls: TlsDialer = (host, port, timeoutMs) =>
   new Promise<RawTls>((resolve, reject) => {
     let settled = false;
-    const socket = TcpSocket.connectTLS({ host, port, connectTimeout: timeoutMs });
+    const socket = tcpSocket().connectTLS({ host, port, connectTimeout: timeoutMs });
     const timer = setTimeout(() => fail(new Error('TLS connect timed out')), timeoutMs);
     function fail(e: Error): void {
       if (settled) return;
