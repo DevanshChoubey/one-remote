@@ -1,4 +1,4 @@
-import type { FanState } from './model';
+import type { AcState, FanState } from './model';
 
 export type TestPress = 'acOnCool24' | 'acUp25' | 'fanSpeed3' | 'fanLight' | 'fanSpeed1';
 
@@ -24,4 +24,6 @@ export interface IrSetup {
   brandOf(remoteId: string): BrandInfo | undefined;
   /** Tells the IR driver what a fan was last doing (restored after an app restart). */
   seedFan(deviceId: string, state: FanState): void;
+  /** Tells the IR driver what an AC was last sent (restored after an app restart). */
+  seedAc(deviceId: string, state: AcState): void;
 }
