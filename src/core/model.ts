@@ -32,15 +32,30 @@ export interface Device {
 }
 
 export type AcMode = 'cool' | 'dry' | 'fan' | 'auto';
-export type AcFan = 'auto' | 1 | 2 | 3;
+/** Fan speed. Most ACs take 1..3; five-speed ACs (Panasonic Min..Max) take 1..5. */
+export type AcFan = 'auto' | 1 | 2 | 3 | 4 | 5;
+/** Vertical vane: auto (swinging) or a fixed position, 1 highest to 5 lowest. */
+export type AcSwingV = 'auto' | 1 | 2 | 3 | 4 | 5;
+/** Horizontal vanes: auto (swinging) or a fixed direction. */
+export type AcSwingH = 'auto' | 'fullLeft' | 'left' | 'middle' | 'right' | 'fullRight';
 
 export interface AcState {
   power: boolean;
   mode: AcMode;
   setpoint: number;
   fan: AcFan;
+  /** Vertical swing on (auto) or off. Kept in step with `swingV` when that is set. */
   swing: boolean;
   sleep: boolean;
+  /** Vertical position; missing means `swing` decides (on: auto, off: the middle, 3). */
+  swingV?: AcSwingV;
+  /** Horizontal direction; missing means the middle. */
+  swingH?: AcSwingH;
+  /** Powerful (turbo). Never on together with `quiet`. */
+  powerful?: boolean;
+  quiet?: boolean;
+  /** Ion air purifier (Panasonic nanoe). */
+  ion?: boolean;
 }
 
 export type FanSpeed = 1 | 2 | 3 | 4 | 5;
@@ -116,6 +131,16 @@ export interface Capabilities {
   setpoint?: { min: number; max: number };
   swing?: boolean;
   sleep?: boolean;
+  /** Vertical positions 1..5 as well as auto. Missing means not supported. */
+  swingV?: boolean;
+  /** Horizontal directions. Missing means not supported. */
+  swingH?: boolean;
+  /** Powerful (turbo). Missing means not supported. */
+  powerful?: boolean;
+  /** Quiet. Missing means not supported. */
+  quiet?: boolean;
+  /** Ion air purifier (nanoe). Missing means not supported. */
+  ion?: boolean;
   fanLight?: boolean;
   tv?: TvCaps;
   /** Fan Boost key. Missing means supported. */
@@ -139,6 +164,16 @@ export function isIdempotent(cmd: Command): boolean {
 
 export function defaultAcState(): AcState {
   return { power: false, mode: 'cool', setpoint: 24, fan: 'auto', swing: false, sleep: false };
+}
+
+/** The vertical position to send: `swingV`, else what the old `swing` flag meant. */
+export function acSwingV(s: AcState): AcSwingV {
+  return s.swingV ?? (s.swing ? 'auto' : 3);
+}
+
+/** The horizontal direction to send; the middle when not set. */
+export function acSwingH(s: AcState): AcSwingH {
+  return s.swingH ?? 'middle';
 }
 
 export function defaultFanState(): FanState {

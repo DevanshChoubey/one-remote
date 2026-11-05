@@ -10,6 +10,11 @@ Source: https://github.com/crankyoldgit/IRremoteESP8266
 The source actually read was IRremoteESP8266 master at commit `1e2f0f3` (version 2.9.0, 2026-01-03).
 Its release notes list only documentation changes for Panasonic since v2.8.6.
 
+Ported so far: the full-state encoder (`panasonicAc.ts`): model, power, mode, temperature, fan (all
+five speeds), vertical and horizontal swing, Quiet, Powerful and the ion filter, plus the sender.
+Test vectors in `tests/ir/lgpl/` are copied from upstream `test/ir_Panasonic_test.cpp` and are under
+the same licence.
+
 Each file states the changes made. The rest of One Remote is not covered by this licence.
 
 ## Offer of source

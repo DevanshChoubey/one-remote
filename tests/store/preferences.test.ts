@@ -104,6 +104,25 @@ describe('asyncStorage preference store', () => {
           lastSent: {
             okAc: { kind: 'ac', state: ac },
             okFan: { kind: 'fan', state: fan },
+            okAcMore: {
+              kind: 'ac',
+              state: {
+                ...ac,
+                fan: 5,
+                swingV: 2,
+                swingH: 'fullRight',
+                powerful: true,
+                quiet: false,
+                ion: true,
+              },
+            },
+            okAcAutoSwingV: { kind: 'ac', state: { ...ac, fan: 4, swingV: 'auto' } },
+            badFan: { kind: 'ac', state: { ...ac, fan: 6 } },
+            badSwingV: { kind: 'ac', state: { ...ac, swingV: 6 } },
+            badSwingH: { kind: 'ac', state: { ...ac, swingH: 'up' } },
+            badPowerful: { kind: 'ac', state: { ...ac, powerful: 'yes' } },
+            badQuiet: { kind: 'ac', state: { ...ac, quiet: 1 } },
+            badIon: { kind: 'ac', state: { ...ac, ion: null } },
             noSetpoint: { kind: 'ac', state: { ...ac, setpoint: undefined } },
             badMode: { kind: 'ac', state: { ...ac, mode: 'heat' } },
             noSpeed: { kind: 'fan', state: { power: true } },
@@ -112,6 +131,11 @@ describe('asyncStorage preference store', () => {
         }),
       }),
     );
-    expect(Object.keys((await s.get()).lastSent).sort()).toEqual(['okAc', 'okFan']);
+    expect(Object.keys((await s.get()).lastSent).sort()).toEqual([
+      'okAc',
+      'okAcAutoSwingV',
+      'okAcMore',
+      'okFan',
+    ]);
   });
 });
