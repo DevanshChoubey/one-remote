@@ -31,7 +31,7 @@ describe('usePendingState', () => {
   it('a failed send does not make the next tap of the burst build on the stale state', async () => {
     const d = deferredSubmit();
     const onError = jest.fn();
-    const { result } = await renderHook(() => usePendingState(24, d.submit, onError));
+    const { result } = await renderHook(() => usePendingState<number>(24, d.submit, onError));
     await act(async () => result.current.press(up)); // 25
     await act(async () => result.current.press(up)); // 26, carries the first change too
     await d.fail(0);
@@ -44,7 +44,9 @@ describe('usePendingState', () => {
 
   it('when the newest send fails, the next tap builds on the newest one still going out', async () => {
     const d = deferredSubmit();
-    const { result } = await renderHook(() => usePendingState(24, d.submit, () => undefined));
+    const { result } = await renderHook(() =>
+      usePendingState<number>(24, d.submit, () => undefined),
+    );
     await act(async () => result.current.press(up)); // 25
     await act(async () => result.current.press(up)); // 26
     await d.fail(1); // the newest fails first (a driver that does not queue)
@@ -55,7 +57,9 @@ describe('usePendingState', () => {
 
   it('goes back to what the hub holds once nothing is in flight', async () => {
     const d = deferredSubmit();
-    const { result } = await renderHook(() => usePendingState(24, d.submit, () => undefined));
+    const { result } = await renderHook(() =>
+      usePendingState<number>(24, d.submit, () => undefined),
+    );
     await act(async () => result.current.press(up));
     await d.fail(0);
     expect(result.current.state).toBe(24);
