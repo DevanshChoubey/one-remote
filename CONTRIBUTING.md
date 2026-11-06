@@ -51,8 +51,8 @@ Read [docs/ENGINEERING.md](docs/ENGINEERING.md) before you change code. The shor
 | Cloud      | The only internet use is the opt-in MirAIe connection, to its allowlisted hosts. Add no other.       |
 | Tests      | Test first. Tests live in `tests/`, mirroring `src/`.                                                |
 
-`fetch` and `XMLHttpRequest` are banned by ESLint everywhere, and `WebSocket` and UDP are allowed
-only in `src/transport`. A pull request that adds analytics, crash reporting, remote config,
+ESLint bans `XMLHttpRequest` everywhere, and `fetch` everywhere except the MirAIe client in
+`src/transport/cloud.ts`. `WebSocket` and UDP are allowed only in `src/transport`. A pull request that adds analytics, crash reporting, remote config,
 location or a new internet host will not be merged.
 
 ## Checks

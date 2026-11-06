@@ -88,7 +88,8 @@ is enforced in code instead:
 
 - All networking lives in `src/transport`, the only place with sockets, discovery and the native IR
   and Matter adapters.
-- `fetch` and `XMLHttpRequest` are banned by ESLint (`no-restricted-globals`) in every file.
+- `fetch` and `XMLHttpRequest` are banned by ESLint (`no-restricted-globals`) in every file, except
+  `fetch` in `src/transport/cloud.ts`, the opt-in MirAIe client (the single cloud exception).
   `WebSocket` is allowed only in `src/transport/**`, and `dgram` and `react-native-udp` can be imported
   only there (`no-restricted-imports`). `tests/lint-rules.test.ts` checks these rules.
 - Every outgoing unicast connect goes through `assertLocal()` before connecting, and throws a typed

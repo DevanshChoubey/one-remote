@@ -74,8 +74,9 @@ nanoe.
 One Remote collects nothing and sends nothing to a server of its own.
 
 - **Local network only.** Every connection goes through a check (`src/transport/localOnly.ts`) that
-  refuses any address outside the home network. ESLint bans `fetch` and `XMLHttpRequest`
-  everywhere, and sockets live only in `src/transport`. Android needs the `INTERNET` permission for
+  refuses any address outside the home network. ESLint bans `XMLHttpRequest` everywhere and
+  `fetch` everywhere but the MirAIe client (`src/transport/cloud.ts`), and sockets live only in
+  `src/transport`. Android needs the `INTERNET` permission for
   any socket, local ones included, so it stays.
 - **One opt-in exception.** The MirAIe cloud connection for Panasonic ACs is off by default. When you
   turn it on in Settings, the app signs in to your own MirAIe account and talks only to
