@@ -134,6 +134,22 @@ describe('HomeScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/device-sheet/i1');
   });
 
+  it('offers settings and remove as screen reader actions', async () => {
+    const s = setup();
+    await seed(s, [dev('l1', 'tv', 'liv', 0, [matter])]);
+    await renderHome(s);
+    const card = await screen.findByLabelText('Name l1');
+    expect(card.props.accessibilityActions).toEqual([
+      { name: 'settings', label: t('device.open') },
+      { name: 'remove', label: t('device.remove') },
+    ]);
+    await fireEvent(card, 'accessibilityAction', { nativeEvent: { actionName: 'settings' } });
+    expect(mockPush).toHaveBeenLastCalledWith('/device-sheet/l1');
+    mockPush.mockClear();
+    await fireEvent(card, 'accessibilityAction', { nativeEvent: { actionName: 'remove' } });
+    expect(mockPush).toHaveBeenLastCalledWith('/device-sheet/l1');
+  });
+
   it('flips power from the last known state with the AC toggle', async () => {
     const s = setup();
     await seed(s, [dev('a1', 'ac', 'liv', 0, [matter])]);

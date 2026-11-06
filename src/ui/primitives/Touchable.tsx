@@ -1,4 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
+import type { AccessibilityActionEvent, AccessibilityActionInfo } from 'react-native';
 import { Pressable, experimental_LayoutConformance as LayoutConformance } from 'react-native';
 import Animated, {
   interpolateColor,
@@ -26,6 +27,9 @@ export interface TouchableProps {
   /** Looks dimmed (0.6, like an off card) but still takes presses, e.g. to allow a long press. */
   dimmed?: boolean;
   accessibilityHint?: string;
+  /** Extra screen reader actions (the swipe-up/down menu), for what a long press does. */
+  accessibilityActions?: readonly AccessibilityActionInfo[];
+  onAccessibilityAction?: (event: AccessibilityActionEvent) => void;
   /** Scale while pressed: 0.97 by default, 1 for none. */
   pressScale?: number;
   /** Background tint while pressed; the wrapper draws it. */
@@ -95,6 +99,8 @@ export function Touchable(props: TouchableProps): ReactElement {
         testID={props.testID}
         accessibilityLabel={props.accessibilityLabel}
         accessibilityHint={props.accessibilityHint}
+        accessibilityActions={props.accessibilityActions}
+        onAccessibilityAction={props.onAccessibilityAction}
         accessibilityRole={props.accessibilityRole ?? 'button'}
         accessibilityState={{
           disabled: props.disabled === true,

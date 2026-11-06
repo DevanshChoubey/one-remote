@@ -9,7 +9,7 @@ export interface KeyButtonProps {
   icon: IconName;
   onPress: () => void;
   /** The key's diameter in px: 64 Back, 84 Home and the D-pad, 56 and 100 for the other keys. */
-  size?: 64 | 84 | 56 | 100;
+  size?: number;
   tone?: 'surface' | 'accent';
   /** A text label drawn instead of the icon (the OK key). */
   text?: string;

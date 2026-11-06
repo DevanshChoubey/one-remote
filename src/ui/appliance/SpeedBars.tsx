@@ -148,6 +148,8 @@ function Bar(props: { n: number; lit: boolean }): ReactElement {
             },
             labelColour,
           ]}
+          // The number sits in a bar about 57 dp wide with a fixed line height: cap its growth.
+          maxFontSizeMultiplier={1.3}
         >
           {String(props.n)}
         </Animated.Text>
