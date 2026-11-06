@@ -1,5 +1,6 @@
 import 'react-native-gesture-handler/jestSetup';
 import { act, fireEvent, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { t } from '@/i18n';
 import { DPad } from '@/screens/tv/DPad';
 import { KeyButton } from '@/screens/tv/KeyButton';
@@ -12,6 +13,12 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 jest.mock('expo-haptics', () => ({ selectionAsync: jest.fn(() => Promise.resolve()) }));
+
+let mockWindow: { width: number; height: number; scale: number; fontScale: number } | undefined;
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => {
+  const actual = jest.requireActual('react-native/Libraries/Utilities/useWindowDimensions');
+  return { __esModule: true, default: () => mockWindow ?? actual.default() };
+});
 
 const noop = (): void => undefined;
 
@@ -42,6 +49,22 @@ describe('DPad', () => {
     expect(surfaceStyle(screen.getByLabelText(t('tv.ok'))).backgroundColor).toBe(
       darkTokens.color.accent,
     );
+  });
+
+  it.each([
+    [360, 300],
+    [320, 288],
+    [200, 252],
+  ])('on a %i dp phone at font scale 2 the ring is %i dp and still fits', async (width, ring) => {
+    mockWindow = { width, height: 780, scale: 3, fontScale: 2 };
+    await renderWith(makeServices(), <DPad onKey={noop} />);
+    const style = StyleSheet.flatten(screen.getByTestId('tv-dpad-ring').props.style) as {
+      width: number;
+      height: number;
+    };
+    expect([style.width, style.height]).toEqual([ring, ring]);
+    expect(screen.getByLabelText(t('tv.ok'))).toBeTruthy();
+    mockWindow = undefined;
   });
 
   it('settles at full opacity under reduced motion', async () => {

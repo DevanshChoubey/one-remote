@@ -166,6 +166,20 @@ describe('AerCard', () => {
     expect(onSettings).toHaveBeenCalledWith('a1');
   });
 
+  it('offers settings and remove as screen reader actions', async () => {
+    const { services, ui, onSettings } = setup(reading());
+    await renderWith(services, ui);
+    const open = screen.getByTestId('device-open-a1');
+    expect(open.props.accessibilityActions.map((a: { name: string }) => a.name)).toEqual([
+      'settings',
+      'remove',
+    ]);
+    await fireEvent(open, 'accessibilityAction', { nativeEvent: { actionName: 'settings' } });
+    await fireEvent(open, 'accessibilityAction', { nativeEvent: { actionName: 'remove' } });
+    expect(onSettings).toHaveBeenCalledTimes(2);
+    expect(onSettings).toHaveBeenCalledWith('a1');
+  });
+
   it('does not update after unmount mid-spray', async () => {
     const { aer, services, ui } = setup(reading());
     const gate = aer.hold('sprayNow');

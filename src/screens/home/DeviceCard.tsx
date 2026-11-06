@@ -70,6 +70,15 @@ export function DeviceCard(props: DeviceCardProps): ReactElement {
         radius="md"
         flex={1}
         accessibilityHint={t('home.longPressHint')}
+        accessibilityActions={[
+          { name: 'settings', label: t('device.open') },
+          { name: 'remove', label: t('device.remove') },
+        ]}
+        onAccessibilityAction={(e) => {
+          // Remove lives in the device's settings sheet, so both open it.
+          const name = e.nativeEvent.actionName;
+          if (name === 'settings' || name === 'remove') props.onSettings(device.id);
+        }}
         accessibilityLabel={summary ? `${device.name}, ${summary}` : device.name}
         testID={`device-open-${device.id}`}
       >
