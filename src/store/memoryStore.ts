@@ -1,4 +1,4 @@
-import type { Unsubscribe } from '@/core';
+import type { Device, Unsubscribe } from '@/core';
 import { StoreError, type HomeSnapshot, type HomeStore } from './types';
 
 const upsertById = <T extends { id: string }>(all: T[], item: T): T[] =>
@@ -14,6 +14,19 @@ export const homeOps = {
       throw new StoreError('notFound', `Unknown room ${d.roomId}`);
     }
     return { ...s, devices: upsertById(s.devices, d) };
+  },
+  /** The snapshot with `change` applied to device `id`, or null when there is nothing to write. */
+  updateDevice(
+    s: HomeSnapshot,
+    id: string,
+    change: (d: Device) => Device | null,
+  ): { snap: HomeSnapshot; saved: Device } | null {
+    const current = s.devices.find((d) => d.id === id);
+    if (!current) return null;
+    const next = change(structuredClone(current));
+    if (next === null) return null;
+    const saved = { ...next, id };
+    return { snap: homeOps.upsertDevice(s, saved), saved };
   },
   removeDevice: (s: HomeSnapshot, id: string): HomeSnapshot => ({
     ...s,
@@ -87,6 +100,13 @@ export function createMemoryStore(): HomeStore {
     devices: async () => structuredClone(snap.devices),
     rooms: async () => structuredClone(snap.rooms),
     upsertDevice: (d) => apply((s) => homeOps.upsertDevice(s, d)),
+    updateDevice: async (id, change) => {
+      const out = homeOps.updateDevice(snap, id, change);
+      if (!out) return null;
+      snap = structuredClone(out.snap);
+      notifyAll(subs);
+      return structuredClone(out.saved);
+    },
     removeDevice: (id) => apply((s) => homeOps.removeDevice(s, id)),
     upsertRoom: (r) => apply((s) => homeOps.upsertRoom(s, r)),
     removeRoom: (id) => apply((s) => homeOps.removeRoom(s, id)),

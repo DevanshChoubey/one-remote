@@ -69,6 +69,20 @@ export function createAsyncStorageStore(storage: AsyncStorageLike): HomeStore {
     return run.then(() => notifyAll(subs));
   };
 
+  /** Like mutate, but `change` may decline (null): then nothing is written and no one is told. */
+  const update = (id: string, change: (d: Device) => Device | null): Promise<Device | null> => {
+    const run = tail.then(async () => {
+      const out = homeOps.updateDevice(await read(), id, change);
+      if (out) await storage.setItem(KEY, JSON.stringify(out.snap));
+      return out?.saved ?? null;
+    });
+    tail = run.catch(() => undefined);
+    return run.then((saved) => {
+      if (saved) notifyAll(subs);
+      return saved;
+    });
+  };
+
   const snapshot = async (): Promise<HomeSnapshot> => {
     await tail;
     return read();
@@ -78,6 +92,7 @@ export function createAsyncStorageStore(storage: AsyncStorageLike): HomeStore {
     devices: async () => (await snapshot()).devices,
     rooms: async () => (await snapshot()).rooms,
     upsertDevice: (d) => mutate((s) => homeOps.upsertDevice(s, d)),
+    updateDevice: update,
     removeDevice: (id) => mutate((s) => homeOps.removeDevice(s, id)),
     upsertRoom: (r) => mutate((s) => homeOps.upsertRoom(s, r)),
     removeRoom: (id) => mutate((s) => homeOps.removeRoom(s, id)),

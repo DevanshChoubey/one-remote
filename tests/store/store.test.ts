@@ -147,6 +147,38 @@ describe.each(impls)('HomeStore (%s)', (_name, make) => {
     expect(ok).toHaveBeenCalled();
   });
 
+  it('updateDevice: two overlapping updates both survive', async () => {
+    const s = make();
+    await s.upsertRoom(room('r1'));
+    await s.upsertDevice(dev('a', 'r1', 0));
+    await Promise.all([
+      s.updateDevice('a', (d) => ({ ...d, name: 'Renamed' })),
+      s.updateDevice('a', (d) => ({ ...d, links: [{ kind: 'ir', remoteId: 'new/one' }] })),
+    ]);
+    expect((await s.devices())[0]).toMatchObject({
+      name: 'Renamed',
+      links: [{ kind: 'ir', remoteId: 'new/one' }],
+    });
+  });
+
+  it('updateDevice skips an unknown id or a null change, and keeps the room check', async () => {
+    const s = make();
+    await s.upsertRoom(room('r1'));
+    await s.upsertDevice(dev('a', 'r1', 0));
+    const cb = jest.fn();
+    s.subscribe(cb);
+    expect(await s.updateDevice('gone', (d) => d)).toBeNull();
+    expect(await s.updateDevice('a', () => null)).toBeNull();
+    expect(cb).not.toHaveBeenCalled();
+    await expect(s.updateDevice('a', (d) => ({ ...d, roomId: 'nope' }))).rejects.toMatchObject({
+      code: 'notFound',
+    });
+    const saved = await s.updateDevice('a', (d) => ({ ...d, id: 'other', name: 'b' }));
+    expect(saved).toMatchObject({ id: 'a', name: 'b' });
+    expect(await s.devices()).toEqual([{ ...dev('a', 'r1', 0), name: 'b' }]);
+    expect(cb).toHaveBeenCalledTimes(1);
+  });
+
   it('does not alias returned data', async () => {
     const s = make();
     await s.upsertRoom(room('r1'));
