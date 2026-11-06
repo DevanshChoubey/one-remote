@@ -33,7 +33,8 @@ export default {
   notificationsOff: "Notifications are off for One Remote in your phone's settings.",
   openSettings: 'Open Settings',
   about: 'About and licences',
-  licenseApp: 'One Remote. The licence of the app as a whole is still to be decided.',
+  licenseApp:
+    'One Remote is open source under the MIT licence, Copyright (c) 2026 Devansh Choubey. The IR encoders stay under LGPL-2.1.',
   licenseOss:
     'Built with Expo, React Native and other open-source libraries, each under its own licence.',
   licenseEncoders: 'IR encoders: IRremoteESP8266, LGPL-2.1',
