@@ -1,0 +1,88 @@
+name: Device report
+description: How One Remote worked with your TV, AC, fan or air freshener.
+title: 'Device report: '
+labels: [device]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Reports from real devices are the most useful contribution right now, whether
+        everything worked or nothing did. Most AC code sets have not been tried on a real AC yet.
+
+        Leave out anything that identifies you or your home, such as IP or MAC addresses, pairing
+        keys and MirAIe account details.
+  - type: dropdown
+    id: type
+    attributes:
+      label: Device type
+      options:
+        - TV
+        - AC
+        - Fan
+        - Air freshener (Godrej aer)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: brand
+    attributes:
+      label: Brand
+      placeholder: LG, Samsung, Panasonic, Daikin, Atomberg
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model
+      description: From the label on the device or its box. For an AC, the model on the remote helps too.
+      placeholder: OLED55C4, CS-SU18ZKYF, remote A75C3078
+    validations:
+      required: true
+  - type: dropdown
+    id: connection
+    attributes:
+      label: Connection
+      options:
+        - IR (IR blaster)
+        - Wi-Fi (home network)
+        - Bluetooth
+        - Matter
+        - MirAIe cloud
+    validations:
+      required: true
+  - type: input
+    id: codeset
+    attributes:
+      label: Code set or remote the app picked (IR only)
+      description: The remote's name shown in the add flow, if you added the device over IR.
+  - type: input
+    id: phone
+    attributes:
+      label: Phone model and OS version
+      placeholder: iQOO Z10x, Android 15
+    validations:
+      required: true
+  - type: input
+    id: build
+    attributes:
+      label: App build
+      description: Google Play, or the commit you built from.
+  - type: textarea
+    id: worked
+    attributes:
+      label: What worked
+      description: For example power, mode, temperature, fan speed, swing; or touchpad, volume, inputs, keyboard, voice.
+    validations:
+      required: true
+  - type: textarea
+    id: failed
+    attributes:
+      label: What did not work
+      description: What you tried, what happened, and any message the app showed.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Other notes
+      description: Distance and aim for IR, firmware version, or anything else you noticed.
