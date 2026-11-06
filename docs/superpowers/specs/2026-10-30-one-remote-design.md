@@ -246,8 +246,8 @@ so a later direction is a token change. _(Claude's call.)_
 
 ### Distribution
 
-`DevanshChoubey/one-remote`, private. The licence of the app as a whole is still open. The IR encoder
-module is LGPL-2.1 either way (see the research notes).
+`DevanshChoubey/one-remote`, public, under the MIT licence (decided 2026-11-06). The IR encoder
+module in `src/ir/lgpl/` stays LGPL-2.1 (see the research notes).
 
 ## 7. Constraints
 

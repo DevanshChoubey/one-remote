@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Blocks pushes to main, run by the lefthook pre-push hook. Changes reach main through a pull
-// request. GitHub only enforces branch protection on private repos with a paid plan, so this
-// guards the author's own pushes until the repo goes public and main is protected there.
+// request. GitHub branch protection on main (free now that the repo is public) does the same on
+// the server; this hook catches the mistake locally, before the push.
 const PROTECTED = 'refs/heads/main';
 
 /** Pre-push stdin lines are "<local ref> <local sha> <remote ref> <remote sha>". */

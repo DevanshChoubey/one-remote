@@ -45,7 +45,7 @@ them a release build falls back to the debug key, which Play rejects.
 
 | Section            | Answer                                                                                               |
 | ------------------ | ---------------------------------------------------------------------------------------------------- |
-| Privacy policy     | A public URL of `PRIVACY.md` (for example its page on GitHub once the repo is public).               |
+| Privacy policy     | https://github.com/DevanshChoubey/one-remote/blob/main/PRIVACY.md                                    |
 | App access         | All functions work without special access. Note for reviewers: needs a TV, AC, fan or aer dispenser. |
 | Ads                | No ads.                                                                                              |
 | Content rating     | Category "Utility, productivity, communication or other"; answer no to everything.                   |

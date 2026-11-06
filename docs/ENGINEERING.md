@@ -115,8 +115,9 @@ TDD: write the failing test, watch it fail, implement, watch it pass. Tests live
 Conventional Commits (`feat(scope): ...`, `fix`, `chore`, `docs`, `test`, `refactor`), checked by the
 lefthook `commit-msg` hook. `pre-commit` runs Prettier and ESLint on staged files; `pre-push` runs
 `bun run typecheck && bun run test` and refuses pushes to `main`. Small commits, one task per branch
-(`lane/<task-id>`); every change reaches `main` through a pull request with green CI. GitHub branch
-protection on `main` needs the repo public (or a paid plan), so turn it on when the repo goes public.
+(`lane/<task-id>`); every change reaches `main` through a pull request with green CI. The repo is public,
+so GitHub branch protection on `main` is free: turn it on (required CI, no direct pushes) if it is
+not on yet.
 
 ## CI
 
