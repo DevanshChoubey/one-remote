@@ -1,11 +1,12 @@
 import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { defaultAcState, defaultFanState } from '@/core';
-import type { Command, Device, LinkDriver, Room } from '@/core';
+import type { AcState, Command, Device, FanState, LinkDriver, Room } from '@/core';
 import { t } from '@/i18n';
+import { AcScreen } from '@/screens/appliance/AcScreen';
 import { HomeScreen } from '@/screens/home/HomeScreen';
 import { createServices, ServicesProvider } from '@/services';
-import type { Services } from '@/services';
+import type { PreferenceStore, Services } from '@/services';
 import { StoreError } from '@/store/types';
 import { darkTokens, lightTokens, ThemeProvider } from '@/theme';
 import { ToastProvider } from '@/ui';
@@ -132,6 +133,22 @@ describe('HomeScreen', () => {
     expect(card.props.accessibilityHint).toBe(t('home.longPressHint'));
     await fireEvent(card, 'longPress');
     expect(mockPush).toHaveBeenCalledWith('/device-sheet/i1');
+  });
+
+  it('offers settings and remove as screen reader actions', async () => {
+    const s = setup();
+    await seed(s, [dev('l1', 'tv', 'liv', 0, [matter])]);
+    await renderHome(s);
+    const card = await screen.findByLabelText('Name l1');
+    expect(card.props.accessibilityActions).toEqual([
+      { name: 'settings', label: t('device.open') },
+      { name: 'remove', label: t('device.remove') },
+    ]);
+    await fireEvent(card, 'accessibilityAction', { nativeEvent: { actionName: 'settings' } });
+    expect(mockPush).toHaveBeenLastCalledWith('/device-sheet/l1');
+    mockPush.mockClear();
+    await fireEvent(card, 'accessibilityAction', { nativeEvent: { actionName: 'remove' } });
+    expect(mockPush).toHaveBeenLastCalledWith('/device-sheet/l1');
   });
 
   it('flips power from the last known state with the AC toggle', async () => {
@@ -567,6 +584,118 @@ describe('HomeScreen with corrupt home data', () => {
     expect(await screen.findByText(t('home.welcomeTitle'))).toBeTruthy();
     expect(screen.queryByText(t('home.corruptTitle'))).toBeNull();
     err.mockRestore();
+  });
+});
+
+describe('HomeScreen power for an IR appliance after a restart', () => {
+  const powerOf = (id: string): string => t('home.power', { name: `Name ${id}` });
+  /** The user's last AC state, with the newer fields, as saved before the app was killed. */
+  const savedAc: AcState = {
+    ...defaultAcState(),
+    power: false,
+    mode: 'dry',
+    setpoint: 27,
+    fan: 5,
+    swing: false,
+    swingV: 2,
+    swingH: 'left',
+    powerful: true,
+    quiet: false,
+    ion: true,
+  };
+  const savedFan: FanState = { power: false, speed: 5, boost: true, sleep: false, timerHours: 0 };
+
+  /** A fresh app (empty hub) over a preference store that outlives it. */
+  async function restart(
+    prefs: PreferenceStore,
+    devices: Device[],
+  ): Promise<{ s: Services; irDriver: ReturnType<typeof createFakeDriver> }> {
+    const irDriver = createFakeDriver('ir');
+    const s = createServices({
+      store: createMemoryStore(),
+      secrets: createMemorySecretStore(),
+      prefs,
+      drivers: [irDriver],
+    });
+    await seed(s, devices);
+    return { s, irDriver };
+  }
+
+  it('sends the saved AC state with power flipped, not the default, and saves it', async () => {
+    const prefs = createMemoryPreferenceStore();
+    await prefs.set({ lastSent: { a1: { kind: 'ac', state: savedAc } } });
+    const boot = await restart(prefs, [dev('a1', 'ac', 'liv', 0, [ir])]);
+    await renderHome(boot.s);
+    await fireEvent.press(await screen.findByLabelText(powerOf('a1')));
+    await waitFor(() => expect(boot.irDriver.sent).toHaveLength(1));
+    expect(boot.irDriver.sent[0]?.cmd).toEqual({
+      kind: 'ac.set',
+      state: { ...savedAc, power: true },
+    });
+    await waitFor(async () =>
+      expect((await prefs.get()).lastSent.a1).toEqual({
+        kind: 'ac',
+        state: { ...savedAc, power: true },
+      }),
+    );
+  });
+
+  it('shows the saved power on the card, and a tap turns that off', async () => {
+    const prefs = createMemoryPreferenceStore();
+    await prefs.set({ lastSent: { a1: { kind: 'ac', state: { ...savedAc, power: true } } } });
+    const boot = await restart(prefs, [dev('a1', 'ac', 'liv', 0, [ir])]);
+    await renderHome(boot.s);
+    await waitFor(() =>
+      expect(screen.getByLabelText(powerOf('a1')).props.accessibilityState.checked).toBe(true),
+    );
+    await fireEvent.press(screen.getByLabelText(powerOf('a1')));
+    await waitFor(() => expect(boot.irDriver.sent).toHaveLength(1));
+    expect(boot.irDriver.sent[0]?.cmd).toEqual({ kind: 'ac.set', state: savedAc });
+  });
+
+  it('sends the saved fan speed and boost with power flipped, and saves it', async () => {
+    const prefs = createMemoryPreferenceStore();
+    await prefs.set({ lastSent: { f1: { kind: 'fan', state: savedFan } } });
+    const boot = await restart(prefs, [dev('f1', 'fan', 'liv', 0, [ir])]);
+    await renderHome(boot.s);
+    await fireEvent.press(await screen.findByLabelText(powerOf('f1')));
+    await waitFor(() => expect(boot.irDriver.sent).toHaveLength(1));
+    expect(boot.irDriver.sent[0]?.cmd).toEqual({
+      kind: 'fan.set',
+      state: { ...savedFan, power: true },
+    });
+    await waitFor(async () =>
+      expect((await prefs.get()).lastSent.f1).toEqual({
+        kind: 'fan',
+        state: { ...savedFan, power: true },
+      }),
+    );
+  });
+
+  it('a power change from Home is what the AC screen shows after the next restart', async () => {
+    const prefs = createMemoryPreferenceStore();
+    await prefs.set({ lastSent: { a1: { kind: 'ac', state: savedAc } } });
+    const first = await restart(prefs, [dev('a1', 'ac', 'liv', 0, [ir])]);
+    await renderHome(first.s);
+    await fireEvent.press(await screen.findByLabelText(powerOf('a1')));
+    await waitFor(async () => expect((await prefs.get()).lastSent.a1?.state.power).toBe(true));
+    screen.unmount();
+
+    const second = await restart(prefs, [dev('a1', 'ac', 'liv', 0, [ir])]);
+    await render(
+      <ThemeProvider scheme="light">
+        <ServicesProvider services={second.s}>
+          <ToastProvider>
+            <AcScreen deviceId="a1" />
+          </ToastProvider>
+        </ServicesProvider>
+      </ThemeProvider>,
+    );
+    expect(
+      await screen.findByLabelText(t('ac.setpoint', { temp: 27, mode: t('ac.modeName.dry') })),
+    ).toBeTruthy();
+    // On, as Home left it: the steppers work only while the AC is on.
+    expect(screen.getByLabelText(t('ac.raise')).props.accessibilityState?.disabled).not.toBe(true);
   });
 });
 

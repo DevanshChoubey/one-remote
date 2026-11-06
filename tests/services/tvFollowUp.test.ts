@@ -51,7 +51,7 @@ describe('TV follow-up in services', () => {
     const r = await rig();
     const paired: PairedTv = { link: { ...link, host: '192.168.1.40' }, suggestedName: 'TV' };
     r.setup.pair.mockResolvedValue(paired);
-    const upsert = jest.spyOn(r.s.store, 'upsertDevice');
+    const upsert = jest.spyOn(r.s.store, 'updateDevice');
     await r.s.tv.pair({ kind: 'webos', host: link.host, name: 'TV', secure: true }, PROMPTS, link);
     expect(upsert.mock.invocationCallOrder[0]).toBeLessThan(
       r.clearNotPaired.mock.invocationCallOrder[0] ?? 0,
@@ -72,6 +72,20 @@ describe('TV follow-up in services', () => {
     });
     await r.s.tv.pair({ kind: 'webos', host: link.host, name: 'TV', secure: true }, PROMPTS);
     expect(r.clearNotPaired).not.toHaveBeenCalled();
+  });
+
+  it('pairing again does not undo a rename that overlaps it', async () => {
+    const r = await rig();
+    const paired: PairedTv = { link: { ...link, host: '192.168.1.40' }, suggestedName: 'TV' };
+    r.setup.pair.mockResolvedValue(paired);
+    await Promise.all([
+      r.s.tv.pair({ kind: 'webos', host: link.host, name: 'TV', secure: true }, PROMPTS, link),
+      Promise.resolve().then(() =>
+        r.s.store.updateDevice('tv1', (d) => ({ ...d, name: 'Bedroom TV' })),
+      ),
+    ]);
+    const [saved] = await r.s.store.devices();
+    expect(saved).toMatchObject({ name: 'Bedroom TV', links: [{ host: '192.168.1.40' }] });
   });
 
   it('saves the address findAgain returns', async () => {
@@ -115,7 +129,7 @@ describe('TV follow-up in services', () => {
     const dev = (id: string, host: string): Device => ({ ...tvDevice, id, links: [atv(host)] });
     await s.store.upsertDevice(dev('a1', '10.0.0.1'));
     await s.store.upsertDevice(dev('a2', '10.0.0.2'));
-    const upsert = jest.spyOn(s.store, 'upsertDevice');
+    const upsert = jest.spyOn(s.store, 'updateDevice');
     setup.pair.mockResolvedValue({ link: atv('10.0.0.1'), suggestedName: 'A' });
     await s.tv.pair(
       { kind: 'androidtv', host: '10.0.0.1', name: 'A', secure: true },

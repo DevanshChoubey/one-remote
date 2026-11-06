@@ -3,6 +3,7 @@ import { useKnownDevice } from '@/screens/device';
 import { AerScreen } from '@/screens/aer/AerScreen';
 import { AcScreen } from '@/screens/appliance/AcScreen';
 import { FanScreen } from '@/screens/appliance/FanScreen';
+import { useHomeData } from '@/screens/shared/useHomeData';
 import { PlaceholderRemote } from '@/screens/device/PlaceholderRemote';
 import { TvScreen } from '@/screens/tv/TvScreen';
 
@@ -10,6 +11,7 @@ import { TvScreen } from '@/screens/tv/TvScreen';
 export default function DeviceRoute(): React.JSX.Element {
   const { id } = useLocalSearchParams<{ id: string }>();
   const kind = useKnownDevice(id)?.kind;
+  const home = useHomeData();
   switch (kind) {
     case 'tv':
       return <TvScreen deviceId={id} />;
@@ -20,6 +22,8 @@ export default function DeviceRoute(): React.JSX.Element {
     case 'aer':
       return <AerScreen deviceId={id} />;
     default:
+      // The hub may not have the device yet: only once the store has been read is it really gone.
+      if (!home.loaded) return <PlaceholderRemote id={id} loading />;
       return <PlaceholderRemote id={id} />;
   }
 }

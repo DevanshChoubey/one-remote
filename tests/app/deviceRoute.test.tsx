@@ -1,5 +1,6 @@
 import 'react-native-gesture-handler/jestSetup';
 import { act, screen } from '@testing-library/react-native';
+import type { Device } from '@/core';
 import { t } from '@/i18n';
 import DeviceRoute from '../../app/device/[id]';
 import { device, makeServices, renderWith, room } from '../screens/helpers';
@@ -48,6 +49,23 @@ describe('app/device/[id]', () => {
     await flush();
     mockId = 'nope';
     await renderWith(s, <DeviceRoute />);
+    expect(await screen.findByText(t('home.notFound'))).toBeTruthy();
+  });
+
+  it('does not say the device is gone while the device list is still loading', async () => {
+    const s = makeServices();
+    let release: (d: Device[]) => void = () => undefined;
+    jest.spyOn(s.store, 'devices').mockReturnValue(new Promise<Device[]>((r) => (release = r)));
+    mockId = 'd1';
+    await renderWith(s, <DeviceRoute />);
+    await act(async () => {
+      await flush();
+    });
+    expect(screen.queryByText(t('home.notFound'))).toBeNull();
+    await act(async () => {
+      release([]);
+      await flush();
+    });
     expect(await screen.findByText(t('home.notFound'))).toBeTruthy();
   });
 

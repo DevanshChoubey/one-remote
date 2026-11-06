@@ -1,5 +1,13 @@
 import { DeviceError, defaultAcState } from '@/core';
-import type { AcState, BrandInfo, FanState, IrCandidate, IrSetup, TestPress } from '@/core';
+import type {
+  AcState,
+  BrandInfo,
+  FanState,
+  IrCandidate,
+  IrSetup,
+  TestOutcome,
+  TestPress,
+} from '@/core';
 import { acFrames, testPlan, type Catalogue, type Remote } from './catalogue';
 import { defaultCatalogue } from './codes';
 import type { IrEmitter, IrSignal } from './emitter';
@@ -36,6 +44,23 @@ function signalsFor(r: Remote, press: TestPress): IrSignal[] {
   return missing();
 }
 
+/**
+ * The state both test presses leave, under the same assumptions `signalsFor` sends with: the AC
+ * was off, and a fan's light was off (toggles start off after power on, as `fanKeys` takes them).
+ */
+function outcomeOf(r: Remote): TestOutcome {
+  if (r.kind === 'ac') return { kind: 'ac', state: { ...onCool24(), setpoint: 25 } };
+  if (r.kind === 'fan') {
+    const { confirm } = testPlan(r);
+    const on: FanState = { power: true, speed: 3, boost: false, sleep: false, timerHours: 0 };
+    return {
+      kind: 'fan',
+      state: confirm === 'fanLight' ? { ...on, light: true } : { ...on, speed: 1 },
+    };
+  }
+  throw new DeviceError('unsupported', `${r.id} has no test`);
+}
+
 const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function createIrSetup(o: {
@@ -65,6 +90,7 @@ export function createIrSetup(o: {
         await o.emitter.transmit(frame);
       }
     },
+    testOutcome: (remoteId) => outcomeOf(find(remoteId)),
     seedFan: (deviceId, state) => o.seedFan?.(deviceId, state),
     seedAc: (deviceId, state) => o.seedAc?.(deviceId, state),
     brandOf: (remoteId) => {

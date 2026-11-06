@@ -59,6 +59,18 @@ describe('Stepper', () => {
   });
 });
 
+describe('SpeedBars at a large font scale', () => {
+  it('caps the number so it stays inside its bar', async () => {
+    await render(
+      wrap(<SpeedBars value={2} max={5} onPick={jest.fn()} labelFor={(n) => `Speed ${n}`} />),
+    );
+    const label = screen.getByText('3');
+    expect(label.props.maxFontSizeMultiplier).toBe(1.3);
+    // The bars share the width, so they narrow with the screen instead of clipping.
+    expect(flat(screen.getByTestId('speed-bars').props.style).flexDirection).toBe('row');
+  });
+});
+
 describe('SpeedBars, as the mock .speed', () => {
   it('spaces the bars 10 apart and drops the ring of a lit bar', async () => {
     await render(
