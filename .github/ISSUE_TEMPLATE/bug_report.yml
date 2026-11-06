@@ -1,0 +1,85 @@
+name: Bug report
+description: Something in One Remote does not work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. If a device simply does not respond, or a brand or model is
+        missing, a device report is a better fit. Leave out anything that identifies you or your
+        home, such as IP or MAC addresses, pairing keys and MirAIe account details.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and any message the app showed.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the living room TV
+        2. Tap Input
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device, if it is about one
+      description: Type, brand and model.
+      placeholder: LG OLED C4 TV, Panasonic AC, Atomberg fan
+  - type: dropdown
+    id: connection
+    attributes:
+      label: How the device connects
+      options:
+        - IR (IR blaster)
+        - Wi-Fi (home network)
+        - Bluetooth
+        - Matter
+        - MirAIe cloud
+        - Not about a device
+  - type: input
+    id: phone
+    attributes:
+      label: Phone model
+      placeholder: iQOO Z10x, Pixel 8, iPhone 15
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS version
+      placeholder: Android 15, iOS 26.1
+    validations:
+      required: true
+  - type: dropdown
+    id: build
+    attributes:
+      label: Build type
+      options:
+        - Google Play (internal or closed testing)
+        - Release build I made
+        - Debug (development build with Metro)
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Commit or version
+      description: The commit you built from, or the version shown by the store.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Metro or device logs, if you have them. Remove addresses and keys first.
+      render: text

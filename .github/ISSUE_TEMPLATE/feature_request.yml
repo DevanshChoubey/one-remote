@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest an idea for One Remote, or a device it should support.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One Remote stays on the home network, with no account, no ads and no analytics. The only
+        internet use is the opt-in MirAIe connection for Panasonic ACs. Ideas that need a server
+        of ours, or another vendor cloud, are out of scope.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How could the app help? For a new device, give its brand, model and how it connects.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Other options you considered
+  - type: checkboxes
+    id: local
+    attributes:
+      label: Scope
+      options:
+        - label: This works on the home network, over IR or over Bluetooth, with no account.
+          required: true

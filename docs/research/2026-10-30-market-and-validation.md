@@ -15,13 +15,13 @@ low-rated apps) showed:
   that are bloated, full of ads, need an account, or just do not connect.
 - IR remote apps for ACs and fans are the clearest opportunity:
 
-| App | Installs | Rating | Main complaints |
-| --- | --- | --- | --- |
-| Mi Remote | 100M | 3.57 | Double key presses, missing remotes, forced login |
-| Universal AC Remote Control (TV Master) | 10M | 4.16 overall, but recent reviews split 165 five-star / 122 one-star | ₹1,100 charged while the AC "wasn't found", ads on every press, asks for a card upfront |
-| AC Universal Remote Control (SensusTech) | 5M | 3.71 | Ad on every button, guessing the model, missing temperatures |
-| Fan Remote Control | 1M | 3.11 | Three ads before setup ends, never says an IR blaster is needed |
-| Remote for Lloyd AC (two apps) | 100k each | 2.75 to 3.06 | "Only ads here" |
+| App                                      | Installs  | Rating                                                              | Main complaints                                                                         |
+| ---------------------------------------- | --------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Mi Remote                                | 100M      | 3.57                                                                | Double key presses, missing remotes, forced login                                       |
+| Universal AC Remote Control (TV Master)  | 10M       | 4.16 overall, but recent reviews split 165 five-star / 122 one-star | ₹1,100 charged while the AC "wasn't found", ads on every press, asks for a card upfront |
+| AC Universal Remote Control (SensusTech) | 5M        | 3.71                                                                | Ad on every button, guessing the model, missing temperatures                            |
+| Fan Remote Control                       | 1M        | 3.11                                                                | Three ads before setup ends, never says an IR blaster is needed                         |
+| Remote for Lloyd AC (two apps)           | 100k each | 2.75 to 3.06                                                        | "Only ads here"                                                                         |
 
 Vendor smart-home apps score even worse: Atomberg 2.39, Voltas Smart 2.58, Blue Star Smart AC 2.71,
 Panasonic MirAIe 3.65, Wipro Next 2.84, Havells Smart 1.87. Their reviews are mostly about pairing,
@@ -39,13 +39,13 @@ Positioning (working idea): no ads, no account, no cloud, a one-time ₹99 to �
 
 ## 3. The user's test bench
 
-| Device | How we would talk to it |
-| --- | --- |
-| LG OLED C4 (webOS) | Home Wi-Fi, directly to the TV (LG's SSAP WebSocket, with a separate pointer socket for touchpad, clicks and buttons). One-time "allow" prompt on the TV, no LG account. |
-| Panasonic AC with Matter | Matter over Wi-Fi, local. Biggest single piece of work, on both platforms. Plan as a later phase. |
-| Panasonic AC, Wi-Fi via MirAIe only | MirAIe is a cloud service, so use IR instead (Panasonic AC protocol is in IRremoteESP8266). |
-| 2× Atomberg fans | IR (SmartIR has two Atomberg remotes; check them against the real fans). |
-| Urban Company Native water purifier | Cloud only, no local or standard interface. Out of v1, on the "later, maybe" list. |
+| Device                              | How we would talk to it                                                                                                                                                  |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| LG OLED C4 (webOS)                  | Home Wi-Fi, directly to the TV (LG's SSAP WebSocket, with a separate pointer socket for touchpad, clicks and buttons). One-time "allow" prompt on the TV, no LG account. |
+| Panasonic AC with Matter            | Matter over Wi-Fi, local. Biggest single piece of work, on both platforms. Plan as a later phase.                                                                        |
+| Panasonic AC, Wi-Fi via MirAIe only | MirAIe is a cloud service, so use IR instead (Panasonic AC protocol is in IRremoteESP8266).                                                                              |
+| 2× Atomberg fans                    | IR (SmartIR has two Atomberg remotes; check them against the real fans).                                                                                                 |
+| Urban Company Native water purifier | Cloud only, no local or standard interface. Out of v1, on the "later, maybe" list.                                                                                       |
 
 Phones: iQOO Z10x 5G (IR blaster according to spec listings; confirm with
 `adb shell pm list features | grep consumerir`), Samsung S21 FE (no IR), Realme X (no IR), iPhone (no
@@ -53,7 +53,7 @@ IR), plus an Android emulator.
 
 ## 4. Decisions so far
 
-- Name: One Remote. Repo `DevanshChoubey/one-remote`, private for now.
+- Name: One Remote. Repo `DevanshChoubey/one-remote`, private at first, now public under the MIT licence (decided 2026-11-06).
 - Android and iPhone from the start (the user's call). iPhone gets TV and Matter AC only, since iPhones
   have no IR.
 - Suggested order (the assistant's call, the user can overrule it): TV first, then IR for the AC and
@@ -81,11 +81,11 @@ IR), plus an Android emulator.
 
 ### IR code sources
 
-| Source | License | Coverage |
-| --- | --- | --- |
-| IRremoteESP8266 | LGPL-2.1 | About 80 AC protocols, including Voltas, Daikin, LG, Samsung, Panasonic, Hitachi, Carrier, Whirlpool, Haier, Midea, Gree, TCL and one Blue Star model. Porting it to TypeScript is a derivative work, so publish that module under LGPL. |
-| SmartIR | MIT (the name "SmartIR" must not be reused) | 358 AC files, mostly brands from Europe and Israel; Voltas 1, Whirlpool 1, Haier 3, Atomberg fans 2. |
-| irdb | Custom (notify the project, ship a notice, give up to three free copies on request) | Mostly TVs, with almost no AC codes. Skip it. |
+| Source          | License                                                                             | Coverage                                                                                                                                                                                                                                 |
+| --------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IRremoteESP8266 | LGPL-2.1                                                                            | About 80 AC protocols, including Voltas, Daikin, LG, Samsung, Panasonic, Hitachi, Carrier, Whirlpool, Haier, Midea, Gree, TCL and one Blue Star model. Porting it to TypeScript is a derivative work, so publish that module under LGPL. |
+| SmartIR         | MIT (the name "SmartIR" must not be reused)                                         | 358 AC files, mostly brands from Europe and Israel; Voltas 1, Whirlpool 1, Haier 3, Atomberg fans 2.                                                                                                                                     |
+| irdb            | Custom (notify the project, ship a notice, give up to three free copies on request) | Mostly TVs, with almost no AC codes. Skip it.                                                                                                                                                                                            |
 
 Gaps: Lloyd, Godrej, Onida, most Blue Star models, and Indian fan brands (Crompton, Havells, Orient,
 Usha, Polycab).

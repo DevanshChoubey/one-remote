@@ -14,6 +14,15 @@
   },
   "private": true,
   "license": "MIT",
+  "author": "Devansh Choubey <devanshc13@gmail.com>",
+  "homepage": "https://github.com/DevanshChoubey/one-remote#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DevanshChoubey/one-remote.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DevanshChoubey/one-remote/issues"
+  },
   "dependencies": {
     "@matter/general": "0.18.0",
     "@matter/main": "0.18.0",

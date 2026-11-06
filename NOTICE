@@ -1,3 +1,23 @@
 One Remote
-src/androidtv follows the message layout and pairing code check of androidtvremote2
-(https://github.com/tronikos/androidtvremote2), Copyright tronikos, Apache License 2.0.
+Copyright (c) 2026 Devansh Choubey
+
+One Remote is licensed under the MIT License; see LICENSE.
+
+The one exception is src/ir/lgpl/ (the AC IR encoders) and its test vectors in tests/ir/lgpl/.
+They are derived from IRremoteESP8266 (https://github.com/crankyoldgit/IRremoteESP8266) and stay
+under the GNU Lesser General Public License, version 2.1. Their full licence text is in
+src/ir/lgpl/LICENSE, and their copyright holders, sources and offer of source are in
+src/ir/lgpl/NOTICE.md. The MIT License does not apply to those files.
+
+Third-party code included or adapted elsewhere:
+
+- src/androidtv follows the message layout and pairing code check of androidtvremote2
+  (https://github.com/tronikos/androidtvremote2), Copyright tronikos, Apache License 2.0.
+- src/webos/manifest.ts copies the SSAP registration manifest from lgtv2
+  (https://github.com/hobbyquaker/lgtv2, pairing.json), Copyright (c) Sebastian Raff, MIT License.
+- src/transport/matterNetwork.ts is adapted from @matter/react-native
+  (https://github.com/matter-js/matter.js), Copyright Matter.js Authors, Apache License 2.0.
+- src/ir/codes/atomberg.ts takes the Atomberg fan codes from Flipper-IRDB
+  (https://github.com/Lucaslhm/Flipper-IRDB, Fans/Atomberg/Atomberg_fan.ir), CC0-1.0.
+
+The app's dependencies, listed in package.json, are each under their own licence.
