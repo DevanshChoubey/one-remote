@@ -50,7 +50,7 @@ maker. Brand names are used only to say which devices work.
 
 ## Graphics
 
-- App icon: 512×512, from `assets/images/icon.png` (the dial icon).
+- App icon: `docs/store/play-icon-512.png` (512×512, from `assets/images/icon.png`, the dial icon).
 - Feature graphic: 1024×500, `docs/store/feature-graphic.png` (built from
   `docs/store/feature-graphic.html`): the AC temperature dial. It shows the app icon, so re-render it
   when the icon changes.
