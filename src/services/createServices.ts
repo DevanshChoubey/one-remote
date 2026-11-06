@@ -197,7 +197,7 @@ export function withTvFollowUp(
       try {
         const reuseRef = tvLinkRef(reuse);
         const pairedRef = tvLinkRef(paired.link);
-        for (const d of await store.devices()) {
+        const reusedLink = (d: Device): TvLink | undefined => {
           const link = d.links.find(
             (l): l is TvLink =>
               isTvLink(l) &&
@@ -206,16 +206,26 @@ export function withTvFollowUp(
               // Every Android TV shares one phone-wide cert, so tell them apart by address.
               (l.kind !== 'androidtv' || l.host === reuse.host),
           );
-          if (!link || link.kind !== reuse.kind || tvLinkRef(link) !== reuseRef) continue;
-          const driver = drivers.find((x) => x.kind === link.kind && canClearNotPaired(x));
+          return link && link.kind === reuse.kind && tvLinkRef(link) === reuseRef
+            ? link
+            : undefined;
+        };
+        for (const { id } of (await store.devices()).filter((d) => reusedLink(d))) {
           // Save the new address first, then release the driver with that same link, so a
-          // stale stored host can never put the old one back.
-          const merged = { ...link, ...paired.link } as TvLink;
-          await store.upsertDevice({
-            ...d,
-            links: d.links.map((l) => (l === link ? merged : l)),
+          // stale stored host can never put the old one back. The change is made on the stored
+          // device inside the store's queue, so an overlapping write is not lost.
+          let merged: TvLink | undefined;
+          await store.updateDevice(id, (d) => {
+            const link = reusedLink(d);
+            if (!link) return null;
+            const next = { ...link, ...paired.link } as TvLink;
+            merged = next;
+            return { ...d, links: d.links.map((l) => (l === link ? next : l)) };
           });
-          if (driver && canClearNotPaired(driver)) driver.clearNotPaired(d.id, merged);
+          if (!merged) continue;
+          const kind = merged.kind;
+          const driver = drivers.find((x) => x.kind === kind && canClearNotPaired(x));
+          if (driver && canClearNotPaired(driver)) driver.clearNotPaired(id, merged);
         }
       } catch (e) {
         console.error('Could not release the TV driver after pairing', e);

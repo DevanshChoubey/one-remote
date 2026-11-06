@@ -20,6 +20,13 @@ export interface HomeStore {
   rooms(): Promise<Room[]>;
   /** Throws StoreError('notFound') if `d.roomId` is not a stored room. */
   upsertDevice(d: Device): Promise<void>;
+  /**
+   * Read-modify-write of one device inside the store's write queue, so an overlapping write is never
+   * lost. `change` gets the stored device and returns the new one (its id is kept), or null to write
+   * nothing. Resolves to the saved device, or null for an unknown id or a null change. Throws
+   * StoreError('notFound') like `upsertDevice` if the new `roomId` is not a stored room.
+   */
+  updateDevice(id: string, change: (d: Device) => Device | null): Promise<Device | null>;
   removeDevice(id: string): Promise<void>;
   upsertRoom(r: Room): Promise<void>;
   /** Throws StoreError('roomNotEmpty') if any device uses the room. */

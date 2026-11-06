@@ -1,6 +1,7 @@
 import { AER_CACHE_KEY, createAerStore } from '@/aer/store';
 import type { SavedDispenser } from '@/aer/types';
 import type { Device } from '@/core';
+import { createAsyncStorageStore } from '@/store/asyncStorageStore';
 import { createMemoryStore } from '@/store/memoryStore';
 import type { AsyncStorageLike, HomeStore } from '@/store/types';
 
@@ -199,21 +200,78 @@ describe('aer store', () => {
     warn.mockRestore();
   });
 
-  it('a failing getItem reads as empty', async () => {
+  it('a failed read is never cached as empty, so a later write keeps the saved readings', async () => {
     const home = createMemoryStore();
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await home.upsertRoom({ id: 'r1', name: 'Living', order: 0 });
+    await home.upsertDevice(aerDevice('d1'));
+    await home.upsertDevice(aerDevice('d2', { order: 1 }));
+    const storage = memStorage();
+    storage.data.set(
+      AER_CACHE_KEY,
+      JSON.stringify({ d1: { status }, d2: { clockSet: true, status } }),
+    );
+    let fails = 1;
+    const flaky: AsyncStorageLike = {
+      getItem: async (k) => {
+        if (fails-- > 0) throw new Error('io');
+        return storage.getItem(k);
+      },
+      setItem: storage.setItem,
+    };
+    const store = createAerStore({ home, storage: flaky });
+    await expect(store.load()).rejects.toThrow('io');
+    expect(store.view('d1')).toEqual({ deviceId: 'd1' });
+    const d1 = await store.get('d1');
+    if (!d1) throw new Error('missing');
+    await store.upsert({ ...d1, clockSet: true });
+    expect(JSON.parse(storage.data.get(AER_CACHE_KEY) ?? '')).toEqual({
+      d1: { clockSet: true, status },
+      d2: { clockSet: true, status },
+    });
+  });
+
+  it('refuses to write over a cache it cannot read', async () => {
+    const home = createMemoryStore();
+    await home.upsertRoom({ id: 'r1', name: 'Living', order: 0 });
+    await home.upsertDevice(aerDevice());
+    const setItem = jest.fn(async () => undefined);
     const store = createAerStore({
       home,
       storage: {
         getItem: async () => {
           throw new Error('io');
         },
-        setItem: async () => undefined,
+        setItem,
       },
     });
-    await expect(store.load()).resolves.toBeUndefined();
-    expect(store.view('d1')).toEqual({ deviceId: 'd1' });
-    warn.mockRestore();
+    await expect(store.load()).rejects.toThrow('io');
+    await expect(
+      store.upsert({
+        id: 'd1',
+        bleId: 'ble-d1',
+        name: 'Hall',
+        homeTimeZone: 'Asia/Kolkata',
+        clockSet: true,
+      }),
+    ).rejects.toThrow('io');
+    await expect(store.dropCache('d1')).rejects.toThrow('io');
+    expect(setItem).not.toHaveBeenCalled();
+  });
+
+  it('an upsert does not undo a home change that overlaps it', async () => {
+    const home = createAsyncStorageStore(memStorage());
+    await home.upsertRoom({ id: 'r1', name: 'Living', order: 0 });
+    await home.upsertDevice(aerDevice());
+    const store = createAerStore({ home, storage: memStorage() });
+    await store.load();
+    await home.upsertRoom({ id: 'r2', name: 'Bed', order: 1 });
+    const cur = await store.get('d1');
+    if (!cur) throw new Error('missing');
+    await Promise.all([
+      store.upsert({ ...cur, name: 'Hallway' }),
+      Promise.resolve().then(() => home.updateDevice('d1', (d) => ({ ...d, roomId: 'r2' }))),
+    ]);
+    expect((await home.devices())[0]).toMatchObject({ name: 'Hallway', roomId: 'r2' });
   });
 
   it('lists only aer devices', async () => {

@@ -10,7 +10,11 @@ type CacheEntry = Omit<AerView, 'deviceId'>;
 type AerLink = Extract<Link, { kind: 'aer' }>;
 
 export interface AerStore extends DispenserStore {
-  /** Reads the cache once; corrupt or missing reads as empty. */
+  /**
+   * Reads the cache once; corrupt or missing reads as empty. A storage read error rejects and is not
+   * cached: the next call reads again, and no write runs until a read succeeds, so readings that could
+   * not be read are never overwritten.
+   */
   load(): Promise<void>;
   /** Synchronous after load. The same object until the reading changes. */
   view(deviceId: string): AerView;
@@ -95,13 +99,8 @@ export function createAerStore(deps: { home: HomeStore; storage: AsyncStorageLik
   };
 
   const read = async (): Promise<Record<string, CacheEntry>> => {
-    let raw: string | null;
-    try {
-      raw = await storage.getItem(AER_CACHE_KEY);
-    } catch {
-      console.warn('one-remote: the aer cache could not be read; starting empty');
-      return {};
-    }
+    // A read error propagates (never `{}`): the next write would replace every saved reading.
+    const raw = await storage.getItem(AER_CACHE_KEY);
     if (raw === null) return {};
     let parsed: unknown;
     try {
@@ -119,9 +118,16 @@ export function createAerStore(deps: { home: HomeStore; storage: AsyncStorageLik
   };
 
   const ensureLoaded = (): Promise<void> => {
-    loaded ??= read().then((c) => {
-      cache = c;
-    });
+    loaded ??= read().then(
+      (c) => {
+        cache = c;
+      },
+      (e: unknown) => {
+        // Not cached: the next load, read or write tries again.
+        loaded = null;
+        throw e;
+      },
+    );
     return loaded;
   };
 
@@ -253,16 +259,20 @@ export function createAerStore(deps: { home: HomeStore; storage: AsyncStorageLik
         await home.upsertDevice(merged(stagedDevice, s));
         staged.delete(s.id);
       } else {
-        const d = (await home.devices()).find((x) => x.id === s.id && x.kind === 'aer');
-        if (!d) return;
-        const link = aerLink(d);
-        if (
-          d.name !== s.name ||
-          link?.timeZone !== s.homeTimeZone ||
-          !sameChannels(link.channels, s.channels)
-        ) {
-          await home.upsertDevice(merged(d, s));
-        }
+        // Inside the home store's queue, on the stored device, so an overlapping home write (a move,
+        // a rename elsewhere) is not undone by a stale copy.
+        let found = false;
+        await home.updateDevice(s.id, (d) => {
+          if (d.kind !== 'aer') return null;
+          found = true;
+          const link = aerLink(d);
+          const changed =
+            d.name !== s.name ||
+            link?.timeZone !== s.homeTimeZone ||
+            !sameChannels(link.channels, s.channels);
+          return changed ? merged(d, s) : null;
+        });
+        if (!found) return;
       }
       await mutate((c) => ({ ...c, [s.id]: toEntry(s) }));
     },
