@@ -398,6 +398,31 @@ describe('observe', () => {
     o.stop();
   });
 
+  it('keeps growing the backoff for connections that drop at once, and resets it after a stable one', async () => {
+    const r = rig();
+    const o = r.observe();
+    await advance(10);
+    let n = r.lan.opened.length;
+    expect(n).toBe(1);
+    for (const delay of [250, 500, 1000]) {
+      r.tv.drop();
+      await advance(delay - 10);
+      expect(r.lan.opened.length).toBe(n);
+      await advance(20);
+      expect(r.lan.opened.length).toBe(n + 1);
+      n += 1;
+    }
+    // This one holds: the backoff starts over at the first step.
+    await advance(20000);
+    expect(r.lan.opened.length).toBe(n);
+    r.tv.drop();
+    await advance(240);
+    expect(r.lan.opened.length).toBe(n);
+    await advance(20);
+    expect(r.lan.opened.length).toBe(n + 1);
+    o.stop();
+  });
+
   it('stops reconnecting after the backoff is spent; a press connects once', async () => {
     const r = rig();
     const o = r.observe();

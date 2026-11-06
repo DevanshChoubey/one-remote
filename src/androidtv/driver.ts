@@ -38,6 +38,8 @@ export interface AndroidTvDriverOpts {
 
 const OFF_AFTER_MS = 3000;
 const REDISCOVER_EVERY_MS = 30000;
+/** A connection that stayed up this long counts as healthy: only then does the reconnect backoff start over. */
+const STABLE_MS = 15000;
 
 interface Entry {
   deviceId: string;
@@ -54,6 +56,8 @@ interface Entry {
   attemptToken: number;
   idleTimer: ReturnType<typeof setTimeout> | undefined;
   attempt: number;
+  /** When the open session was installed (for the backoff reset). */
+  upSince: number | undefined;
   rediscovering: boolean;
   lastRediscoverAt: number | undefined;
   offTimer: ReturnType<typeof setTimeout> | undefined;
@@ -104,6 +108,7 @@ export function createAndroidTvDriver(o: AndroidTvDriverOpts): LinkDriver & {
         attemptToken: 0,
         idleTimer: undefined,
         attempt: 0,
+        upSince: undefined,
         rediscovering: false,
         lastRediscoverAt: undefined,
         offTimer: undefined,
@@ -214,7 +219,7 @@ export function createAndroidTvDriver(o: AndroidTvDriverOpts): LinkDriver & {
       return;
     }
     e.remote = remote;
-    e.attempt = 0;
+    e.upSince = Date.now();
     e.lastRediscoverAt = undefined;
     clearOffTimer(e);
     e.liveUnsub = remote.onLive((live) => publish(e, live));
@@ -235,8 +240,9 @@ export function createAndroidTvDriver(o: AndroidTvDriverOpts): LinkDriver & {
     if (e.remote !== remote) return;
     dropRemote(e);
     if (e.observers.size > 0) {
-      e.attempt = 1;
-      scheduleAttempt(e, backoff[0] ?? 250);
+      // A session that dropped at once keeps the backoff growing; one that held starts it over.
+      if (e.upSince !== undefined && Date.now() - e.upSince >= STABLE_MS) e.attempt = 0;
+      scheduleBackoff(e);
     }
   }
 

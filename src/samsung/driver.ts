@@ -34,6 +34,8 @@ export interface SamsungDriverOpts {
 }
 
 const REDISCOVER_EVERY_MS = 30000;
+/** A connection that stayed up this long counts as healthy: only then does the reconnect backoff start over. */
+const STABLE_MS = 15000;
 const FAILED_POLLS_BEFORE_OFF = 2;
 const RETRY_POLL_MS = 1000;
 
@@ -55,6 +57,8 @@ interface Entry {
   retryTimer: ReturnType<typeof setTimeout> | undefined;
   attemptToken: number;
   attempt: number;
+  /** When the open socket was installed (for the backoff reset). */
+  upSince: number | undefined;
   idleTimer: ReturnType<typeof setTimeout> | undefined;
   /** The TV asked us to pair again (revoked token, or an unanswered prompt): stay quiet until
    *  `clearNotPaired`, so a prompt is not made to appear on the TV again and again. */
@@ -110,6 +114,7 @@ export function createSamsungDriver(o: SamsungDriverOpts): LinkDriver & {
         retryTimer: undefined,
         attemptToken: 0,
         attempt: 0,
+        upSince: undefined,
         idleTimer: undefined,
         notPaired: false,
         pinMismatch: false,
@@ -220,12 +225,13 @@ export function createSamsungDriver(o: SamsungDriverOpts): LinkDriver & {
       return;
     }
     e.client = client;
-    e.attempt = 0;
+    e.upSince = Date.now();
     client.onClose(() => {
       if (e.client !== client) return;
       e.client = undefined;
       if (warmWanted(e)) {
-        e.attempt = 0;
+        // A socket that dropped at once keeps the backoff growing; one that held starts it over.
+        if (e.upSince !== undefined && Date.now() - e.upSince >= STABLE_MS) e.attempt = 0;
         scheduleBackoff(e);
       }
     });

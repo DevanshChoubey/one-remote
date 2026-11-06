@@ -439,6 +439,31 @@ describe('webos driver: observe', () => {
     expect(reports[reports.length - 1]).toMatchObject({ state: { volume: 44 } });
   });
 
+  it('keeps growing the backoff for connections that drop at once, and resets it after a stable one', async () => {
+    const r = rig();
+    const o = r.observe();
+    await advance(10);
+    let n = mainSockets(r.lan).length;
+    expect(n).toBe(1);
+    for (const delay of [250, 500, 1000]) {
+      r.tv.drop();
+      await advance(delay - 10);
+      expect(mainSockets(r.lan).length).toBe(n);
+      await advance(20);
+      expect(mainSockets(r.lan).length).toBe(n + 1);
+      n += 1;
+    }
+    // This one holds: the backoff starts over at the first step.
+    await advance(20000);
+    expect(mainSockets(r.lan).length).toBe(n);
+    r.tv.drop();
+    await advance(240);
+    expect(mainSockets(r.lan).length).toBe(n);
+    await advance(20);
+    expect(mainSockets(r.lan).length).toBe(n + 1);
+    o.stop();
+  });
+
   it('closes the connection idleCloseMs after the last observer leaves', async () => {
     const r = rig();
     const { stop } = r.observe();
