@@ -1,5 +1,5 @@
 import type { Remote } from '../catalogue';
-import { PANASONIC_CAPS, panasonicAcSignal, type PanasonicModel } from '../lgpl/panasonicAc';
+import { panasonicAcSignal, panasonicCaps, type PanasonicModel } from '../lgpl/panasonicAc';
 
 const MODELS: PanasonicModel[] = ['dke', 'jke', 'nke', 'lke', 'rkr'];
 
@@ -8,6 +8,6 @@ export const PANASONIC_REMOTES: Remote[] = MODELS.map((model) => ({
   kind: 'ac',
   brandId: 'panasonic',
   label: `Panasonic ${model.toUpperCase()}`,
-  caps: PANASONIC_CAPS,
+  caps: panasonicCaps(model),
   encode: (s) => panasonicAcSignal(s, model),
 }));

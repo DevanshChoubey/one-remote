@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { clampSetpoint } from '@/core';
 import type { AcFan, AcMode, AcState } from '@/core';
@@ -29,6 +29,7 @@ import {
 } from '@/ui/appliance';
 import type { IconName } from '@/ui';
 import { useHomeData } from '../shared/useHomeData';
+import { AcMoreSheet, hasAcExtras } from './AcMoreSheet';
 import { acView, nextAc } from './acModel';
 import { useLastSent } from './useLastSent';
 import { usePendingState } from './usePendingState';
@@ -38,7 +39,7 @@ import { statusLine } from './statusLine';
 import { useDeviceView } from './useDeviceView';
 
 const ALL_MODES: AcMode[] = ['cool', 'dry', 'fan', 'auto'];
-const ALL_FANS: AcFan[] = ['auto', 1, 2, 3];
+const ALL_FANS: AcFan[] = ['auto', 1, 2, 3, 4, 5];
 const MODE_ICON: Record<AcMode, IconName> = {
   cool: 'snow',
   dry: 'drop',
@@ -139,6 +140,9 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
     },
   );
   const power = state.power;
+  // The More sheet stays mounted while its exit plays.
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [moreMounted, setMoreMounted] = useState(false);
   // Needs IR: the controls are drawn as usual but inert (mock "visible but inert"); a tap says why.
   const locked = !view.usable;
 
@@ -156,6 +160,12 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
       if (lastChange.current) press(lastChange.current);
     };
   });
+
+  // Without a usable link the capabilities are empty, so More is not drawn at all.
+  const openMore = (): void => {
+    setMoreMounted(true);
+    setMoreOpen(true);
+  };
 
   const modes = ALL_MODES.filter((m) => caps.acModes?.includes(m) ?? true);
   const fans = ALL_FANS.filter((f) => caps.acFan?.includes(f) ?? true);
@@ -255,6 +265,9 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
               onToggle={() => press({ sleep: !state.sleep })}
             />
           ) : null}
+          {hasAcExtras(caps) ? (
+            <Chip icon="more" label={t('ac.more')} state="neutral" onPress={openMore} />
+          ) : null}
         </Row>
 
         <LinkLine
@@ -263,6 +276,16 @@ function AcRemote({ view }: { view: DeviceView }): ReactElement {
           onPress={() => router.push(`/device-sheet/${deviceId}`)}
         />
       </RemoteBody>
+      {moreMounted ? (
+        <AcMoreSheet
+          open={moreOpen}
+          onClose={() => setMoreOpen(false)}
+          onClosed={() => setMoreMounted(false)}
+          state={state}
+          caps={caps}
+          onChange={press}
+        />
+      ) : null}
     </Screen>
   );
 }

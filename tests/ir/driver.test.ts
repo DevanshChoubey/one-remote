@@ -398,6 +398,81 @@ describe('ir driver', () => {
     });
   });
 
+  describe('ac frames', () => {
+    // A toggle-style AC: one state frame, plus a swing toggle frame when swing changes.
+    const stateSig = (s: AcState): IrSignal => ({ freqHz: 38000, pattern: [s.setpoint, 1] });
+    const TOGGLE: IrSignal = { freqHz: 38000, pattern: [999, 1] };
+    const encode = jest.fn((next: AcState, prev?: AcState): IrSignal[] =>
+      next.swing !== (prev?.swing ?? false) ? [stateSig(next), TOGGLE] : [stateSig(next)],
+    );
+    const catalogue = createCatalogue(
+      [{ id: 'test/toggle', kind: 'ac', brandId: 't', label: 'T', caps: {}, encode }],
+      [],
+    );
+    const make = () => {
+      const emitter = createFakeEmitter();
+      const driver = createIrDriver({ emitter, catalogue, gapMs: 0 });
+      const [d, l] = dev('ac', 'test/toggle');
+      return { emitter, driver, d, l };
+    };
+    beforeEach(() => encode.mockClear());
+
+    it('passes the last sent state as prev and sends every frame in order', async () => {
+      const { emitter, driver, d, l } = make();
+      await driver.send(d, l, ac({ swing: true }));
+      expect(encode.mock.calls[0]?.[1]).toBeUndefined();
+      expect(emitter.sent.map((s) => s.pattern[0])).toEqual([24, 999]);
+      await driver.send(d, l, ac({ swing: true, setpoint: 26 }));
+      expect(encode.mock.calls[1]?.[1]).toMatchObject({ swing: true, setpoint: 24 });
+      expect(emitter.sent.map((s) => s.pattern[0])).toEqual([24, 999, 26]);
+    });
+
+    it('uses a seeded state as prev', async () => {
+      const { emitter, driver, d, l } = make();
+      driver.seedAc(d.id, { ...defaultAcState(), power: true, swing: true });
+      await driver.send(d, l, ac({ swing: true }));
+      expect(emitter.sent).toHaveLength(1);
+    });
+
+    it('forgets the state when only some frames went out, and rejects partiallySent', async () => {
+      const { emitter, driver, d, l } = make();
+      driver.seedAc(d.id, { ...defaultAcState(), power: true });
+      let n = 0;
+      jest.spyOn(emitter, 'transmit').mockImplementation(() => {
+        n += 1;
+        return n === 2 ? Promise.reject(new Error('x')) : Promise.resolve();
+      });
+      await expect(driver.send(d, l, ac({ swing: true }))).rejects.toMatchObject({
+        code: 'partiallySent',
+      });
+      await driver.send(d, l, ac({ setpoint: 20 })).catch(() => undefined);
+      expect(encode.mock.calls[1]?.[1]).toBeUndefined();
+    });
+
+    it('keeps the state when nothing went out', async () => {
+      const { emitter, driver, d, l } = make();
+      driver.seedAc(d.id, { ...defaultAcState(), power: true, swing: true });
+      emitter.failNext();
+      await expect(driver.send(d, l, ac({ swing: false }))).rejects.toMatchObject({
+        code: 'notSent',
+      });
+      await driver.send(d, l, ac({ swing: true }));
+      expect(encode.mock.calls[1]?.[1]).toMatchObject({ swing: true });
+    });
+
+    it('stops before a later frame when aborted', async () => {
+      const { emitter, driver, d, l } = make();
+      const c = new AbortController();
+      jest.spyOn(emitter, 'transmit').mockImplementation(() => {
+        c.abort();
+        return Promise.resolve();
+      });
+      await expect(driver.send(d, l, ac({ swing: true }), c.signal)).rejects.toMatchObject({
+        code: 'partiallySent',
+      });
+    });
+  });
+
   it('rejects unsupported commands as unsupported', async () => {
     const emitter = createFakeEmitter();
     const driver = createIrDriver({ emitter });

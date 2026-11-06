@@ -4,8 +4,8 @@ import { useServices } from '@/services';
 
 /**
  * The last state sent to an IR appliance, kept across restarts (IR cannot report state). Returns
- * it once loaded, and a `save` to call after a send. A fan's IR driver is told too, so its
- * key-by-key memory matches the screen.
+ * it once loaded, and a `save` to call after a send. The IR driver is told too, so its memory
+ * (a fan's key-by-key state, an AC's toggles) matches the screen.
  */
 export function useLastSent(
   deviceId: string,
@@ -23,7 +23,9 @@ export function useLastSent(
         const entry = p.lastSent[deviceId];
         if (!alive || !entry) return;
         setStored(entry);
-        if (entry.kind === 'fan' && !hubHasState) ir.seedFan(deviceId, entry.state);
+        if (hubHasState) return;
+        if (entry.kind === 'fan') ir.seedFan(deviceId, entry.state);
+        else ir.seedAc(deviceId, entry.state);
       },
       () => undefined,
     );

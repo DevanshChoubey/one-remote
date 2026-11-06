@@ -19,6 +19,7 @@ import {
 } from '@/ui';
 import { useHomeData } from '../shared/useHomeData';
 import { AlertsGroup } from './AlertsGroup';
+import { MiraieSection, useMiraieStatus } from './MiraieSection';
 import { RoomsEditor } from './RoomsEditor';
 
 type Open = 'rooms' | 'privacy' | 'about';
@@ -62,6 +63,7 @@ export function SettingsScreen(): ReactElement {
   const router = useRouter();
   const current = usePreferences();
   const data = useHomeData();
+  const cloudOn = useMiraieStatus().enabled;
   const [open, setOpen] = useState<Open | null>(null);
   const toggle = (which: Open): void => setOpen((o) => (o === which ? null : which));
   const save = (p: Partial<Preferences>): void => {
@@ -129,12 +131,23 @@ export function SettingsScreen(): ReactElement {
 
           <AlertsGroup />
 
+          <MiraieSection />
+
           <Group>
             {row('rooms', t('settings.rooms'), t('settings.roomsHint'))}
             {open === 'rooms' ? body(<RoomsEditor rooms={data.rooms} />) : null}
-            {row('privacy', t('settings.privacy'), t('settings.privacyHint'))}
+            {row(
+              'privacy',
+              t('settings.privacy'),
+              t(cloudOn ? 'settings.privacyHintCloud' : 'settings.privacyHint'),
+            )}
             {open === 'privacy'
-              ? body(<Banner tone="ok" icon="lock" text={t('settings.privacyBody')} />)
+              ? body(
+                  <Column gap={3}>
+                    <Banner tone="ok" icon="lock" text={t('settings.privacyBody')} />
+                    {cloudOn ? <Banner icon="globe" text={t('miraie.privacyOn')} /> : null}
+                  </Column>,
+                )
               : null}
             {row('about', t('settings.about'))}
             {open === 'about'

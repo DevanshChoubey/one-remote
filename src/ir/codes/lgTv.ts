@@ -5,7 +5,7 @@ import { necSignal } from '../nec';
 export const LG_TV_REMOTE: Remote = {
   id: 'lg-tv/nec',
   kind: 'tv',
-  brandId: 'lg',
+  brandId: 'lg-tv',
   label: 'LG TV',
   keys: {
     power: necSignal(0x20df10ef),

@@ -337,4 +337,37 @@ describe('architecture lint rules', () => {
       errorsFor("import { x } from '@/aer/client';\nexport const X = x;\n", 'src/screens/x.tsx'),
     ).toContain('no-restricted-imports');
   });
+
+  // miraie lane
+  it('allows fetch only in src/transport/cloud.ts, the single opt-in cloud exception', () => {
+    const src = "export const r = fetch('https://auth.miraie.in/');\n";
+    expect(errorsFor(src, 'src/transport/cloud.ts')).not.toContain('no-restricted-globals');
+    expect(errorsFor(src, 'src/transport/other.ts')).toContain('no-restricted-globals');
+    expect(errorsFor(src, 'src/miraie/api.ts')).toContain('no-restricted-globals');
+    expect(
+      errorsFor('export const x = new XMLHttpRequest();\n', 'src/transport/cloud.ts'),
+    ).toContain('no-restricted-globals');
+  });
+
+  it('allows react-native-tcp-socket only in src/transport', () => {
+    const src = "import TcpSocket from 'react-native-tcp-socket';\nexport const t = TcpSocket;\n";
+    expect(errorsFor(src, 'src/miraie/x.ts')).toContain('no-restricted-imports');
+    expect(errorsFor(src, 'src/services/x.ts')).toContain('no-restricted-imports');
+    expect(
+      errorsFor("export const t = require('react-native-tcp-socket');\n", 'src/services/x.ts'),
+    ).toContain('no-restricted-syntax');
+    expect(errorsFor(src, 'src/transport/cloudTls.ts')).toEqual([]);
+  });
+
+  it('keeps src/miraie pure and behind useServices()', () => {
+    expect(
+      errorsFor(
+        "import { Platform } from 'react-native';\nexport const X = Platform;\n",
+        'src/miraie/x.ts',
+      ),
+    ).toContain('no-restricted-imports');
+    expect(
+      errorsFor("import { x } from '@/miraie/api';\nexport const X = x;\n", 'src/screens/x.tsx'),
+    ).toContain('no-restricted-imports');
+  });
 });

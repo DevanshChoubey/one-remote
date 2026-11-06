@@ -1,11 +1,30 @@
+import { defaultAcState } from '@/core';
+import type { AcState } from '@/core';
+import { acFrames } from '@/ir/catalogue';
 import { defaultCatalogue } from '@/ir/codes';
 import { necSignal } from '@/ir/nec';
 
 describe('default catalogue', () => {
   const atomberg = defaultCatalogue.remotes('atomberg');
 
-  it('lists Panasonic for AC and Atomberg for fans', () => {
-    expect(defaultCatalogue.brands('ac').map((b) => b.name)).toEqual(['Panasonic']);
+  it('lists the AC brands in alphabetical order, and Atomberg for fans', () => {
+    expect(defaultCatalogue.brands('ac').map((b) => b.name)).toEqual([
+      'Blue Star',
+      'Carrier',
+      'Daikin',
+      'Godrej',
+      'Gree',
+      'Haier',
+      'Hitachi',
+      'LG',
+      'Lloyd',
+      'Midea',
+      'Mitsubishi Heavy',
+      'Panasonic',
+      'Samsung',
+      'Voltas',
+      'Whirlpool',
+    ]);
     expect(defaultCatalogue.brands('fan').map((b) => b.name)).toEqual(['Atomberg']);
   });
 
@@ -17,6 +36,34 @@ describe('default catalogue', () => {
       'panasonic-ac/lke',
       'panasonic-ac/rkr',
     ]);
+  });
+
+  it('tries the Midea code sets first for Carrier, labelled as guesses', () => {
+    const carrier = defaultCatalogue.remotes('carrier');
+    expect(carrier.map((r) => r.id)).toEqual([
+      'carrier-ac/coolix',
+      'carrier-ac/midea',
+      'carrier-ac/ac64',
+    ]);
+    expect(carrier.slice(0, 2).every((r) => r.label.includes('a guess, unconfirmed'))).toBe(true);
+    expect(carrier[2]?.label).not.toContain('guess');
+  });
+
+  it('labels every Blue Star, Godrej and Lloyd remote, and the OEM Voltas ones, as guesses', () => {
+    for (const id of ['blue-star', 'godrej', 'lloyd']) {
+      const remotes = defaultCatalogue.remotes(id);
+      expect(remotes.map((r) => r.id.split('/')[1])).toEqual(['coolix', 'midea', 'gree-yaw1f']);
+      expect(remotes.every((r) => r.label.includes('a guess, unconfirmed'))).toBe(true);
+    }
+    const voltas = defaultCatalogue.remotes('voltas');
+    expect(voltas.map((r) => r.id)).toEqual([
+      'voltas-ac/122lzf',
+      'voltas-ac/coolix',
+      'voltas-ac/midea',
+      'voltas-ac/gree-yaw1f',
+    ]);
+    expect(voltas[0]?.label).not.toContain('guess');
+    expect(voltas.slice(1).every((r) => r.label.includes('a guess, unconfirmed'))).toBe(true);
   });
 
   it('has one Atomberg remote, built from clean NEC frames', () => {
@@ -46,7 +93,53 @@ describe('default catalogue', () => {
     expect(r.keys.volumeDown).toEqual(necSignal(0x20dfc03f));
     expect(r.keys.mute).toEqual(necSignal(0x20df906f));
     expect(defaultCatalogue.brands('ac').concat(defaultCatalogue.brands('fan'))).not.toContainEqual(
-      expect.objectContaining({ id: 'lg' }),
+      expect.objectContaining({ id: 'lg-tv' }),
+    );
+  });
+
+  describe('every AC remote', () => {
+    const acRemotes = defaultCatalogue
+      .brands('ac')
+      .flatMap((b) => defaultCatalogue.remotes(b.id))
+      .filter((r) => r.kind === 'ac');
+    const states: AcState[] = [];
+    for (const power of [true, false])
+      for (const mode of ['cool', 'dry', 'fan', 'auto'] as const)
+        for (const fan of ['auto', 1, 2, 3] as const)
+          for (const swing of [true, false])
+            for (const setpoint of [10, 16, 24, 31])
+              states.push({ power, mode, fan, swing, setpoint, sleep: swing && fan === 2 });
+
+    it('has a unique id prefixed by its brand family, a label and a setpoint range', () => {
+      const ids = acRemotes.map((r) => r.id);
+      expect(new Set(ids).size).toBe(ids.length);
+      for (const r of acRemotes) {
+        expect(r.label.length).toBeGreaterThan(0);
+        if (r.kind !== 'ac') continue;
+        expect(r.caps.setpoint).toBeDefined();
+        expect(r.caps.acModes?.length).toBeGreaterThan(0);
+      }
+    });
+
+    it.each(acRemotes.map((r) => [r.id, r] as const))(
+      '%s encodes every state, with and without prev, to valid frames',
+      (_id, r) => {
+        if (r.kind !== 'ac') throw new Error('not an ac');
+        for (const s of states) {
+          for (const prev of [undefined, defaultAcState(), { ...s, swing: !s.swing }]) {
+            const frames = acFrames(r, s, prev);
+            expect(frames.length).toBeGreaterThan(0);
+            for (const f of frames) {
+              expect(f.freqHz).toBeGreaterThanOrEqual(30000);
+              expect(f.freqHz).toBeLessThanOrEqual(60000);
+              expect(f.pattern.length % 2).toBe(0);
+              expect(f.pattern.every((us) => Number.isInteger(us) && us > 0)).toBe(true);
+              // Android's ConsumerIrManager refuses patterns longer than two seconds.
+              expect(f.pattern.reduce((a, b) => a + b, 0)).toBeLessThan(2_000_000);
+            }
+          }
+        }
+      },
     );
   });
 });

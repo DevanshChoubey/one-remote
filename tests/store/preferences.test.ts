@@ -50,6 +50,13 @@ describe.each(impls)('PreferenceStore (%s)', (_n, make) => {
 });
 
 describe('asyncStorage preference store', () => {
+  it('keeps the MirAIe cloud opt-in off by default, and remembers turning it on', async () => {
+    const storage = memStorage();
+    expect((await createAsyncStoragePreferenceStore(storage).get()).miraieCloud).toBe(false);
+    await createAsyncStoragePreferenceStore(storage).set({ miraieCloud: true });
+    expect((await createAsyncStoragePreferenceStore(storage).get()).miraieCloud).toBe(true);
+  });
+
   it('persists across instances and merges over defaults', async () => {
     const storage = memStorage();
     await createAsyncStoragePreferenceStore(storage).set({ theme: 'light' });
@@ -70,6 +77,7 @@ describe('asyncStorage preference store', () => {
         'one-remote/prefs/v1': JSON.stringify({
           theme: 'neon',
           haptics: 'yes',
+          miraieCloud: 'on',
           tvPad: { a: 'x', b: 'dpad' },
         }),
       }),
@@ -104,6 +112,25 @@ describe('asyncStorage preference store', () => {
           lastSent: {
             okAc: { kind: 'ac', state: ac },
             okFan: { kind: 'fan', state: fan },
+            okAcMore: {
+              kind: 'ac',
+              state: {
+                ...ac,
+                fan: 5,
+                swingV: 2,
+                swingH: 'fullRight',
+                powerful: true,
+                quiet: false,
+                ion: true,
+              },
+            },
+            okAcAutoSwingV: { kind: 'ac', state: { ...ac, fan: 4, swingV: 'auto' } },
+            badFan: { kind: 'ac', state: { ...ac, fan: 6 } },
+            badSwingV: { kind: 'ac', state: { ...ac, swingV: 6 } },
+            badSwingH: { kind: 'ac', state: { ...ac, swingH: 'up' } },
+            badPowerful: { kind: 'ac', state: { ...ac, powerful: 'yes' } },
+            badQuiet: { kind: 'ac', state: { ...ac, quiet: 1 } },
+            badIon: { kind: 'ac', state: { ...ac, ion: null } },
             noSetpoint: { kind: 'ac', state: { ...ac, setpoint: undefined } },
             badMode: { kind: 'ac', state: { ...ac, mode: 'heat' } },
             noSpeed: { kind: 'fan', state: { power: true } },
@@ -112,6 +139,11 @@ describe('asyncStorage preference store', () => {
         }),
       }),
     );
-    expect(Object.keys((await s.get()).lastSent).sort()).toEqual(['okAc', 'okFan']);
+    expect(Object.keys((await s.get()).lastSent).sort()).toEqual([
+      'okAc',
+      'okAcAutoSwingV',
+      'okAcMore',
+      'okFan',
+    ]);
   });
 });

@@ -20,6 +20,7 @@ export default {
   failed: "That didn't save. Try again.",
   privacy: 'Privacy',
   privacyHint: 'Home network and Bluetooth only',
+  privacyHintCloud: 'Home network, Bluetooth, and MirAIe (on)',
   privacyBody:
     'One Remote talks only to devices on your home network, and to the air freshener over Bluetooth in the room. It has no account, no ads and no analytics, and nothing is sent to a server.',
   alerts: 'Alerts',
@@ -38,5 +39,5 @@ export default {
   licenseEncoders: 'IR encoders: IRremoteESP8266, LGPL-2.1',
   licenseFanCodes: 'Fan IR codes: Flipper-IRDB, public domain (CC0)',
   licenseSourceOffer:
-    'The source of the LGPL IR encoder is available on request for at least three years: devanshc13@gmail.com.',
+    'The source of the LGPL IR encoders is available on request for at least three years: devanshc13@gmail.com.',
 } as const;

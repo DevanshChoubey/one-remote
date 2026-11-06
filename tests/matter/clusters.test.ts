@@ -77,6 +77,32 @@ describe('toWrites', () => {
       { rockSetting: 0 },
     ]);
   });
+
+  it('sends the five-speed fan levels 4 and 5 as High, and ignores the IR-only extras', () => {
+    const info = {
+      hasOnOff: true,
+      absMinCool: 1600,
+      absMaxCool: 3000,
+      fanModeSequence: 2,
+      rockSupport: 1,
+    };
+    expect(toWrites({ ...cool24, fan: 4 }, info)[3]).toEqual({ fanMode: 3 });
+    expect(toWrites({ ...cool24, fan: 5 }, info)[3]).toEqual({ fanMode: 3 });
+    const extras: AcState = {
+      ...cool24,
+      swing: false,
+      swingV: 2,
+      swingH: 'left',
+      powerful: true,
+      quiet: false,
+      ion: true,
+    };
+    expect(toWrites(extras, info)).toEqual(toWrites({ ...cool24, swing: false }, info));
+    // A vertical position is swing off; auto is swing on (rock).
+    expect(toWrites({ ...cool24, swing: true, swingV: 'auto' }, info)[4]).toEqual({
+      rockSetting: 1,
+    });
+  });
 });
 
 describe('fromAttrs', () => {
@@ -167,5 +193,12 @@ describe('capabilitiesFrom', () => {
     expect(c.acModes).toEqual(['cool', 'dry']);
     expect(capabilitiesFrom({ ...base, rockSupport: 3 }).swing).toBe(true);
     expect(capabilitiesFrom(base).acModes).toEqual(['cool', 'dry', 'fan', 'auto']);
+  });
+
+  it('never claims the IR-only extras', () => {
+    const c = capabilitiesFrom({ ...base, fanModeSequence: 2, rockSupport: 3 });
+    for (const k of ['swingV', 'swingH', 'powerful', 'quiet', 'ion'] as const) {
+      expect(c[k]).toBeUndefined();
+    }
   });
 });

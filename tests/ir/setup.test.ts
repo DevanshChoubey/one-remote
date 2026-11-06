@@ -1,4 +1,6 @@
 import { defaultAcState } from '@/core';
+import { createCatalogue } from '@/ir/catalogue';
+import type { IrSignal } from '@/ir/emitter';
 import { panasonicAcSignal } from '@/ir/lgpl/panasonicAc';
 import { createIrSetup } from '@/ir/setup';
 import { createFakeEmitter } from '@/ir/testing/fakeEmitter';
@@ -6,7 +8,7 @@ import { createFakeEmitter } from '@/ir/testing/fakeEmitter';
 describe('createIrSetup', () => {
   it('lists brands and candidates in catalogue order', () => {
     const setup = createIrSetup({ emitter: createFakeEmitter() });
-    expect(setup.brands('ac').map((b) => b.id)).toEqual(['panasonic']);
+    expect(setup.brands('ac').map((b) => b.id)).toContain('panasonic');
     expect(setup.candidates('panasonic')).toHaveLength(5);
     expect(setup.candidates('panasonic')[0]).toEqual({
       remoteId: 'panasonic-ac/dke',
@@ -26,6 +28,33 @@ describe('createIrSetup', () => {
     const emitter = createFakeEmitter();
     await createIrSetup({ emitter }).sendTest('panasonic-ac/jke', 'acOnCool24');
     expect(emitter.sent).toEqual([panasonicAcSignal({ ...defaultAcState(), power: true }, 'jke')]);
+  });
+
+  it('sends every frame of a multi-frame AC press, with prev = off, then = the first press', async () => {
+    const encode = jest.fn((): IrSignal[] => [
+      { freqHz: 38000, pattern: [1, 1] },
+      { freqHz: 38000, pattern: [2, 1] },
+    ]);
+    const catalogue = createCatalogue(
+      [{ id: 't/1', kind: 'ac', brandId: 't', label: 'T', caps: {}, encode }],
+      [],
+    );
+    const emitter = createFakeEmitter();
+    const setup = createIrSetup({ emitter, catalogue, gapMs: 0 });
+    await setup.sendTest('t/1', 'acOnCool24');
+    expect(encode).toHaveBeenLastCalledWith({ ...defaultAcState(), power: true }, defaultAcState());
+    await setup.sendTest('t/1', 'acUp25');
+    expect(encode).toHaveBeenLastCalledWith(
+      { ...defaultAcState(), power: true, setpoint: 25 },
+      { ...defaultAcState(), power: true },
+    );
+    expect(emitter.sent.map((s) => s.pattern[0])).toEqual([1, 2, 1, 2]);
+  });
+
+  it('passes seedAc to the driver', () => {
+    const seedAc = jest.fn();
+    createIrSetup({ emitter: createFakeEmitter(), seedAc }).seedAc('d', defaultAcState());
+    expect(seedAc).toHaveBeenCalledWith('d', defaultAcState());
   });
 
   it('transmits a fan key for fanSpeed3', async () => {

@@ -12,7 +12,9 @@ Status: design phase. Before changing anything, read:
 
 The engineering rules will be copied from the author's Aer Remote app (`DevanshChoubey/aer-remote`,
 `docs/ENGINEERING.md`). The one planned change is the privacy rule: local network only, instead of
-removing the `INTERNET` permission.
+removing the `INTERNET` permission. The single exception is the opt-in, off-by-default MirAIe cloud
+connection for Panasonic ACs (`src/transport/cloud.ts`, allowlisted MirAIe hosts only); no other
+internet use.
 
 Commit as `Devansh Choubey <devanshc13@gmail.com>`. Use Conventional Commit messages. Do not push unless
 asked.

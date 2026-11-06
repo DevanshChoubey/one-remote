@@ -3,8 +3,10 @@ import type { ReactElement, ReactNode } from 'react';
 import type { Alerts } from '@/aer/alerts/types';
 import type { AerService, DispenserStore } from '@/aer/types';
 import type { LinkDriver, TvSetup } from '@/core';
+import type { GreeSetup } from '@/core/greeSetup';
 import type { IrSetup } from '@/core/irSetup';
 import type { MatterSetup } from '@/core/matterSetup';
+import type { MiraieSetup } from '@/core/miraieSetup';
 import type { BrandSetup } from '@/tv/brands';
 import type { Dictation } from '@/voice/dictation';
 import type { Mic } from '@/voice/mic';
@@ -37,6 +39,11 @@ export interface Services {
   ir: IrSetup;
   // matter lane
   matter: MatterSetup;
+  // miraie lane
+  /** The opt-in MirAIe cloud connection (off by default). */
+  miraie: MiraieSetup;
+  // gree lane
+  gree: GreeSetup;
   // aer lane
   aer: AerService;
   aerAlerts: Alerts;

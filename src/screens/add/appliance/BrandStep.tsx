@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import type { BrandInfo } from '@/core';
 import { t } from '@/i18n';
 import { Box, Card, Column, OptionCard, Screen, Tile, Txt } from '@/ui';
+import type { BadgeProps } from '@/ui';
 import { TextLink } from '@/ui/add';
 import { BRAND_REQUEST_URL } from './feedback';
 
@@ -10,8 +11,18 @@ export interface BrandStepProps {
   brands: BrandInfo[];
   /** Which icon the brand rows carry. Defaults to the AC. */
   kind?: 'ac' | 'fan';
+  /** miraie lane: brands that can also be added through the opt-in MirAIe cloud right now. */
+  cloudBrands?: string[];
   onPick(b: BrandInfo): void;
   onBack?: () => void;
+}
+
+function brandBadge(b: BrandInfo, cloud: boolean): { badge?: BadgeProps } {
+  if (b.matter && cloud) return { badge: { label: t('miraie.brandBadge'), tone: 'accent' } };
+  if (cloud) return { badge: { label: t('miraie.brandBadgeCloud'), tone: 'accent' } };
+  if (b.matter) return { badge: { label: t('addAppliance.brandMatter'), tone: 'accent' } };
+  if (b.wifi) return { badge: { label: t('gree.brandWifi'), tone: 'accent' } };
+  return {};
 }
 
 export function BrandStep(props: BrandStepProps): ReactElement {
@@ -29,9 +40,7 @@ export function BrandStep(props: BrandStepProps): ReactElement {
             icon={props.kind ?? 'ac'}
             size="regular"
             index={i}
-            {...(b.matter
-              ? { badge: { label: t('addAppliance.brandMatter'), tone: 'accent' } }
-              : {})}
+            {...brandBadge(b, props.cloudBrands?.includes(b.id) ?? false)}
             onPress={() => props.onPick(b)}
             accessibilityLabel={b.name}
           />

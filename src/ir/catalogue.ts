@@ -25,7 +25,12 @@ export type Remote =
       brandId: string;
       label: string;
       caps: Capabilities;
-      encode(s: AcState): IrSignal;
+      /**
+       * The frames that take the AC from `prev` to `next`, sent in order. `prev` is what the driver
+       * last sent (or was seeded with); undefined means unknown, and toggle-style fields are then
+       * taken as off. Full-state protocols ignore it.
+       */
+      encode(next: AcState, prev?: AcState): IrSignal | IrSignal[];
     }
   | {
       id: string;
@@ -42,6 +47,16 @@ export type Remote =
       label: string;
       keys: Partial<Record<TvKey | 'powerOn', IrSignal>>;
     };
+
+/** The frames of one AC change, as a list. */
+export function acFrames(
+  r: { encode: (next: AcState, prev?: AcState) => IrSignal | IrSignal[] },
+  next: AcState,
+  prev?: AcState,
+): IrSignal[] {
+  const f = r.encode(next, prev);
+  return Array.isArray(f) ? f : [f];
+}
 
 export interface Catalogue {
   brands(kind: 'ac' | 'fan'): BrandInfo[];

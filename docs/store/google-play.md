@@ -43,17 +43,45 @@ them a release build falls back to the debug key, which Play rejects.
 
 ## App content
 
-| Section            | Answer                                                                                                                          |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| Privacy policy     | A public URL of `PRIVACY.md` (for example its page on GitHub once the repo is public).                                          |
-| App access         | All functions work without special access. Note for reviewers: needs a TV, AC, fan or aer dispenser.                            |
-| Ads                | No ads.                                                                                                                         |
-| Content rating     | Category "Utility, productivity, communication or other"; answer no to everything.                                              |
-| Target audience    | 18 and over.                                                                                                                    |
-| Data safety        | Collects no data; shares no data. Traffic stays on the local network. Bluetooth stays in the room; no data collected or shared. |
-| Government app     | No.                                                                                                                             |
-| Financial features | None.                                                                                                                           |
-| Health             | None.                                                                                                                           |
+| Section            | Answer                                                                                               |
+| ------------------ | ---------------------------------------------------------------------------------------------------- |
+| Privacy policy     | A public URL of `PRIVACY.md` (for example its page on GitHub once the repo is public).               |
+| App access         | All functions work without special access. Note for reviewers: needs a TV, AC, fan or aer dispenser. |
+| Ads                | No ads.                                                                                              |
+| Content rating     | Category "Utility, productivity, communication or other"; answer no to everything.                   |
+| Target audience    | 18 and over.                                                                                         |
+| Data safety        | See [Data safety](#data-safety) below.                                                               |
+| Government app     | No.                                                                                                  |
+| Financial features | None.                                                                                                |
+| Health             | None.                                                                                                |
+
+## Data safety
+
+Without the opt-in, nothing leaves the phone except local-network traffic and Bluetooth in the room:
+no data collected, none shared. The one exception is the MirAIe cloud connection (Settings, Cloud
+connections), off by default. When the user turns it on, the app sends to Panasonic's MirAIe
+servers (`auth.miraie.in`, `app.miraie.in`, `mqtt.miraie.in`), over TLS:
+
+- the MirAIe phone number and password, to sign in (kept in secure storage on the phone for
+  re-sign-in);
+- commands for the ACs added through MirAIe and, back, their state and online status.
+
+Proposed answers (to review before submitting; Play counts data sent to a third party's servers by
+the app as collected):
+
+| Question                                | Answer                                                                                                  |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Does the app collect or share data?     | Yes (only with the MirAIe opt-in on).                                                                   |
+| Encrypted in transit                    | Yes (HTTPS and MQTT over TLS).                                                                          |
+| Users can request deletion              | Yes: Disconnect MirAIe deletes the saved sign-in from the phone; the developer holds no copy.           |
+| Personal info: Phone number             | Collected, optional (opt-in), app functionality (sign-in to the user's own MirAIe account). Not shared. |
+| App activity: Other actions             | Collected, optional (opt-in), app functionality (AC commands sent through MirAIe). Not shared.          |
+| Device or other IDs                     | Collected, optional (opt-in), app functionality (MirAIe home and device ids of the user's ACs).         |
+| Everything else (location, files, etc.) | Not collected.                                                                                          |
+
+"Not shared": the transfer goes to the service the user picked and signed in to, at their request,
+which Play's definitions exempt from sharing. The password is a credential, not a Play data type;
+it goes only to `auth.miraie.in`.
 
 Play re-signs the app with its own key, so the Play build and an APK installed with adb cannot
 update each other. Uninstall one before installing the other.
@@ -64,7 +92,7 @@ Every permission in the release manifest, and why it is there.
 
 | Permission                                                               | Why                                                                                                    |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `INTERNET`, `ACCESS_NETWORK_STATE`                                       | Any network connection, including local ones. The app only connects to private addresses.              |
+| `INTERNET`, `ACCESS_NETWORK_STATE`                                       | Any network connection, including local ones. Private addresses only, plus MirAIe when opted in.       |
 | `ACCESS_WIFI_STATE`, `CHANGE_WIFI_MULTICAST_STATE`                       | To find TVs and other devices on the home network (mDNS, SSDP).                                        |
 | `CAMERA`                                                                 | Only while scanning a Matter QR code; read on the phone.                                               |
 | `RECORD_AUDIO`                                                           | Only while the mic button is held, to type speech on a TV; recognised on the phone.                    |

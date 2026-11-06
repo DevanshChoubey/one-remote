@@ -1,5 +1,12 @@
 import type { Device } from '@/core';
-import { DeviceError, clampSetpoint, defaultAcState, isIdempotent } from '@/core';
+import {
+  DeviceError,
+  acSwingH,
+  acSwingV,
+  clampSetpoint,
+  defaultAcState,
+  isIdempotent,
+} from '@/core';
 import { createMemoryStore } from '@/store/memoryStore';
 
 describe('core model', () => {
@@ -30,6 +37,20 @@ describe('core model', () => {
       swing: false,
       sleep: false,
     });
+  });
+
+  it('reads the vertical swing from swingV, else from the old swing flag', () => {
+    const s = defaultAcState();
+    expect(acSwingV({ ...s, swing: true })).toBe('auto');
+    expect(acSwingV({ ...s, swing: false })).toBe(3);
+    expect(acSwingV({ ...s, swing: false, swingV: 5 })).toBe(5);
+    expect(acSwingV({ ...s, swing: true, swingV: 'auto' })).toBe('auto');
+  });
+
+  it('reads the horizontal swing, middle when not set', () => {
+    const s = defaultAcState();
+    expect(acSwingH(s)).toBe('middle');
+    expect(acSwingH({ ...s, swingH: 'fullLeft' })).toBe('fullLeft');
   });
 
   it('creates a DeviceError that is an Error with its code', () => {

@@ -1,3 +1,4 @@
+import { defaultCatalogue } from '@/ir/codes';
 import { createServices } from '@/services';
 import { createMemoryStore } from '@/store/memoryStore';
 import { createMemoryPreferenceStore } from '@/store/preferences';
@@ -25,7 +26,8 @@ describe('createServices ir wiring', () => {
   it('holds an ir driver and services.ir, and makes no native call while constructing', () => {
     const services = createServices(deps);
     expect(services.drivers.map((d) => d.kind)).toContain('ir');
-    expect(services.ir.brands('ac').map((b) => b.id)).toEqual(['panasonic']);
+    expect(services.ir.brands('ac')).toEqual(defaultCatalogue.brands('ac'));
+    expect(services.ir.brands('ac').map((b) => b.id)).toContain('panasonic');
     expect(mockHas).not.toHaveBeenCalled();
     expect(mockTransmit).not.toHaveBeenCalled();
   });

@@ -11,6 +11,8 @@ export interface Preferences {
   haptics: boolean;
   tvPad: Record<string, 'touchpad' | 'dpad'>;
   lastSent: Record<string, LastSent>;
+  /** The opt-in MirAIe cloud connection (Panasonic India Wi-Fi ACs). Off unless the user turns it on. */
+  miraieCloud: boolean;
 }
 
 export const defaultPreferences: Preferences = {
@@ -19,6 +21,7 @@ export const defaultPreferences: Preferences = {
   haptics: true,
   tvPad: {},
   lastSent: {},
+  miraieCloud: false,
 };
 
 export interface PreferenceStore {
@@ -33,6 +36,9 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
 const isBool = (v: unknown): boolean => typeof v === 'boolean';
+const isOptBool = (v: unknown): boolean => v === undefined || isBool(v);
+const isLevel = (v: unknown): boolean => v === 1 || v === 2 || v === 3 || v === 4 || v === 5;
+const SWING_H = ['auto', 'fullLeft', 'left', 'middle', 'right', 'fullRight'];
 
 /** True only when every field the screen and the encoder need is present and of the right type. */
 function validState(kind: unknown, s: unknown): boolean {
@@ -43,9 +49,14 @@ function validState(kind: unknown, s: unknown): boolean {
       ['cool', 'dry', 'fan', 'auto'].includes(String(s.mode)) &&
       typeof s.setpoint === 'number' &&
       Number.isFinite(s.setpoint) &&
-      (s.fan === 'auto' || s.fan === 1 || s.fan === 2 || s.fan === 3) &&
+      (s.fan === 'auto' || isLevel(s.fan)) &&
       isBool(s.swing) &&
-      isBool(s.sleep)
+      isBool(s.sleep) &&
+      (s.swingV === undefined || s.swingV === 'auto' || isLevel(s.swingV)) &&
+      (s.swingH === undefined || (typeof s.swingH === 'string' && SWING_H.includes(s.swingH))) &&
+      isOptBool(s.powerful) &&
+      isOptBool(s.quiet) &&
+      isOptBool(s.ion)
     );
   }
   if (kind === 'fan') {
@@ -70,6 +81,7 @@ function sanitize(v: unknown): Partial<Preferences> {
   if (v.theme === 'system' || v.theme === 'light' || v.theme === 'dark') out.theme = v.theme;
   if (typeof v.volumeKeys === 'boolean') out.volumeKeys = v.volumeKeys;
   if (typeof v.haptics === 'boolean') out.haptics = v.haptics;
+  if (typeof v.miraieCloud === 'boolean') out.miraieCloud = v.miraieCloud;
   if (isRecord(v.tvPad)) {
     const pad: Preferences['tvPad'] = {};
     for (const [k, mode] of Object.entries(v.tvPad)) {

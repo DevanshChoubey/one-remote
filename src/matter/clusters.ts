@@ -19,6 +19,9 @@ const FAN_TO_MATTER: Record<string, number> = {
   '1': FAN_MODE.low,
   '2': FAN_MODE.medium,
   '3': FAN_MODE.high,
+  // Matter's FanMode has three levels: a five-speed AC's top speeds are High.
+  '4': FAN_MODE.high,
+  '5': FAN_MODE.high,
 };
 
 export function capabilitiesFrom(info: MatterAcInfo): Capabilities {
