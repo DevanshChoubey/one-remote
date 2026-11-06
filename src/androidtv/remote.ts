@@ -98,6 +98,8 @@ export class AtvRemote {
     const left = Math.max(1, timeoutMs - (Date.now() - started));
     return new Promise<AtvRemote>((resolve, reject) => {
       const timer = setTimeout(() => {
+        // Our own give-up is a timeout, not a hang-up: it must not be marked as one.
+        remote.endCb = undefined;
         remote.close();
         reject(new DeviceError('notSent', 'The TV did not start the remote session'));
       }, left);

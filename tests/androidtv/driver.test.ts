@@ -432,6 +432,24 @@ describe('not paired is only for a TV that hung up after TLS', () => {
     await assertion;
   });
 
+  it('a TV that completes TLS but never starts the session times out as notSent, not notPaired', async () => {
+    const { lan, driver, device, link } = await setup();
+    const real = lan.openStream.bind(lan);
+    lan.openStream = async (host, port, ms, tls) => {
+      const s = await real(host, port, ms, tls);
+      return { ...s, onData: () => undefined }; // TLS is up, the TV says nothing
+    };
+    const p = driver.send(device, link, { kind: 'tv.key', key: 'ok' });
+    const assertion = expect(p).rejects.toMatchObject({ code: 'notSent' });
+    await tick(10000, 100);
+    await assertion;
+    // Not latched: a later press still tries to connect (and is not refused as notPaired).
+    const again = driver.send(device, link, { kind: 'tv.key', key: 'ok' });
+    const second = expect(again).rejects.toMatchObject({ code: 'notSent' });
+    await tick(10000, 100);
+    await second;
+  });
+
   it('power on still falls back to Wake-on-LAN after a timeout, and nothing is latched', async () => {
     const { tv, lan, driver, device } = await setup();
     const withMac = linkFor(tv, { mac: 'aa:bb:cc:dd:ee:ff' });
