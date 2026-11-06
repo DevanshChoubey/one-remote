@@ -1,0 +1,65 @@
+<!doctype html>
+<!-- Google Play feature graphic, 1024x500. Render at a taller window and crop to 1024x500:
+     google-chrome --headless --hide-scrollbars --virtual-time-budget=5000 --window-size=1024,700 --screenshot=raw.png feature-graphic.html
+     Colours and the dial come from docs/design/one-remote-mockup.html. --><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&display=block" rel="stylesheet">
+<style>
+:root{--bg:#eef0f3;--surface:#fff;--ink:#15181d;--ink2:#5d6470;--accent:#2f6df6;--cool:#2f8ff6;--line:#dfe3e9}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1024px;height:500px;overflow:hidden}
+body{background:
+  radial-gradient(520px 420px at 790px 300px, rgba(47,143,246,.20), rgba(47,143,246,0) 70%),
+  linear-gradient(100deg,#f3f5f8 0%,#eef0f3 45%,#e4ecf7 100%);
+  font-family:"Bricolage Grotesque",sans-serif;color:var(--ink);position:relative}
+.copy{position:absolute;left:64px;top:0;bottom:0;width:400px;display:flex;flex-direction:column;justify-content:center}
+.icon{width:64px;height:64px;border-radius:16px;box-shadow:0 10px 24px rgba(47,109,246,.28),0 1px 2px rgba(21,24,29,.12);margin-bottom:28px}
+h1{font-size:76px;font-weight:800;letter-spacing:-.035em;line-height:.95;font-variation-settings:"opsz" 96}
+p{margin-top:20px;font-size:24px;line-height:1.28;color:#4d5562;font-weight:500;letter-spacing:-.005em;max-width:330px}
+svg{position:absolute;left:0;top:0}
+.num{position:absolute;left:770px;top:300px;transform:translate(-50%,-58%);font-size:212px;font-weight:700;letter-spacing:-.05em;line-height:1;font-variation-settings:"opsz" 96;color:var(--ink);display:flex}
+.num sup{font-size:92px;font-weight:600;margin-top:30px;margin-left:-6px;letter-spacing:0;color:var(--ink)}
+.room{position:absolute;left:770px;top:150px;transform:translateX(-50%);font-size:20px;font-weight:600;color:var(--ink2);letter-spacing:-.005em}
+.mode{position:absolute;left:770px;top:392px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;font-size:22px;font-weight:600;color:var(--cool)}
+</style></head><body>
+<svg width="1024" height="500" viewBox="0 0 1024 500">
+ <defs>
+  <linearGradient id="arc" x1="500" y1="480" x2="880" y2="40" gradientUnits="userSpaceOnUse">
+   <stop offset="0" stop-color="#7fc0ff"/><stop offset=".55" stop-color="#2f8ff6"/><stop offset="1" stop-color="#2f6df6"/></linearGradient>
+  <radialGradient id="disc" cx="770" cy="250" r="260" gradientUnits="userSpaceOnUse">
+   <stop offset="0" stop-color="#ffffff"/><stop offset=".8" stop-color="#f7f9fc"/><stop offset="1" stop-color="#eef2f7"/></radialGradient>
+  <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="22" stdDeviation="26" flood-color="#15306a" flood-opacity=".18"/></filter>
+  <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="10"/></filter>
+  <filter id="knob" x="-80%" y="-80%" width="260%" height="260%"><feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#0d2a66" flood-opacity=".28"/></filter>
+ </defs>
+ <!-- body of the dial -->
+ <circle cx="770" cy="300" r="283" fill="url(#disc)" filter="url(#sh)"/>
+ <circle cx="770" cy="300" r="283" fill="none" stroke="#fff" stroke-width="2" opacity=".9"/>
+ <!-- track -->
+ <circle cx="770" cy="300" r="250" fill="none" stroke="#e6eaf0" stroke-width="40" stroke-linecap="round" stroke-dasharray="1178 999" transform="rotate(135 770 300)"/>
+ <!-- arc glow + arc -->
+ <circle id="a1" cx="770" cy="300" r="250" fill="none" stroke="#2f8ff6" stroke-width="40" stroke-linecap="round" stroke-dasharray="673 9999" transform="rotate(135 770 300)" filter="url(#glow)" opacity=".45"/>
+ <circle cx="770" cy="300" r="250" fill="none" stroke="url(#arc)" stroke-width="40" stroke-linecap="round" stroke-dasharray="673 9999" transform="rotate(135 770 300)"/>
+ <path d="M 560 120 A 283 283 0 0 1 900 50" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".95"/>
+ <g id="ticks"></g>
+ <circle id="kn" r="15" fill="#fff" filter="url(#knob)"/>
+</svg>
+<div class="copy">
+ <img class="icon" src="../../assets/images/icon.png" alt="">
+ <h1>One Remote</h1>
+ <p>Your TV, ACs and fans, from one private remote.</p>
+</div>
+<div class="room">Bedroom AC</div>
+<div class="num">24<sup>°</sup></div>
+<div class="mode"><svg width="22" height="22" viewBox="0 0 24 24" style="position:static" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2v20M4.5 6.5l15 11M19.5 6.5l-15 11M9 3.5l3 2.5 3-2.5M9 20.5l3-2.5 3 2.5"/></svg>Cool</div>
+<script>
+// arc length for 24 of 16..30 over 270deg; knob at end
+const cx=770,cy=300,r=250,frac=(24-16)/14,deg=135+270*frac,rad=deg*Math.PI/180;
+const k=document.getElementById('kn');k.setAttribute('cx',cx+r*Math.cos(rad));k.setAttribute('cy',cy+r*Math.sin(rad));
+const len=2*Math.PI*r*270/360*frac;document.querySelectorAll('circle[stroke-dasharray="673 9999"]').forEach(c=>c.setAttribute('stroke-dasharray',len+' 9999'));
+// minute ticks just inside the rim
+const g=document.getElementById('ticks');let s='';
+for(let i=0;i<=56;i++){const d=(135+270*i/56)*Math.PI/180,major=i%4==0,on=i/56<=frac;const r1=r-34,r2=r1-(major?14:8);
+ s+=`<line x1="${cx+r1*Math.cos(d)}" y1="${cy+r1*Math.sin(d)}" x2="${cx+r2*Math.cos(d)}" y2="${cy+r2*Math.sin(d)}" stroke="${on?'#2f8ff6':'#c9d0da'}" stroke-width="${major?2.4:1.6}" stroke-linecap="round" opacity="${on?.9:1}"/>`}
+g.innerHTML=s;
+</script>
+</body></html>
