@@ -50,8 +50,10 @@ maker. Brand names are used only to say which devices work.
 
 ## Graphics
 
-- App icon: 512×512, from `assets/images/icon.png`.
+- App icon: 512×512, from `assets/images/icon.png` (the dial icon).
 - Feature graphic: 1024×500, `docs/store/feature-graphic.png` (built from
   `docs/store/feature-graphic.html`): the AC temperature dial. It shows the app icon, so re-render it
   when the icon changes.
-- Phone screenshots: at least 2, to be captured from the real app on the iQOO (Home, TV, AC, Fan).
+- Phone screenshots: `docs/store/screenshots/` (1080×1920, in upload order: Home, AC, TV, Fan, Air
+  freshener). They show the central mock's screens with a caption above each. Replace them with
+  captures from the real app on the iQOO if the app drifts from the mock.
