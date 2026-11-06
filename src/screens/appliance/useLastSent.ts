@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { LastSent } from '@/services';
+import type { LastSent, PreferenceStore } from '@/services';
 import { useServices } from '@/services';
 
 /**
@@ -35,11 +35,22 @@ export function useLastSent(
   }, [prefs, ir, deviceId, enabled, hubHasState]);
 
   const save = (entry: LastSent): void => {
-    if (!enabled) return;
-    prefs
-      .get()
-      .then((p) => prefs.set({ lastSent: { ...p.lastSent, [deviceId]: entry } }))
-      .catch((e: unknown) => console.error('Could not remember the last state', e));
+    if (enabled) saveLastSent(prefs, deviceId, entry);
   };
   return { stored, save };
+}
+
+// Saves read the whole map and write it back: one at a time per store, so none is lost.
+const saving = new WeakMap<PreferenceStore, Promise<void>>();
+
+/**
+ * Remembers `entry` as the last state sent to `deviceId`, in the store the AC and fan screens
+ * read after a restart. Home and the add flow's IR test save through here too.
+ */
+export function saveLastSent(prefs: PreferenceStore, deviceId: string, entry: LastSent): void {
+  const next = (saving.get(prefs) ?? Promise.resolve())
+    .then(() => prefs.get())
+    .then((p) => prefs.set({ lastSent: { ...p.lastSent, [deviceId]: entry } }))
+    .catch((e: unknown) => console.error('Could not remember the last state', e));
+  saving.set(prefs, next);
 }

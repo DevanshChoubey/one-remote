@@ -5,6 +5,7 @@ import type { BrandInfo, Device, Link } from '@/core';
 import { t } from '@/i18n';
 import { useServices } from '@/services';
 import { Screen, Txt } from '@/ui';
+import { saveLastSent } from '../../appliance/useLastSent';
 import { newId } from '../../shared/newId';
 import { useHomeData } from '../../shared/useHomeData';
 import { useMiraieStatus } from '../../settings/MiraieSection';
@@ -88,8 +89,19 @@ interface FlowProps extends AddApplianceFlowProps {
 
 function Flow(props: FlowProps): ReactElement {
   const router = useRouter();
-  const { ir, drivers, store, gree } = useServices();
+  const { ir, drivers, store, gree, prefs } = useServices();
   const [history, setHistory] = useState<FlowStep[]>([props.initial]);
+  // The remote whose test presses the user confirmed: they changed the appliance.
+  const tested = useRef<string | null>(null);
+  /** Remembers what the test presses left the appliance in, as a send from its screen would. */
+  const rememberTest = (d: Pick<Device, 'id' | 'links'>): void => {
+    const remoteId = tested.current;
+    if (!remoteId || !d.links.some((l) => l.kind === 'ir' && l.remoteId === remoteId)) return;
+    const outcome = ir.testOutcome(remoteId);
+    if (outcome.kind === 'fan') ir.seedFan(d.id, outcome.state);
+    else ir.seedAc(d.id, outcome.state);
+    saveLastSent(prefs, d.id, outcome);
+  };
   // The link (Matter, Gree or MirAIe) an IR backup is added to.
   const [primaryLink, setPrimaryLink] = useState<Link | null>(null);
   const miraieOn = useMiraieStatus().enabled;
@@ -177,7 +189,10 @@ function Flow(props: FlowProps): ReactElement {
       })
       .then(
         // Pops the IR test and the device sheet, back to wherever the sheet was opened from.
-        () => router.dismiss(2),
+        () => {
+          rememberTest({ id: device.id, links: [link] });
+          router.dismiss(2);
+        },
         () => setFailed(true),
       );
   };
@@ -270,6 +285,7 @@ function Flow(props: FlowProps): ReactElement {
             }
             onResult={(result) => {
               if (result === 'none') return go({ name: 'noCodes', brandId, backup });
+              tested.current = result;
               if (device) return saveIr(result);
               const ir1: Link = { kind: 'ir', remoteId: result };
               return go(named(backup && primaryLink ? [primaryLink, ir1] : [ir1], brandId));
@@ -323,8 +339,9 @@ function Flow(props: FlowProps): ReactElement {
               saved.current = false;
             });
           }}
-          onDone={() => {
+          onDone={(d) => {
             saved.current = true;
+            rememberTest(d);
             home();
           }}
         />

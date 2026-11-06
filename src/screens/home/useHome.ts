@@ -2,7 +2,8 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { defaultAcState, defaultFanState } from '@/core';
 import type { AcState, Device, FanState, Room } from '@/core';
 import { StoreError, useServices } from '@/services';
-import type { DeviceView, ViewState } from '@/services';
+import type { DeviceView, LastSent, ViewState } from '@/services';
+import { saveLastSent } from '../appliance/useLastSent';
 
 export interface HomeCard {
   view: DeviceView;
@@ -41,8 +42,42 @@ function reportedPower(state: ViewState | undefined): boolean {
   return state ? state.state.power : false;
 }
 
+/** The AC and fan screens keep the last IR state across restarts only for an IR-first device. */
+const irFirst = (d: Device): boolean => d.links[0]?.kind === 'ir';
+
+/** The saved last state of `d`, when the screens would use it (IR first, same kind). */
+function savedFor(d: Device, saved: Readonly<Record<string, LastSent>>): LastSent | undefined {
+  const entry = irFirst(d) ? saved[d.id] : undefined;
+  return entry && entry.kind === d.kind ? entry : undefined;
+}
+
 export function useHome(): HomeModel {
-  const { hub, store } = useServices();
+  const { hub, store, prefs, ir } = useServices();
+  // What each IR appliance was last sent, as saved across restarts (the AC and fan screens' store).
+  const [saved, setSaved] = useState<Readonly<Record<string, LastSent>> | null>(null);
+  const savedRef = useRef<Readonly<Record<string, LastSent>>>({});
+  useEffect(() => {
+    let alive = true;
+    const load = (): void => {
+      prefs.get().then(
+        (p) => {
+          if (!alive) return;
+          savedRef.current = p.lastSent;
+          setSaved(p.lastSent);
+        },
+        (e: unknown) => {
+          console.error('Could not read the last sent states', e);
+          if (alive) setSaved((prev) => prev ?? {});
+        },
+      );
+    };
+    load();
+    const stop = prefs.subscribe(load);
+    return () => {
+      alive = false;
+      stop();
+    };
+  }, [prefs]);
   const [rooms, setRooms] = useState<Room[] | null>(null);
   const [storeCount, setStoreCount] = useState<number | null>(null);
   const [corrupt, setCorrupt] = useState(false);
@@ -176,27 +211,49 @@ export function useHome(): HomeModel {
         );
         return;
       }
+      // The same base the AC and fan screens use: this session's last command, the hub's state,
+      // then the state saved before a restart, then the defaults.
       const prior = before?.state;
+      const stored = reported?.kind === kind ? undefined : savedFor(view.device, savedRef.current);
+      if (prior === undefined && stored) {
+        // As the screen does on mount: the driver's toggles start from the saved state.
+        if (stored.kind === 'fan') ir.seedFan(id, stored.state);
+        else ir.seedAc(id, stored.state);
+      }
       const last =
         prior ??
         (kind === 'ac'
           ? reported?.kind === 'ac'
             ? reported.state
-            : defaultAcState()
+            : stored?.kind === 'ac'
+              ? stored.state
+              : defaultAcState()
           : reported?.kind === 'fan'
             ? reported.state
-            : defaultFanState());
+            : stored?.kind === 'fan'
+              ? stored.state
+              : defaultFanState());
       const next = { ...last, power: !last.power };
       const entry: Told = { power: next.power, state: next, base: reported };
       told.current.set(id, entry);
       commit();
-      const sent =
-        kind === 'ac'
-          ? hub.send(id, { kind: 'ac.set', state: { ...defaultAcState(), ...next } })
-          : hub.send(id, { kind: 'fan.set', state: { ...defaultFanState(), ...next } });
+      // Saved like a send from the screen, so the screen (and the next restart) shows it.
+      const remember = (r: { via: string }, e: LastSent): void => {
+        if (irFirst(view.device) && r.via === 'ir') saveLastSent(prefs, id, e);
+      };
+      let sent: Promise<void>;
+      if (kind === 'ac') {
+        const state: AcState = { ...defaultAcState(), ...next };
+        sent = hub.send(id, { kind: 'ac.set', state }).then((r) => remember(r, { kind, state }));
+      } else {
+        const state: FanState = { ...defaultFanState(), ...next };
+        sent = hub
+          .send(id, { kind: 'fan.set', state })
+          .then((r) => remember(r, { kind: 'fan', state }));
+      }
       track(id, entry, sent);
     },
-    [hub, commit, track],
+    [hub, prefs, ir, commit, track],
   );
 
   const sorted = [...(rooms ?? [])].sort((a, b) => a.order - b.order);
@@ -208,7 +265,12 @@ export function useHome(): HomeModel {
         const view = hub.view(d.id);
         const needsIr = !view.usable && d.links.length > 0 && d.links.every((l) => l.kind === 'ir');
         const t = toldNow.get(d.id);
-        const power = t ? t.power : reportedPower(view.state);
+        // Before anything is heard or sent this session, the saved state (as the screens show).
+        const power = t
+          ? t.power
+          : view.state
+            ? reportedPower(view.state)
+            : (savedFor(d, saved ?? {})?.state.power ?? false);
         const canPower =
           view.usable && (d.kind !== 'tv' || power || view.capabilities.tv?.powerOn !== false);
         return { view, needsIr, power, canPower };
@@ -217,8 +279,9 @@ export function useHome(): HomeModel {
   });
 
   return {
-    // Not loaded until the hub has caught up with the store, so Home never flashes the welcome.
-    loaded: rooms !== null && storeCount === devices.length,
+    // Not loaded until the hub has caught up with the store, so Home never flashes the welcome,
+    // and until the saved states are read, so a first tap never sends the defaults.
+    loaded: rooms !== null && storeCount === devices.length && saved !== null,
     corrupt,
     sections,
     deviceCount: sections.reduce((n, s) => n + s.cards.length, 0),

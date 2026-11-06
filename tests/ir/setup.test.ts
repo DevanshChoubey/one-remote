@@ -106,4 +106,25 @@ describe('createIrSetup', () => {
     });
     expect(createIrSetup({ emitter: createFakeEmitter({ has: false }) }).hasEmitter()).toBe(false);
   });
+
+  it('gives the state both confirmed test presses leave', () => {
+    const setup = createIrSetup({ emitter: createFakeEmitter() });
+    const on = { power: true, boost: false, sleep: false, timerHours: 0 };
+    expect(setup.testOutcome('panasonic-ac/dke')).toEqual({
+      kind: 'ac',
+      state: { ...defaultAcState(), power: true, setpoint: 25 },
+    });
+    // Speed 3, then the light toggle from off (the assumption the driver's toggles use).
+    expect(setup.testOutcome('atomberg-fan/nec')).toEqual({
+      kind: 'fan',
+      state: { ...on, speed: 3, light: true },
+    });
+    const noLight = createCatalogue(
+      [{ id: 'f/1', kind: 'fan', brandId: 'f', label: 'F', caps: {}, keys: {} }],
+      [],
+    );
+    expect(
+      createIrSetup({ emitter: createFakeEmitter(), catalogue: noLight }).testOutcome('f/1'),
+    ).toEqual({ kind: 'fan', state: { ...on, speed: 1 } });
+  });
 });

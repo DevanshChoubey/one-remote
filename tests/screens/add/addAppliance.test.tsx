@@ -1,6 +1,7 @@
 import { Linking } from 'react-native';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
-import type { LinkDriver } from '@/core';
+import { defaultAcState } from '@/core';
+import type { FanState, LinkDriver } from '@/core';
 import { createFakeDriver } from '@/device/testing/fakeDriver';
 import { t } from '@/i18n';
 import { createIrSetup } from '@/ir/setup';
@@ -163,6 +164,85 @@ describe('Add AC on a phone with IR', () => {
     await fireEvent.press(await screen.findByLabelText('Panasonic'));
     await press(t('addAppliance.test'));
     expect(await screen.findByText(t('addAppliance.testFailed'))).toBeTruthy();
+  });
+});
+
+describe('What a confirmed IR test leaves behind', () => {
+  /** The real IR driver, told of seeds as in the app. */
+  async function wired(): Promise<{ s: Services; emitter: ReturnType<typeof createFakeEmitter> }> {
+    const emitter = createFakeEmitter();
+    const driver = createIrDriver({ emitter, gapMs: 0 });
+    const s = createServices({
+      store: createMemoryStore(),
+      secrets: createMemorySecretStore(),
+      prefs: createMemoryPreferenceStore(),
+      drivers: [driver],
+      ir: createIrSetup({ emitter, gapMs: 0, seedFan: driver.seedFan, seedAc: driver.seedAc }),
+    });
+    await s.store.upsertRoom(room('r1', 'Bedroom', 0));
+    return { s, emitter };
+  }
+
+  async function testAndSave(brand: string, name: string): Promise<void> {
+    await fireEvent.press(await screen.findByLabelText(brand));
+    for (let i = 0; i < 2; i++) {
+      await press(t('addAppliance.test'));
+      await waitFor(() => expect(screen.getByLabelText(t('addAppliance.yes'))).toBeTruthy());
+      await press(t('addAppliance.yes'));
+    }
+    expect(await screen.findByDisplayValue(name)).toBeTruthy();
+    await press(t('common.done'));
+    await waitFor(() => expect(mockDismissAll).toHaveBeenCalled());
+  }
+
+  it('remembers the fan on at speed 3 with the light toggled on, so the next Light tap is right', async () => {
+    const { s, emitter } = await wired();
+    await renderWith(s, <AddApplianceFlow kind="fan" />);
+    await testAndSave('Atomberg', 'Atomberg fan');
+    const id = (await s.store.devices())[0]?.id ?? '';
+    const tested: FanState = {
+      power: true,
+      speed: 3,
+      boost: false,
+      sleep: false,
+      timerHours: 0,
+      light: true,
+    };
+    await waitFor(async () =>
+      expect((await s.prefs.get()).lastSent[id]).toEqual({ kind: 'fan', state: tested }),
+    );
+    const lightKey = emitter.sent[1];
+    expect(emitter.sent).toHaveLength(2);
+    // The screen shows the light on; turning it off sends the light key once (not left on).
+    await s.hub.send(id, { kind: 'fan.set', state: { ...tested, light: false } });
+    expect(emitter.sent.slice(2)).toEqual([lightKey]);
+  });
+
+  it('remembers the AC on at cool 25 after both presses', async () => {
+    const { s } = await wired();
+    await renderWith(s, <AddApplianceFlow kind="ac" />);
+    await testAndSave('Panasonic', 'Panasonic AC');
+    const id = (await s.store.devices())[0]?.id ?? '';
+    await waitFor(async () =>
+      expect((await s.prefs.get()).lastSent[id]).toEqual({
+        kind: 'ac',
+        state: { ...defaultAcState(), power: true, setpoint: 25 },
+      }),
+    );
+  });
+
+  it('remembers nothing for a remote added without a test', async () => {
+    const { s } = await setup({ hasIr: false });
+    await renderWith(s, <AddApplianceFlow kind="ac" />);
+    await fireEvent.press(await screen.findByLabelText('Panasonic'));
+    await press(t('addAppliance.addAnyway'));
+    await screen.findByDisplayValue('Panasonic AC');
+    await press(t('common.done'));
+    await waitFor(() => expect(mockDismissAll).toHaveBeenCalled());
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect((await s.prefs.get()).lastSent).toEqual({});
   });
 });
 
