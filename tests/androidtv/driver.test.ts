@@ -268,6 +268,31 @@ describe('reconnect', () => {
     expect(reports.every((r) => r.kind === 'tv' && r.state.power)).toBe(true);
   });
 
+  it('keeps growing the backoff for connections that drop at once, and resets it after a stable one', async () => {
+    const { tv, driver, device, link } = await setup();
+    const o = watch(driver, device, link);
+    await tick(10);
+    let n = tv.opened(6466);
+    expect(n).toBe(1);
+    for (const delay of [250, 500, 1000]) {
+      tv.drop();
+      await tick(delay - 10);
+      expect(tv.opened(6466)).toBe(n);
+      await tick(20);
+      expect(tv.opened(6466)).toBe(n + 1);
+      n += 1;
+    }
+    // This one holds: the backoff starts over at the first step.
+    await tick(15100);
+    expect(tv.opened(6466)).toBe(n);
+    tv.drop();
+    await tick(240);
+    expect(tv.opened(6466)).toBe(n);
+    await tick(20);
+    expect(tv.opened(6466)).toBe(n + 1);
+    o.stop();
+  });
+
   it('closes a silent TV after 16000 ms and connects again', async () => {
     const { tv, driver, device, link } = await setup();
     watch(driver, device, link);

@@ -37,6 +37,8 @@ const POWER_FALLBACK_MS = 1500;
  * screen's 5 s connecting window, a 1.5 s connect included). */
 const POWER_LAST_RESORT_MS = 3000;
 const REDISCOVER_EVERY_MS = 30000;
+/** A connection that stayed up this long counts as healthy: only then does the reconnect backoff start over. */
+const STABLE_MS = 15000;
 const PROMPT_COOLDOWN_MS = 60000;
 
 interface Session {
@@ -68,6 +70,8 @@ interface Entry {
   attemptToken: number;
   idleTimer: ReturnType<typeof setTimeout> | undefined;
   attempt: number;
+  /** When the open session was installed (for the backoff reset). */
+  upSince: number | undefined;
   rediscovering: boolean;
   lastRediscoverAt: number | undefined;
   offEmitted: boolean;
@@ -142,6 +146,7 @@ export function createWebosDriver(
         attemptToken: 0,
         idleTimer: undefined,
         attempt: 0,
+        upSince: undefined,
         rediscovering: false,
         lastRediscoverAt: undefined,
         offEmitted: false,
@@ -286,7 +291,7 @@ export function createWebosDriver(
 
   function install(e: Entry, client: SsapClient): void {
     e.client = client;
-    e.attempt = 0;
+    e.upSince = Date.now();
     e.offEmitted = false;
     e.lastRediscoverAt = undefined;
     e.sawPrompt = false;
@@ -301,8 +306,14 @@ export function createWebosDriver(
     e.client = undefined;
     stopSession(e, false);
     if (e.observers.size > 0) {
-      e.attempt = 1;
-      scheduleAttempt(e, retryInMs);
+      // A session that dropped at once keeps the backoff growing; one that held starts it over.
+      if (e.upSince !== undefined && Date.now() - e.upSince >= STABLE_MS) e.attempt = 0;
+      if (retryInMs <= 0) {
+        e.attempt = Math.max(e.attempt, 1);
+        scheduleAttempt(e, 0);
+      } else {
+        scheduleBackoff(e);
+      }
     }
   }
 
